@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
-import { supabase } from "@/utils/supabaseClient"; // adjust path if different
+import { supabase } from "@/lib/supabaseClient"; // adjust path if different
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-08-27.basil",
