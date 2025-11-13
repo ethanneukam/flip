@@ -14,6 +14,7 @@ export default function ItemDetail() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [priceData, setPriceData] = useState<{ date: string; price: number }[]>([]);
 
   const [user, setUser] = useState<any>(null);
   const [likesCount, setLikesCount] = useState(0);
@@ -23,6 +24,12 @@ export default function ItemDetail() {
   const [newComment, setNewComment] = useState("");
 
   const [seller, setSeller] = useState<any>(null);
+const sampleData = [
+  { date: '2025-11-01', price: 120 },
+  { date: '2025-11-02', price: 125 },
+  { date: '2025-11-03', price: 122 },
+  { date: '2025-11-04', price: 130 },
+];
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -61,6 +68,49 @@ export default function ItemDetail() {
     };
     fetchItem();
   }, [id]);
+
+// ------------------- FETCH ITEM PRICE HISTORY -------------------
+useEffect(() => {
+  if (!id) return;
+
+  const fetchPriceHistory = async () => {
+    const { data, error } = await supabase
+      .from("item_prices")
+      .select("price, created_at")
+      .eq("item_id", id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching price history:", error.message);
+      return;
+    }
+console.log("Fetched price data:", data); // <-- add this
+    const formattedData = data?.map((entry: any) => ({
+      date: new Date(entry.created_at).toLocaleDateString(),
+      price: entry.price,
+    })) ?? [];
+
+    setPriceData(formattedData);
+  };
+
+  fetchPriceHistory();
+}, [id]);
+
+// ------------------- PRICE STATS -------------------
+const priceStats = {
+  lowest: priceData.length ? Math.min(...priceData.map(p => p.price)) : 0,
+  highest: priceData.length ? Math.max(...priceData.map(p => p.price)) : 0,
+  avg7: priceData.length
+    ? Math.round(
+        priceData.slice(-7).reduce((sum, p) => sum + p.price, 0) / Math.min(7, priceData.length)
+      )
+    : 0,
+  avg30: priceData.length
+    ? Math.round(
+        priceData.slice(-30).reduce((sum, p) => sum + p.price, 0) / Math.min(30, priceData.length)
+      )
+    : 0,
+};
 
   // ------------------- FETCH SOCIAL DATA -------------------
   useEffect(() => {
@@ -246,6 +296,42 @@ export default function ItemDetail() {
           <h1 className="text-2xl font-bold mb-1">{item.title}</h1>
           <p className="text-gray-600 mb-3">{item.description}</p>
           <p className="text-xl font-bold mb-4">${item.price}</p>
+<p className="text-xl font-bold mb-2">${item.price}</p>
+
+{/* Price Stats */}
+<div className="flex justify-between bg-gray-50 p-3 rounded-xl mb-2 text-sm text-gray-700">
+  <div>
+    <p className="text-gray-500">Lowest</p>
+    <p className="font-semibold">${priceStats.lowest}</p>
+  </div>
+  <div>
+    <p className="text-gray-500">Highest</p>
+    <p className="font-semibold">${priceStats.highest}</p>
+  </div>
+  <div>
+    <p className="text-gray-500">7-Day Avg</p>
+    <p className="font-semibold">${priceStats.avg7}</p>
+  </div>
+  <div>
+    <p className="text-gray-500">30-Day Avg</p>
+    <p className="font-semibold">${priceStats.avg30}</p>
+  </div>
+</div>
+
+
+{/* Price Chart */}
+<div className="mb-4">
+  {priceData.length > 0 ? (
+    <PriceChart data={priceData} />
+  ) : (
+    <PriceChart data={sampleData} />
+  )}
+</div>
+
+
+
+
+
 
      {/* Seller Info */}
 {item.seller && (

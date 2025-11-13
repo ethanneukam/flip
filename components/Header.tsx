@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { NotificationBell } from "./NotificationBell"; // ✅ note the curly braces
+import { NotificationBell } from "./NotificationBell"; // ✅ named import matches export
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
@@ -22,7 +22,6 @@ export default function Header() {
     return () => listener?.subscription.unsubscribe();
   }, []);
 
-  // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -49,9 +48,8 @@ export default function Header() {
       <div className="flex items-center space-x-4 relative">
         {/* Notifications button */}
         <Link href="/notifications">
-  <NotificationBell className="cursor-pointer" />
-</Link>
-
+          <NotificationBell className="cursor-pointer" />
+        </Link>
 
         {/* Login/Profile */}
         {user ? (
@@ -63,7 +61,6 @@ export default function Header() {
               onClick={() => setDropdownOpen((prev) => !prev)}
             />
 
-            {/* Modern Dropdown */}
             {dropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-xl z-50 overflow-hidden animate-slideDown">
                 <Link
