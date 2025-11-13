@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { subscribeToNotifications } from "../lib/realtimeClient";
 
-export function NotificationBell() {
+interface NotificationBellProps {
+  className?: string; // allow passing className from parent
+}
+
+export function NotificationBell({ className }: NotificationBellProps) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export function NotificationBell() {
   }, []);
 
   return (
-    <button className="relative">
+    <button className={`relative ${className || ""}`}>
       🔔
       {count > 0 && (
         <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs px-1.5 rounded-full">
