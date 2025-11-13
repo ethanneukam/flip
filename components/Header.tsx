@@ -49,8 +49,9 @@ export default function Header() {
       <div className="flex items-center space-x-4 relative">
         {/* Notifications button */}
         <Link href="/notifications">
-          <NotificationBell className="cursor-pointer" />
-        </Link>
+  <NotificationBell className="cursor-pointer" />
+</Link>
+
 
         {/* Login/Profile */}
         {user ? (

@@ -4,10 +4,10 @@ import { supabase } from "../lib/supabaseClient";
 import { subscribeToNotifications } from "../lib/realtimeClient";
 
 interface NotificationBellProps {
-  className?: string; // allow passing className from parent
+  className?: string; // allow passing className
 }
 
-export function NotificationBell({ className }: NotificationBellProps) {
+export const NotificationBell = ({ className }: NotificationBellProps) => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -38,4 +38,4 @@ export function NotificationBell({ className }: NotificationBellProps) {
       )}
     </button>
   );
-}
+};

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { Heart, Star, ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import PriceChart from '@/components/PriceChart';
 
 export default function ItemDetail() {
   const router = useRouter();
