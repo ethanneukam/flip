@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { NotificationBell } from "./NotificationBell";
+import { NotificationBell } from "./NotificationBell"; // ✅ note the curly braces
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
