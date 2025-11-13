@@ -1,3 +1,4 @@
+// pages/item/[id].tsx
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
@@ -20,6 +21,8 @@ export default function ItemDetail() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
 
+  const [seller, setSeller] = useState<any>(null);
+
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
     if (!id) return;
@@ -34,6 +37,15 @@ export default function ItemDetail() {
       if (error) console.error("Error fetching item:", error.message);
       else {
         setItem(data);
+
+        // Fetch seller info
+        const { data: sellerData } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .eq("id", data.user_id)
+          .single();
+        setSeller(sellerData);
+
         if (data?.category) {
           const { data: related } = await supabase
             .from("items")
@@ -173,6 +185,38 @@ export default function ItemDetail() {
     }
   }
 
+  const handleBuyNow = async () => {
+    if (!item) return;
+    setProcessing(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("You must be logged in to purchase.");
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: item.id,
+          buyer_email: user.email,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else alert("Error starting checkout: " + (data.error || "Unknown error"));
+    } catch (err: any) {
+      console.error(err);
+      alert("Error: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   if (loading)
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -184,12 +228,15 @@ export default function ItemDetail() {
 
   return (
     <main className="max-w-4xl mx-auto p-6">
-      <button onClick={() => router.back()} className="flex items-center mb-4 text-gray-600 hover:text-black">
+      <button
+        onClick={() => router.back()}
+        className="flex items-center mb-4 text-gray-600 hover:text-black"
+      >
         <ArrowLeft className="w-4 h-4 mr-1" /> Back
       </button>
 
-      {/* Item Card */}
-      <div className="bg-white shadow-md rounded-2xl overflow-hidden">
+      {/* Item + Seller Card */}
+      <div className="bg-white shadow-md rounded-2xl overflow-hidden mb-6">
         {item.image_url && (
           <img src={item.image_url} alt={item.title} className="w-full h-72 object-cover" />
         )}
@@ -199,20 +246,45 @@ export default function ItemDetail() {
           <p className="text-gray-600 mb-3">{item.description}</p>
           <p className="text-xl font-bold mb-4">${item.price}</p>
 
+     {/* Seller Info */}
+{item.seller && (
+  <div
+    className="flex items-center mb-4 gap-3 cursor-pointer hover:opacity-80"
+    onClick={() => router.push(`/profile?user_id=${item.user_id}`)}
+  >
+    {item.seller.avatar_url ? (
+      <img
+        src={item.seller.avatar_url}
+        className="w-10 h-10 rounded-full"
+        alt={item.seller.username}
+      />
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-gray-300" />
+    )}
+    <span className="font-medium">{item.seller.username}</span>
+  </div>
+)}
+
+          {/* Like & Favorite */}
           <div className="flex items-center gap-4 mb-6">
             <button onClick={handleLike} className="flex items-center gap-1 text-lg">
-              <Heart className={`w-5 h-5 ${isLiked ? "fill-red-500 text-red-500" : "text-gray-500"}`} /> {likesCount}
+              <Heart className={`w-5 h-5 ${isLiked ? "fill-red-500 text-red-500" : "text-gray-500"}`} />
+              {likesCount}
             </button>
             <button onClick={handleFavorite} className="flex items-center gap-1 text-lg">
               <Star className={`w-5 h-5 ${isFavorited ? "fill-yellow-400 text-yellow-400" : "text-gray-500"}`} />
             </button>
           </div>
 
+          {/* Buy Now */}
           <button
-            onClick={() => alert("Buy flow coming soon")}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
+            onClick={handleBuyNow}
+            disabled={processing}
+            className={`w-full py-3 rounded-xl font-medium text-white ${
+              processing ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            Buy Now
+            {processing ? "Processing..." : "Buy Now"}
           </button>
         </div>
       </div>
@@ -244,8 +316,7 @@ export default function ItemDetail() {
             comments.map((comment) => (
               <div key={comment.id} className="border-b pb-2">
                 <p className="text-sm text-gray-800">
-                  <strong>{comment.profiles?.username || "User"}:</strong>{" "}
-                  {comment.content}
+                  <strong>{comment.profiles?.username || "User"}:</strong> {comment.content}
                 </p>
                 <span className="text-xs text-gray-400">
                   {new Date(comment.created_at).toLocaleString()}
