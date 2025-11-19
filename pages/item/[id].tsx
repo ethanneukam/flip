@@ -24,6 +24,15 @@ export default function ItemDetail() {
   const [newComment, setNewComment] = useState("");
 
   const [seller, setSeller] = useState<any>(null);
+// external prices state (add this near your other useState calls)
+const [externalPrices, setExternalPrices] = useState<
+  { source: string; price: number; url: string; last_checked?: string }[]
+>([]);
+
+const [bestExternal, setBestExternal] = useState<
+  { source: string; price: number; url: string } | null
+>(null);
+
 const sampleData = [
   { date: '2025-11-01', price: 120 },
   { date: '2025-11-02', price: 125 },
@@ -94,6 +103,41 @@ console.log("Fetched price data:", data); // <-- add this
   };
 
   fetchPriceHistory();
+}, [id]);
+// ------------------- FETCH EXTERNAL PRICES -------------------
+// ------------------- FETCH EXTERNAL PRICES -------------------
+useEffect(() => {
+  if (!id) return;
+
+  const fetchExternal = async () => {
+    const { data, error } = await supabase
+      .from("external_prices")
+      .select("source, price, url, last_checked")
+      .eq("item_id", id)
+      .order("price", { ascending: true }); // lowest price first
+
+    if (error) {
+      console.error("Error fetching external prices:", error.message);
+      return;
+    }
+
+    setExternalPrices(data || []);
+
+    if (data && data.length > 0) {
+      // pick the lowest price
+      setBestExternal(data[0]);
+
+      // Add external prices as last points in chart
+      const externalChartPoints = data.map((p) => ({
+        date: new Date(p.last_checked).toLocaleDateString(),
+        price: p.price,
+      }));
+
+      setPriceData((prev) => [...prev, ...externalChartPoints]);
+    }
+  };
+
+  fetchExternal();
 }, [id]);
 
 // ------------------- PRICE STATS -------------------
@@ -318,6 +362,33 @@ const priceStats = {
   </div>
 </div>
 
+{/* Best Price Across Internet */}
+{bestExternal && (
+  <div className="mb-4 p-4 bg-green-100 border-l-4 border-green-500 rounded-lg">
+    <p className="text-sm text-gray-700">
+      Best price across internet:{" "}
+      <a
+        href={bestExternal.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold text-green-800 underline"
+      >
+        ${bestExternal.price} ({bestExternal.source})
+      </a>
+    </p>
+  </div>
+)}
+{bestExternal && (
+  <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded-md">
+    <p className="text-sm text-gray-700">
+      Best Price Across Internet: <strong>${bestExternal.price}</strong> on{" "}
+      {bestExternal.source} 
+      <a href={bestExternal.url} target="_blank" rel="noopener noreferrer" className="underline ml-1">
+        View
+      </a>
+    </p>
+  </div>
+)}
 
 {/* Price Chart */}
 <div className="mb-4">

@@ -2,11 +2,13 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { NotificationBell } from "./NotificationBell"; // ✅ named import matches export
+import { useRouter } from "next/router"; // added
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter(); // added
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,9 +49,10 @@ export default function Header() {
 
       <div className="flex items-center space-x-4 relative">
         {/* Notifications button */}
-        <Link href="/notifications">
-          <NotificationBell className="cursor-pointer" />
-        </Link>
+        <NotificationBell
+          className="cursor-pointer"
+          onClick={() => router.push("/notifications")}
+        />
 
         {/* Login/Profile */}
         {user ? (

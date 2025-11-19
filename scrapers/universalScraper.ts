@@ -173,8 +173,8 @@ const siteScrapers: Scraper[] = [
   aldiScraper,
 ];
 
-// --- Scraper runner ---
-async function scrapeAll() {
+// --- Scraper runner with updateExisting ---
+async function scrapeAll({ updateExisting = true } = {}) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -182,7 +182,33 @@ async function scrapeAll() {
     for (const scraper of siteScrapers) {
       try {
         const result = await scraper.scrape(page, item.keyword);
-        if (result) {
+        if (!result) continue;
+
+        // Check if price already exists for this item + source
+        const { data: existing } = await supabase
+          .from('external_prices')
+          .select('id')
+          .eq('item_id', item.item_id)
+          .eq('source', scraper.source)
+          .single();
+
+        if (existing && updateExisting) {
+          // Update existing row
+          await supabase
+            .from('external_prices')
+            .update({
+              price: result.price,
+              url: result.url,
+              last_checked: new Date().toISOString(),
+              shipping: result.shipping ?? null,
+              condition: result.condition ?? null,
+              seller_rating: result.seller_rating ?? null,
+            })
+            .eq('id', existing.id);
+
+          console.log(`Updated ${scraper.source} price for ${item.keyword}: $${result.price}`);
+        } else if (!existing) {
+          // Insert new row
           await supabase.from('external_prices').insert([
             {
               item_id: item.item_id,
@@ -195,7 +221,8 @@ async function scrapeAll() {
               seller_rating: result.seller_rating ?? null,
             },
           ]);
-          console.log(`Saved ${scraper.source} price for ${item.keyword}: $${result.price}`);
+
+          console.log(`Saved new ${scraper.source} price for ${item.keyword}: $${result.price}`);
         }
       } catch (err) {
         console.error(`Error scraping ${scraper.source}:`, err);
@@ -206,4 +233,5 @@ async function scrapeAll() {
   await browser.close();
 }
 
+// Run
 scrapeAll();
