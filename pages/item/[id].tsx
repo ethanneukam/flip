@@ -67,6 +67,32 @@ function getFlipScoreColor(score: number) {
   if (score >= 25) return "bg-orange-400 text-white";   // low
   return "bg-red-500 text-white";                       // risky/low
 }
+const [recommendations, setRecommendations] = useState<any[]>([]);
+
+useEffect(() => {
+  if (!item || priceData.length === 0) return;
+
+  const generateRecommendations = async () => {
+    const { data: relatedItemsData } = await supabase
+      .from("items")
+      .select("*")
+      .eq("category", item.category)
+      .neq("id", item.id)
+      .limit(5);
+
+    if (!relatedItemsData) return;
+
+    const sorted = relatedItemsData.sort((a: any, b: any) => {
+      const diffA = Math.abs(a.price - item.price);
+      const diffB = Math.abs(b.price - item.price);
+      return diffA - diffB;
+    });
+
+    setRecommendations(sorted);
+  };
+
+  generateRecommendations();
+}, [item, priceData]);
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -623,6 +649,31 @@ const recommendation =
             ))}
           </div>
         </section>
+      {recommendations.length > 0 && (
+  <section className="mt-10">
+    <h2 className="text-xl font-semibold mb-4">Recommended for You</h2>
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {recommendations.map((rec) => (
+        <div
+          key={rec.id}
+          onClick={() => router.push(`/item/${rec.id}`)}
+          className="cursor-pointer bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition"
+        >
+          {rec.image_url && (
+            <img
+              src={rec.image_url}
+              alt={rec.title}
+              className="w-full h-40 object-cover rounded-lg mb-2"
+            />
+          )}
+          <h3 className="font-medium">{rec.title}</h3>
+          <p className="font-semibold">${rec.price}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+
       )}
     </main>
   );
