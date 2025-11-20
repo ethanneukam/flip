@@ -82,17 +82,25 @@ useEffect(() => {
 
     if (!relatedItemsData) return;
 
-    const sorted = relatedItemsData.sort((a: any, b: any) => {
-      const diffA = Math.abs(a.price - item.price);
-      const diffB = Math.abs(b.price - item.price);
-      return diffA - diffB;
+    // Tie in external prices
+    const mapped = relatedItemsData.map((rec: any) => {
+      const external = externalPrices.find(p => p.source && p.url && rec.id === item.id); 
+      return {
+        ...rec,
+        externalPrice: external ? external.price : null,
+        externalSource: external ? external.source : null,
+        externalUrl: external ? external.url : null,
+      };
     });
+
+    // Sort by closest price to current item price
+    const sorted = mapped.sort((a: any, b: any) => Math.abs(a.price - item.price) - Math.abs(b.price - item.price));
 
     setRecommendations(sorted);
   };
 
   generateRecommendations();
-}, [item, priceData]);
+}, [item, priceData, externalPrices]);
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -648,6 +656,55 @@ const recommendation =
               </div>
             ))}
           </div>
+          {/* AI Recommendations */}
+{recommendations.length > 0 && (
+  <section className="mt-10">
+    <h2 className="text-xl font-semibold mb-4">Recommended for You</h2>
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {recommendations.map((rec) => (
+        <div
+          key={rec.id}
+          onClick={() => router.push(`/item/${rec.id}`)}
+          className="cursor-pointer bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition"
+        >
+          {rec.image_url && (
+            <img
+              src={rec.image_url}
+              alt={rec.title}
+              className="w-full h-40 object-cover rounded-lg mb-2"
+            />
+          )}
+          <h3 className="font-medium">{rec.title}</h3>
+          <p className="font-semibold mb-1">${rec.price}</p>
+          <p className="text-sm text-gray-500">
+            FlipScore:{" "}
+            <span className={getFlipScoreColor(flipScore)}>
+              {Math.round(flipScore)}
+            </span>
+          </p>
+          <p className="text-sm font-medium capitalize">
+            Recommendation: {recommendation}
+          </p>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+{recommendations.map((rec) => (
+  <div key={rec.id} className="p-3 border rounded-lg mb-2">
+    <h3>{rec.title}</h3>
+    <p>${rec.price}</p>
+    {rec.externalPrice && (
+      <p className="text-xs text-green-600">
+        ${rec.externalPrice} on {rec.externalSource}
+        <a href={rec.externalUrl} target="_blank" rel="noopener noreferrer" className="underline ml-1">
+          View
+        </a>
+      </p>
+    )}
+  </div>
+))}
+
         </section>
       {recommendations.length > 0 && (
   <section className="mt-10">
