@@ -155,6 +155,24 @@ const priceStats = {
       )
     : 0,
 };
+  const percentChange = ...
+// ----- MOMENTUM TAG CALCULATIONS -----
+const recent = priceData.slice(-5); // last 5 data points
+let momentumTag = "Sideways";
+
+if (recent.length >= 2) {
+  const first = recent[0].price;
+  const last = recent[recent.length - 1].price;
+  const diff = last - first;
+  const pct = (diff / first) * 100;
+
+  if (pct > 12) momentumTag = "Spiking";
+  else if (pct > 5) momentumTag = "Pumping";
+  else if (pct > -5 && pct < 5) momentumTag = "Sideways";
+  else if (pct < -5 && pct > -12) momentumTag = "Cooling Off";
+  else if (pct <= -12) momentumTag = "Crashing";
+}
+
 // ----- TREND CALCULATIONS -----
 const lastPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : null;
 const price7DaysAgo =
@@ -403,6 +421,10 @@ const recommendation =
   volatility={volatility as any}
   recommendation={recommendation as any}
 />
+{/* Momentum Tag */}
+<div className="my-3">
+  <MomentumTag tag={momentumTag} />
+</div>
 
 
 {/* Best Price Across Internet */}
