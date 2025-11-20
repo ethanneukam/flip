@@ -61,6 +61,12 @@ const flipScore = Math.min(
   100,
   (momentumScoreMap[momentumTag] || 0) + Math.min(volatility, 70)
 );
+function getFlipScoreColor(score: number) {
+  if (score >= 75) return "bg-green-500 text-white";    // hot flips
+  if (score >= 50) return "bg-yellow-400 text-black";   // medium
+  if (score >= 25) return "bg-orange-400 text-white";   // low
+  return "bg-red-500 text-white";                       // risky/low
+}
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -446,6 +452,17 @@ const recommendation =
 {/* Momentum Tag */}
 <div className="my-3">
   <MomentumTag tag={momentumTag} />
+</div>
+<div className="flex gap-2 items-center mt-2">
+  {/* Volatility */}
+  <span className="text-sm text-gray-500">
+    Volatility: <strong>{volatility}%</strong>
+  </span>
+
+  {/* FlipScore badge */}
+  <span className={`px-2 py-1 rounded-full text-sm font-semibold ${getFlipScoreColor(flipScore)}`}>
+    FlipScore: {flipScore}/100
+  </span>
 </div>
 
 <div className="flex gap-4 items-center mt-2">
