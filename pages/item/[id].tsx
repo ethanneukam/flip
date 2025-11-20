@@ -155,6 +155,37 @@ const priceStats = {
       )
     : 0,
 };
+// ----- TREND CALCULATIONS -----
+const lastPrice = priceData.length > 0 ? priceData[priceData.length - 1].price : null;
+const price7DaysAgo =
+  priceData.length > 7 ? priceData[priceData.length - 8].price : lastPrice;
+
+const percentChange =
+  lastPrice && price7DaysAgo
+    ? ((lastPrice - price7DaysAgo) / price7DaysAgo) * 100
+    : 0;
+
+// ----- FLIP SCORE -----
+const volatility =
+  priceStats.highest - priceStats.lowest > item.price * 0.2
+    ? "high"
+    : priceStats.highest - priceStats.lowest > item.price * 0.1
+    ? "medium"
+    : "low";
+
+const flipScore = Math.min(
+  100,
+  Math.max(
+    1,
+    80 +
+      (percentChange > 0 ? percentChange * 0.5 : percentChange * 0.3) -
+      (volatility === "high" ? 10 : 0)
+  )
+);
+
+const recommendation =
+  flipScore >= 70 ? "buy" : flipScore >= 40 ? "hold" : "sell";
+
 
   // ------------------- FETCH SOCIAL DATA -------------------
   useEffect(() => {
@@ -361,6 +392,18 @@ const priceStats = {
     <p className="font-semibold">${priceStats.avg30}</p>
   </div>
 </div>
+{/* Trend Badge */}
+<div className="my-3">
+  <TrendBadge percentChange={percentChange} />
+</div>
+
+{/* Flip Score */}
+<FlipScore
+  score={Math.round(flipScore)}
+  volatility={volatility as any}
+  recommendation={recommendation as any}
+/>
+
 
 {/* Best Price Across Internet */}
 {bestExternal && (
