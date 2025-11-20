@@ -72,35 +72,45 @@ const [recommendations, setRecommendations] = useState<any[]>([]);
 useEffect(() => {
   if (!item || priceData.length === 0) return;
 
-  const generateRecommendations = async () => {
+  const generateAIRecommendations = async () => {
     const { data: relatedItemsData } = await supabase
       .from("items")
       .select("*")
       .eq("category", item.category)
       .neq("id", item.id)
-      .limit(5);
+      .limit(10);
 
     if (!relatedItemsData) return;
 
-    // Tie in external prices
-    const mapped = relatedItemsData.map((rec: any) => {
-      const external = externalPrices.find(p => p.source && p.url && rec.id === item.id); 
+    const aiMapped = relatedItemsData.map((rec: any) => {
+      // External prices integration
+      const external = externalPrices.find(p => p.source && p.url && rec.id === item.id);
+
+      // FlipScore similarity: closer price + same momentum trend → higher score
+      const priceDiff = Math.abs(rec.price - item.price);
+      const momentumBonus = rec.momentumTag === momentumTag ? 10 : 0;
+      const externalBonus = external ? 5 : 0;
+
+      const aiScore = Math.max(0, 100 - priceDiff + momentumBonus + externalBonus);
+
       return {
         ...rec,
-        externalPrice: external ? external.price : null,
-        externalSource: external ? external.source : null,
-        externalUrl: external ? external.url : null,
+        externalPrice: external?.price ?? null,
+        externalSource: external?.source ?? null,
+        externalUrl: external?.url ?? null,
+        aiScore,
       };
     });
 
-    // Sort by closest price to current item price
-    const sorted = mapped.sort((a: any, b: any) => Math.abs(a.price - item.price) - Math.abs(b.price - item.price));
+    // Sort recommendations by AI score descending
+    const sorted = aiMapped.sort((a, b) => b.aiScore - a.aiScore);
 
-    setRecommendations(sorted);
+    setRecommendations(sorted.slice(0, 5)); // top 5 AI suggestions
   };
 
-  generateRecommendations();
-}, [item, priceData, externalPrices]);
+  generateAIRecommendations();
+}, [item, priceData, externalPrices, momentumTag]);
+
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
