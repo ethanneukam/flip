@@ -39,6 +39,28 @@ const sampleData = [
   { date: '2025-11-03', price: 122 },
   { date: '2025-11-04', price: 130 },
 ];
+// ------------------- VOLATILITY & FLIPSCORE -------------------
+const volatility =
+  priceData.length > 1
+    ? Math.round(
+        ((Math.max(...priceData.map(p => p.price)) - Math.min(...priceData.map(p => p.price))) /
+          (priceData.reduce((sum, p) => sum + p.price, 0) / priceData.length)) *
+          100
+      )
+    : 0;
+// simple scoring: spiking + high volatility → higher FlipScore
+const momentumScoreMap: Record<string, number> = {
+  "Spiking": 30,
+  "Pumping": 20,
+  "Sideways": 10,
+  "Cooling Off": 5,
+  "Crashing": 0,
+};
+
+const flipScore = Math.min(
+  100,
+  (momentumScoreMap[momentumTag] || 0) + Math.min(volatility, 70)
+);
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -426,6 +448,14 @@ const recommendation =
   <MomentumTag tag={momentumTag} />
 </div>
 
+<div className="flex gap-4 items-center mt-2">
+  <span className="text-sm text-gray-500">
+    Volatility: <strong>{volatility}%</strong>
+  </span>
+  <span className="text-sm text-gray-500">
+    FlipScore: <strong>{flipScore}/100</strong>
+  </span>
+</div>
 
 {/* Best Price Across Internet */}
 {bestExternal && (
