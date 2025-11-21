@@ -72,44 +72,75 @@ const [recommendations, setRecommendations] = useState<any[]>([]);
 useEffect(() => {
   if (!item || priceData.length === 0) return;
 
-  const generateAIRecommendations = async () => {
+  const generateRecommendations = async () => {
+    // 1️⃣ Fetch items in same category excluding current
     const { data: relatedItemsData } = await supabase
       .from("items")
       .select("*")
       .eq("category", item.category)
       .neq("id", item.id)
-      .limit(10);
+      .limit(20); // fetch more for sorting/filtering
 
     if (!relatedItemsData) return;
 
-    const aiMapped = relatedItemsData.map((rec: any) => {
-      // External prices integration
-      const external = externalPrices.find(p => p.source && p.url && rec.id === item.id);
-
-      // FlipScore similarity: closer price + same momentum trend → higher score
-      const priceDiff = Math.abs(rec.price - item.price);
-      const momentumBonus = rec.momentumTag === momentumTag ? 10 : 0;
-      const externalBonus = external ? 5 : 0;
-
-      const aiScore = Math.max(0, 100 - priceDiff + momentumBonus + externalBonus);
-
+    // 2️⃣ Add external prices if available
+    const withExternal = relatedItemsData.map((rec: any) => {
+      const external = externalPrices.find((p) => rec.id === item.id);
       return {
         ...rec,
-        externalPrice: external?.price ?? null,
-        externalSource: external?.source ?? null,
-        externalUrl: external?.url ?? null,
-        aiScore,
+        externalPrice: external ? external.price : null,
+        externalSource: external ? external.source : null,
+        externalUrl: external ? external.url : null,
       };
     });
 
-    // Sort recommendations by AI score descending
-    const sorted = aiMapped.sort((a, b) => b.aiScore - a.aiScore);
+    // 3️⃣ Compute AI Score
+    const enriched = withExternal.map((rec) => {
+      // Base FlipScore
+      let score = Math.min(
+        100,
+        Math.max(
+          1,
+          80 +
+            (percentChange > 0 ? percentChange * 0.5 : percentChange * 0.3) -
+            (volatility === "high" ? 10 : 0)
+        )
+      );
 
-    setRecommendations(sorted.slice(0, 5)); // top 5 AI suggestions
+      // Trending / Momentum Bonus
+      const recPrices = await supabase
+        .from("item_prices")
+        .select("price, created_at")
+        .eq("item_id", rec.id)
+        .order("created_at", { ascending: true });
+      const lastRecPrice = recPrices.data?.slice(-1)[0]?.price ?? rec.price;
+      const firstRecPrice = recPrices.data?.slice(-5)[0]?.price ?? rec.price;
+      const recPctChange = ((lastRecPrice - firstRecPrice) / firstRecPrice) * 100;
+      if (recPctChange > 10) score += 10; // Trending spike
+      else if (recPctChange < -10) score -= 10; // Cooling off
+
+      // User behavior bonus (liked/favorited)
+      if (rec.userLiked) score += 5;
+      if (rec.userFavorited) score += 5;
+
+      return {
+        ...rec,
+        aiScore: Math.min(100, Math.max(0, Math.round(score))),
+        momentumPct: recPctChange,
+      };
+    });
+
+    // 4️⃣ Sort by AI Score + proximity to current item price
+    const sorted = enriched.sort(
+      (a, b) =>
+        b.aiScore - a.aiScore || Math.abs(a.price - item.price) - Math.abs(b.price - item.price)
+    );
+
+    setRecommendations(sorted.slice(0, 5)); // top 5 recommendations
   };
 
-  generateAIRecommendations();
-}, [item, priceData, externalPrices, momentumTag]);
+  generateRecommendations();
+}, [item, priceData, externalPrices]);
 
 
   // ------------------- FETCH ITEM -------------------
@@ -666,7 +697,7 @@ const recommendation =
               </div>
             ))}
           </div>
-          {/* AI Recommendations */}
+         {/* AI Recommendations */}
 {recommendations.length > 0 && (
   <section className="mt-10">
     <h2 className="text-xl font-semibold mb-4">Recommended for You</h2>
@@ -685,37 +716,33 @@ const recommendation =
             />
           )}
           <h3 className="font-medium">{rec.title}</h3>
-          <p className="font-semibold mb-1">${rec.price}</p>
-          <p className="text-sm text-gray-500">
-            FlipScore:{" "}
-            <span className={getFlipScoreColor(flipScore)}>
-              {Math.round(flipScore)}
-            </span>
-          </p>
-          <p className="text-sm font-medium capitalize">
-            Recommendation: {recommendation}
-          </p>
+          <p className="font-semibold">${rec.price}</p>
+
+          {/* External Price */}
+          {rec.externalPrice && (
+            <p className="text-xs text-green-600">
+              ${rec.externalPrice} on {rec.externalSource}
+            </p>
+          )}
+
+          {/* AI Score / FlipScore */}
+          <div
+            className={`mt-2 px-2 py-1 text-xs font-semibold rounded-full ${
+              rec.aiScore >= 75
+                ? "bg-green-500 text-white"
+                : rec.aiScore >= 50
+                ? "bg-yellow-400 text-black"
+                : "bg-red-500 text-white"
+            }`}
+          >
+            AI Score: {rec.aiScore} ({rec.momentumPct?.toFixed(1)}%)
+          </div>
         </div>
       ))}
     </div>
   </section>
 )}
-{recommendations.map((rec) => (
-  <div key={rec.id} className="p-3 border rounded-lg mb-2">
-    <h3>{rec.title}</h3>
-    <p>${rec.price}</p>
-    {rec.externalPrice && (
-      <p className="text-xs text-green-600">
-        ${rec.externalPrice} on {rec.externalSource}
-        <a href={rec.externalUrl} target="_blank" rel="noopener noreferrer" className="underline ml-1">
-          View
-        </a>
-      </p>
-    )}
-  </div>
-))}
 
-        </section>
       {recommendations.length > 0 && (
   <section className="mt-10">
     <h2 className="text-xl font-semibold mb-4">Recommended for You</h2>
