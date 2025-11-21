@@ -73,74 +73,107 @@ useEffect(() => {
   if (!item || priceData.length === 0) return;
 
   const generateRecommendations = async () => {
-    // 1️⃣ Fetch items in same category excluding current
-    const { data: relatedItemsData } = await supabase
+    // 1️⃣ Fetch related items
+    const { data: relatedRaw } = await supabase
       .from("items")
       .select("*")
       .eq("category", item.category)
       .neq("id", item.id)
-      .limit(20); // fetch more for sorting/filtering
+      .limit(25);
 
-    if (!relatedItemsData) return;
+    if (!relatedRaw) return;
 
-    // 2️⃣ Add external prices if available
-    const withExternal = relatedItemsData.map((rec: any) => {
-      const external = externalPrices.find((p) => rec.id === item.id);
+    // 2️⃣ Fetch user behavior for personalization
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id;
+
+    let likedItems: any[] = [];
+    let favoritedItems: any[] = [];
+
+    if (userId) {
+      const { data: liked } = await supabase
+        .from("likes")
+        .select("item_id")
+        .eq("user_id", userId);
+      likedItems = liked?.map((l) => l.item_id) || [];
+
+      const { data: fav } = await supabase
+        .from("favorites")
+        .select("item_id")
+        .eq("user_id", userId);
+      favoritedItems = fav?.map((f) => f.item_id) || [];
+    }
+
+    // 3️⃣ Add external price matching (lowest external price)
+    const withExternal = relatedRaw.map((rec: any) => {
+      const ext = externalPrices.find((p) => p.item_id === rec.id);
       return {
         ...rec,
-        externalPrice: external ? external.price : null,
-        externalSource: external ? external.source : null,
-        externalUrl: external ? external.url : null,
+        externalPrice: ext?.price ?? null,
+        externalSource: ext?.source ?? null,
+        externalUrl: ext?.url ?? null,
       };
     });
 
-    // 3️⃣ Compute AI Score
-    const enriched = withExternal.map((rec) => {
-      // Base FlipScore
-      let score = Math.min(
-        100,
-        Math.max(
-          1,
-          80 +
-            (percentChange > 0 ? percentChange * 0.5 : percentChange * 0.3) -
-            (volatility === "high" ? 10 : 0)
-        )
-      );
+    // 4️⃣ Build FINAL AI Score for each item
+    const enriched = await Promise.all(
+      withExternal.map(async (rec) => {
+        // ⭐ Base score
+        let ai = 50;
 
-      // Trending / Momentum Bonus
-      const recPrices = await supabase
-        .from("item_prices")
-        .select("price, created_at")
-        .eq("item_id", rec.id)
-        .order("created_at", { ascending: true });
-      const lastRecPrice = recPrices.data?.slice(-1)[0]?.price ?? rec.price;
-      const firstRecPrice = recPrices.data?.slice(-5)[0]?.price ?? rec.price;
-      const recPctChange = ((lastRecPrice - firstRecPrice) / firstRecPrice) * 100;
-      if (recPctChange > 10) score += 10; // Trending spike
-      else if (recPctChange < -10) score -= 10; // Cooling off
+        // ⭐ Similarity factor: closer price = higher score
+        ai += Math.max(0, 25 - Math.abs(rec.price - item.price) * 0.5);
 
-      // User behavior bonus (liked/favorited)
-      if (rec.userLiked) score += 5;
-      if (rec.userFavorited) score += 5;
+        // ⭐ External price bonus (if it's cheaper)
+        if (rec.externalPrice && rec.externalPrice < rec.price) {
+          ai += 10;
+        }
 
-      return {
-        ...rec,
-        aiScore: Math.min(100, Math.max(0, Math.round(score))),
-        momentumPct: recPctChange,
-      };
-    });
+        // ⭐ Personalization
+        if (likedItems.includes(rec.id)) ai += 7;
+        if (favoritedItems.includes(rec.id)) ai += 7;
 
-    // 4️⃣ Sort by AI Score + proximity to current item price
-    const sorted = enriched.sort(
-      (a, b) =>
-        b.aiScore - a.aiScore || Math.abs(a.price - item.price) - Math.abs(b.price - item.price)
+        // ⭐ Trending / momentum (fetch last 5 price points)
+        const { data: trend } = await supabase
+          .from("item_prices")
+          .select("price, created_at")
+          .eq("item_id", rec.id)
+          .order("created_at", { ascending: true })
+          .limit(5);
+
+        if (trend && trend.length >= 2) {
+          const first = trend[0].price;
+          const last = trend[trend.length - 1].price;
+          const pct = ((last - first) / first) * 100;
+          if (pct > 10) ai += 10;
+          else if (pct < -10) ai -= 10;
+
+          rec.momentumPct = pct;
+        } else {
+          rec.momentumPct = 0;
+        }
+
+        return {
+          ...rec,
+          aiScore: Math.min(100, Math.max(1, Math.round(ai))),
+        };
+      })
     );
 
-    setRecommendations(sorted.slice(0, 5)); // top 5 recommendations
+    // 5️⃣ Final sorting: AI Score → Closest Price → Newest First
+    const sorted = enriched.sort(
+      (a, b) =>
+        b.aiScore - a.aiScore ||
+        Math.abs(a.price - item.price) - Math.abs(b.price - item.price) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    setRecommendations(sorted.slice(0, 6)); // top 6 final items
   };
 
   generateRecommendations();
 }, [item, priceData, externalPrices]);
+
 
 
   // ------------------- FETCH ITEM -------------------
