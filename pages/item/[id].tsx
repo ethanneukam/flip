@@ -526,6 +526,7 @@ const recommendation =
           <p className="text-gray-600 mb-3">{item.description}</p>
           <p className="text-xl font-bold mb-4">${item.price}</p>
 <p className="text-xl font-bold mb-2">${item.price}</p>
+<PriceInsights item={item} externalPrices={externalPrices} />
 
 {/* Price Stats */}
 <div className="flex justify-between bg-gray-50 p-3 rounded-xl mb-2 text-sm text-gray-700">
