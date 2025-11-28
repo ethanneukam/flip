@@ -7,6 +7,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import posthog from "posthog-js";
 
+// ---- Flip Analytics Core (OPTION 1) ----
+import { initAnalytics, track } from "../lib/analytics"; 
+// ----------------------------------------
+
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
 
@@ -14,16 +18,17 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Your original PostHog init (kept exactly)
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY || "", {
       api_host: "https://app.posthog.com",
-      capture_pageview: false, // we manually track below
+      capture_pageview: false, // you manually track below
       persistence: "localStorage",
       session_recording: {
         maskAllInputs: false,
       },
     });
 
-    // Feature flags
+    // Feature flags - original
     posthog.onFeatureFlags(() => {
       const showNewUI = posthog.isFeatureEnabled("flip-new-ui");
       if (showNewUI) {
@@ -33,8 +38,15 @@ export default function MyApp({ Component, pageProps }: AppProps) {
       }
     });
 
-    // Pageview tracking
-    const handleRoute = () => posthog.capture("$pageview");
+    // --- Integrate Flip analytics init ---
+    initAnalytics();
+
+    // Pageviews (your original handler)
+    const handleRoute = () => {
+      posthog.capture("$pageview"); // your original
+      track("$pageview", { url: window.location.href }); // Flip analytics layered on
+    };
+
     router.events.on("routeChangeComplete", handleRoute);
 
     return () => {
@@ -42,7 +54,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     };
   }, []);
 
-  // --- Identify user if passed in pageProps ---
+  // --- Identify user if passed in pageProps (your original) ---
   useEffect(() => {
     if (pageProps?.user) {
       posthog.identify(pageProps.user.id, {
