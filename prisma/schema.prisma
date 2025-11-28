@@ -61,3 +61,28 @@ model RefundRequest {
   status      String   @default("pending") // pending | success | failed
   createdAt   DateTime @default(now())
 }
+model ShippingAddress {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  postal    String
+  country   String
+  createdAt DateTime @default(now())
+}
+
+model Shipment {
+  id            String   @id @default(cuid())
+  orderId       String
+  buyerId       String
+  sellerId      String
+  rateId        String?
+  labelUrl      String?
+  trackingNumber String?
+  carrier       String?
+  status        String   @default("pending") // pending | purchased | shipped
+  createdAt     DateTime @default(now())
+}
