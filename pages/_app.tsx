@@ -6,11 +6,18 @@ import AuthWrapper from "../components/AuthWrapper";
 import { useEffect } from "react";
 import { initPostHog } from "../lib/posthogClient";
 import posthog from "posthog-js";
+import { useRouter } from "next/router";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const ph = initPostHog();
+const router = useRouter();
+useEffect(() => {
+  const handleRoute = () => posthog.capture("$pageview");
+  router.events.on("routeChangeComplete", handleRoute);
+  return () => router.events.off("routeChangeComplete", handleRoute);
+}, []);
 
     // Auto identify if user is in pageProps
     if (pageProps?.user) {
