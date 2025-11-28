@@ -9,7 +9,7 @@ export default function SearchPage() {
         This will be your advanced search hub with filters + AI matching.
       </p>
       <Link
-        href="/marketplace"
+        href="/index"
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
       >
         Go to Marketplace
