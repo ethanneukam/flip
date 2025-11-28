@@ -9,6 +9,10 @@ import posthog from "posthog-js";
 import { useRouter } from "next/router";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+const showNewUI = posthog.isFeatureEnabled("flip-new-ui");
+if (showNewUI) {
+  document.body.classList.add("new-ui");
+}
 
   useEffect(() => {
     const ph = initPostHog();
@@ -27,6 +31,14 @@ useEffect(() => {
       });
     }
   }, [pageProps?.user]);
+posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+  api_host: "https://app.posthog.com",
+  capture_pageview: true,
+  persistence: "localStorage",
+  session_recording: {
+    maskAllInputs: false,
+  },
+});
 
   return (
     <AuthWrapper>
