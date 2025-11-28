@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { Heart, Star, ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import PriceChart from '@/components/PriceChart';
+import AddressPicker from "@/components/AddressPicker";
 
 export default function ItemDetail() {
   const router = useRouter();
@@ -174,7 +175,9 @@ useEffect(() => {
   generateRecommendations();
 }, [item, priceData, externalPrices]);
 
-
+export default function ShippingRates({ sellerAddress }: any) {
+  const [to, setTo] = useState<any>(null);
+  const [rates, setRates] = useState([]);
 
   // ------------------- FETCH ITEM -------------------
   useEffect(() => {
@@ -622,7 +625,46 @@ const recommendation =
 
 
 
+  <div className="p-4 border rounded mt-4">
+      <h2 className="font-bold mb-2">Shipping</h2>
 
+      <AddressPicker
+        userId="temp-buyer"
+        onSelect={(addr: any) => setTo(addr)}
+      />
+
+      <button
+        className="bg-black text-white px-4 py-2 rounded mt-3"
+        onClick={async () => {
+          const r = await fetch("/api/shipping/rates", {
+            method: "POST",
+            body: JSON.stringify({
+              from: sellerAddress,
+              to,
+              weightOz: 16,
+            }),
+          });
+
+          const data = await r.json();
+          setRates(data.rates.rate_response.rates || []);
+        }}
+      >
+        Get Rates
+      </button>
+
+      {rates.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {rates.map((r: any) => (
+            <div key={r.rate_id} className="p-3 border rounded">
+              <p>{r.carrier_friendly_name} — ${r.shipping_amount.amount}</p>
+              <button className="underline text-blue-500 text-sm">
+                Choose
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
 
 
      {/* Seller Info */}
