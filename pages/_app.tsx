@@ -1,35 +1,30 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
-import { useEffect } from "react";
-import { SessionContextProvider } from "@supabase/auth-helpers-react";
-import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs";
-import posthog from "posthog-js";
-
 import Header from "../components/Header";
 import AuthWrapper from "../components/AuthWrapper";
-import { Toaster } from "../components/ui/sonner"; // if you use a toast lib
+
+import { useEffect } from "react";
+import { initPostHog } from "../lib/posthogClient";
+import posthog from "posthog-js";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
-  const [supabaseClient] = useState(() => createBrowserSupabaseClient());
 
-  // ---- PostHog Initialization ----
   useEffect(() => {
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-      capture_pageview: true,
-    });
-  }, []);
+    const ph = initPostHog();
+
+    // Auto identify if user is in pageProps
+    if (pageProps?.user) {
+      posthog.identify(pageProps.user.id, {
+        email: pageProps.user.email,
+        username: pageProps.user.username,
+      });
+    }
+  }, [pageProps?.user]);
 
   return (
-    <SessionContextProvider
-      supabaseClient={supabaseClient}
-      initialSession={pageProps.initialSession}
-    >
-      <AuthWrapper>
-        <Header />
-        <Component {...pageProps} />
-        <Toaster />
-      </AuthWrapper>
-    </SessionContextProvider>
+    <AuthWrapper>
+      <Header />
+      <Component {...pageProps} />
+    </AuthWrapper>
   );
 }
