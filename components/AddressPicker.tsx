@@ -1,21 +1,31 @@
-export async function POST(req: Request) {
-  const { userId } = await req.json();
+"use client";
+import { useEffect, useState } from "react";
 
-  // const addresses = await prisma.shippingAddress.findMany({
-  //   where: { userId },
-  // });
+export default function AddressPicker({ userId, onSelect }: any) {
+  const [addresses, setAddresses] = useState([]);
 
-  return Response.json({
-    addresses: [
-      // temp mock
-      {
-        id: "1",
-        name: "Home",
-        line1: "123 Main St",
-        city: "Charleston",
-        state: "SC",
-        postal: "29401",
-      },
-    ],
-  });
+  useEffect(() => {
+    fetch("/api/address/list", {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    })
+      .then((r) => r.json())
+      .then((d) => setAddresses(d.addresses));
+  }, []);
+
+  return (
+    <select
+      className="w-full p-2 border rounded"
+      onChange={(e) =>
+        onSelect(addresses.find((a) => a.id === e.target.value))
+      }
+    >
+      <option value="">Select Address</option>
+      {addresses.map((a: any) => (
+        <option key={a.id} value={a.id}>
+          {a.name} — {a.city}, {a.state}
+        </option>
+      ))}
+    </select>
+  );
 }
