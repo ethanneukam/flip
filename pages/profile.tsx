@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import BottomNav from "../components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSession } from "@supabase/auth-helpers-react";
+import { useFlipCoins } from "@/lib/useFlipCoins";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
@@ -156,7 +158,10 @@ useEffect(() => {
       setRatingSummary({ avg: avg.toFixed(1), count: reviewsData.length });
     }
   };
-
+export default function ProfileCoins() {
+  const session = useSession();
+  const userId = session?.user?.id;
+  const balance = useFlipCoins(userId);
   // ---------- Upload Avatar ----------
   const uploadAvatar = async (event: any) => {
     try {
@@ -238,7 +243,10 @@ useEffect(() => {
 >
   Edit Profile
 </button>
-
+ <div className="p-4 border rounded-lg bg-yellow-50 text-center">
+      <h3 className="font-bold text-lg">💰 Flip Coins</h3>
+      <p className="text-2xl font-semibold">{balance?.toFixed(2)} FC</p>
+    </div>
           {/* --- Stats --- */}
           <div className="flex justify-around items-center text-center mt-6">
             <div onClick={() => { setShowFollowersModal(true); fetchFollowersList(profile.id); }} className="cursor-pointer">
