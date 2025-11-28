@@ -758,6 +758,12 @@ const recommendation =
               ${rec.externalPrice} on {rec.externalSource}
             </p>
           )}
+{/* near seller info */}
+{item.moderated ? (
+  <span className="text-xs text-green-600">Image checked</span>
+) : (
+  <span className="text-xs text-yellow-600">Pending moderation</span>
+)}
 
           {/* AI Score / FlipScore */}
           <div
