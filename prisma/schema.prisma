@@ -22,3 +22,19 @@ model Item {
   imageUrl    String?
   createdAt   DateTime @default(now())
 }
+model Listing {
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  description   String
+  price         Int
+  images        String[]  
+
+  // Moderation fields
+  moderationStatus  String   @default("pending") 
+  moderationReason  String?  
+  scannedAt         DateTime?
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+}
