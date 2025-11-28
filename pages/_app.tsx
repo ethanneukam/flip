@@ -4,26 +4,46 @@ import Header from "../components/Header";
 import AuthWrapper from "../components/AuthWrapper";
 
 import { useEffect } from "react";
-import { initPostHog } from "../lib/posthogClient";
-import posthog from "posthog-js";
 import { useRouter } from "next/router";
+import posthog from "posthog-js";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
-const showNewUI = posthog.isFeatureEnabled("flip-new-ui");
-if (showNewUI) {
-  document.body.classList.add("new-ui");
-}
+  const router = useRouter();
 
+  // --- Initialize PostHog once ---
   useEffect(() => {
-    const ph = initPostHog();
-const router = useRouter();
-useEffect(() => {
-  const handleRoute = () => posthog.capture("$pageview");
-  router.events.on("routeChangeComplete", handleRoute);
-  return () => router.events.off("routeChangeComplete", handleRoute);
-}, []);
+    if (typeof window === "undefined") return;
 
-    // Auto identify if user is in pageProps
+    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY || "", {
+      api_host: "https://app.posthog.com",
+      capture_pageview: false, // we manually track below
+      persistence: "localStorage",
+      session_recording: {
+        maskAllInputs: false,
+      },
+    });
+
+    // Feature flags
+    posthog.onFeatureFlags(() => {
+      const showNewUI = posthog.isFeatureEnabled("flip-new-ui");
+      if (showNewUI) {
+        document.body.classList.add("new-ui");
+      } else {
+        document.body.classList.remove("new-ui");
+      }
+    });
+
+    // Pageview tracking
+    const handleRoute = () => posthog.capture("$pageview");
+    router.events.on("routeChangeComplete", handleRoute);
+
+    return () => {
+      router.events.off("routeChangeComplete", handleRoute);
+    };
+  }, []);
+
+  // --- Identify user if passed in pageProps ---
+  useEffect(() => {
     if (pageProps?.user) {
       posthog.identify(pageProps.user.id, {
         email: pageProps.user.email,
@@ -31,14 +51,6 @@ useEffect(() => {
       });
     }
   }, [pageProps?.user]);
-posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-  api_host: "https://app.posthog.com",
-  capture_pageview: true,
-  persistence: "localStorage",
-  session_recording: {
-    maskAllInputs: false,
-  },
-});
 
   return (
     <AuthWrapper>
