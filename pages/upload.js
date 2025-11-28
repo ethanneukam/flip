@@ -155,6 +155,12 @@ export default function UploadPage() {
 
     setLoading(false);
   };
+// after item insert and you have itemId & imageUrl
+await fetch("/api/moderate", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ item_id: itemId, image_url: imageUrl }),
+});
 
   return (
     <main className="bg-white min-h-screen flex flex-col">
