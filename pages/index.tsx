@@ -67,7 +67,7 @@ function MarketplaceContent() {
     };
     fetchProfiles();
   }, []);
-
+export default function FeedItemCard({ item }: any) {
   // ✅ Fetch items with counts
   const fetchItems = async () => {
     const { data: itemsData, error } = await supabase
@@ -328,7 +328,17 @@ function MarketplaceContent() {
                       <p className="text-xs text-gray-500">{new Date(item.created_at).toLocaleDateString()}</p>
                     </div>
                   </div>
+<div className="p-4 border rounded shadow mb-4 relative">
+      <h3 className="font-bold text-lg">{item.title}</h3>
+      <p className="text-gray-700">{item.description}</p>
 
+      {/* Flip Coins earned for this listing */}
+      {item.coinsEarned && (
+        <div className="absolute top-2 right-2 bg-yellow-300 text-black px-2 py-1 rounded-full text-sm font-semibold">
+          +{item.coinsEarned} FC
+        </div>
+      )}
+    </div>
                   {item.image_url && (
                     <img
                       src={item.image_url}
