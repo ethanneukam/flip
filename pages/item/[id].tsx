@@ -175,6 +175,32 @@ useEffect(() => {
   generateRecommendations();
 }, [item, priceData, externalPrices]);
 
+
+
+export default function ItemPage({ itemId }: any) {
+  const [coinsEarned, setCoinsEarned] = useState(0);
+  const [sellerBalance, setSellerBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchCoins = async () => {
+      const { data } = await supabase
+        .from("flip_coins")
+        .select("amount")
+        .eq("related_id", itemId);
+
+      const totalEarned = data?.reduce((sum: number, row: any) => sum + row.amount, 0) || 0;
+      setCoinsEarned(totalEarned);
+
+      const { data: seller } = await supabase
+        .from("profiles")
+        .select("flip_coins_balance")
+        .eq("id", item.sellerId)
+        .single();
+
+      setSellerBalance(seller?.flip_coins_balance || 0);
+    };
+    fetchCoins();
+  }, [itemId]);
 export default function ShippingRates({ sellerAddress }: any) {
   const [to, setTo] = useState<any>(null);
   const [rates, setRates] = useState([]);
