@@ -611,7 +611,15 @@ const recommendation =
     FlipScore: <strong>{flipScore}/100</strong>
   </span>
 </div>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold">{item.title}</h1>
+      <p className="mt-2 text-gray-700">{item.description}</p>
 
+      <div className="mt-4 p-3 border rounded bg-yellow-50">
+        <p className="font-semibold">Coins for this listing: {coinsEarned} FC</p>
+        <p className="font-semibold">Seller total Flip Coins: {sellerBalance} FC</p>
+      </div>
+    </div>
 {/* Best Price Across Internet */}
 {bestExternal && (
   <div className="mb-4 p-4 bg-green-100 border-l-4 border-green-500 rounded-lg">
