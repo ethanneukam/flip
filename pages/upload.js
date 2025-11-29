@@ -155,6 +155,18 @@ export default function UploadPage() {
 
     setLoading(false);
   };
+  // Award coins for creating a listing
+await fetch("/api/coins/award", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    user_id: user.id,   // whichever variable contains the logged in user
+    amount: 3,
+    reason: "Created a listing",
+    related_id: listingId, // the ID from the saved listing
+  }),
+});
+
 // after item insert and you have itemId & imageUrl
 await fetch("/api/moderate", {
   method: "POST",
