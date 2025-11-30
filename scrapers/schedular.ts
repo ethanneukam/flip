@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { scrapeAll } from './universalScraper';
 
 // Schedule: run every 3 hours
-cron.schedule('0 */3 * * *', async () => {
+cron.schedule('0 0 * * *', async () => {
   console.log(`[${new Date().toISOString()}] Starting scheduled scraping...`);
   try {
     await scrapeAll({ updateExisting: true });
