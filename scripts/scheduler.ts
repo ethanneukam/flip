@@ -9,7 +9,7 @@ const queue = new Queue("scrape-jobs", { connection });
 const itemsToScrape = require("../itemsToScrape").itemsToScrape; // or import
 
 // run every hour at minute 5 (so avoid cron thundering at top of hour)
-cron.schedule("5 * * * *", async () => {
+cron.schedule("0 0 * * *", async () => {
   console.log("Scheduler enqueue started:", new Date().toISOString());
   for (const item of itemsToScrape) {
     await queue.add("scrape-item", { item_id: item.id, keyword: item.search_keyword }, { attempts: 3 });
