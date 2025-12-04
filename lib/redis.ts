@@ -1,7 +1,7 @@
 // lib/redis.ts
 import IORedis from "ioredis";
 
-let redis: IORedis.Redis | null = null;
+let redis: IORedis | null = null;
 let ready = false;
 let fallbackStore = new Map<string, { count: number; expiresAt: number }>();
 
