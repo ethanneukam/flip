@@ -15,7 +15,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Missing query parameter" });
     }
 
-    // If AI is disabled or quota exceeded, fallback to Supabase search
     if (!hasAI) {
       console.log("🧭 Fallback: AI disabled, using Supabase search only.");
       return await basicSupabaseSearch(query, res);
@@ -29,22 +28,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         input: prompt,
       });
 
-      // --- FIX: Extract message text safely ---
+      // --- FIX: Access text safely from output ---
       let refinedQuery = query;
-      const first = aiResponse.output?.[0];
+      const firstOutput = aiResponse.output?.[0];
 
-      if (first && first.type === "message") {
-        const msg = first.message;
-        if (msg?.content) {
-          const textBlock = msg.content.find((c) => c.type === "output_text");
-          if (textBlock && "text" in textBlock) {
-            refinedQuery = textBlock.text;
-          }
+      if (firstOutput?.type === "message" && Array.isArray(firstOutput.content)) {
+        const textBlock = firstOutput.content.find((c: any) => c.type === "output_text");
+        if (textBlock && "text" in textBlock) {
+          refinedQuery = textBlock.text;
         }
       }
-      // ---------------------------------------
+      // -------------------------------------------
 
-      // 🔎 Step 2: Query Supabase with refined query
+      // 🔎 Step 2: Supabase search
       const { data, error } = await supabase
         .from("items")
         .select("*")
