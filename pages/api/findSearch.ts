@@ -22,16 +22,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      // 🔍 Step 1: Try AI Search first
+      // 🔍 Step 1: AI Search
       const prompt = `Search marketplace listings for the query: "${query}". Return relevant keywords.`;
       const aiResponse = await client!.responses.create({
         model: "gpt-4.1-mini",
         input: prompt,
       });
 
-      const refinedQuery = aiResponse.output[0].content[0].text || query;
+      // --- FIX: Extract message text safely ---
+      let refinedQuery = query;
+      const first = aiResponse.output?.[0];
 
-      // 🔎 Step 2: Query Supabase with refined AI search terms
+      if (first && first.type === "message") {
+        const msg = first.message;
+        if (msg?.content) {
+          const textBlock = msg.content.find((c) => c.type === "output_text");
+          if (textBlock && "text" in textBlock) {
+            refinedQuery = textBlock.text;
+          }
+        }
+      }
+      // ---------------------------------------
+
+      // 🔎 Step 2: Query Supabase with refined query
       const { data, error } = await supabase
         .from("items")
         .select("*")
