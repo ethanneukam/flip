@@ -26,9 +26,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ]
     });
 
-    // response.choices[0].message.content is an array now
-    const blocks = response.choices[0].message.content;
-    const text = blocks.find(b => b.type === "text")?.text?.toLowerCase() || "safe";
+    // 🔥 FIX: content can be a string OR an array
+    const rawContent = response.choices[0].message.content;
+
+    let text: string;
+
+    if (Array.isArray(rawContent)) {
+      const block = rawContent.find((b: any) => b.type === "text");
+      text = block?.text?.toLowerCase() || "safe";
+    } else {
+      text = rawContent.toLowerCase();
+    }
 
     const isNSFW = text.includes("nsfw");
 
