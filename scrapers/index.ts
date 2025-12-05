@@ -5,10 +5,7 @@ import { walmartScraper } from "./walmartScraper";
 import { targetScraper } from "./targetScraper";
 import { bestbuyScraper } from "./bestbuyScraper";
 
-export interface Scraper {
-  name: string;
-  run: (item: { id: number; search_keyword: string }) => Promise<any>;
-}
+export * from "./types";
 
 export const allScrapers = [
   amazonScraper,
@@ -18,5 +15,3 @@ export const allScrapers = [
   targetScraper,
   bestbuyScraper,
 ];
-
-export type { Scraper };
