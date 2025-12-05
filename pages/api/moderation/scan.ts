@@ -17,15 +17,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           role: "user",
           content: [
             { type: "text", text: "Is this image NSFW? Answer with only: safe or nsfw." },
-            { type: "input_image", image_url: imageUrl }
+            { 
+              type: "image_url", 
+              image_url: { url: imageUrl } 
+            }
           ]
         }
       ]
     });
 
-    const result = response.choices[0].message.content.toLowerCase();
+    // response.choices[0].message.content is an array now
+    const blocks = response.choices[0].message.content;
+    const text = blocks.find(b => b.type === "text")?.text?.toLowerCase() || "safe";
 
-    const isNSFW = result.includes("nsfw");
+    const isNSFW = text.includes("nsfw");
 
     await prisma.listing.update({
       where: { id: listingId },
