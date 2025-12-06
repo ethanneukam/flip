@@ -30,12 +30,12 @@ if (status === "delivered") {
   await supabase
     .from("flipid_trust")
     .update({ total_sales: supabase.raw("total_sales + 1"), trust_points: supabase.raw("trust_points + 20") })
-    .eq("user_id", data.seller_id);
+    .eq("user_id", seller_id);
 
   await supabase
     .from("flipid_trust")
     .update({ total_purchases: supabase.raw("total_purchases + 1"), trust_points: supabase.raw("trust_points + 15") })
-    .eq("user_id", data.buyer_id);
+    .eq("user_id", buyer_id);
   }
   if (req.method === "PATCH") {
     const { order_id, status } = req.body;
