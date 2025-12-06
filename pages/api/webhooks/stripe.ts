@@ -63,7 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.json({ received: true });
 }
 if (event.type === "identity.verification_session.verified") {
-  const typed = event as unknown as Stripe.Identity.VerificationSessionVerifiedEvent;
+  const typed = event as unknown as {
+    data: { object: Stripe.Identity.VerificationSession };
+  };
 
   const session = typed.data.object;
   const userId = session.metadata?.user_id;
