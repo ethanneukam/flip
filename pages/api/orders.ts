@@ -1,6 +1,7 @@
 import { supabase } from "../../lib/supabaseClient";
 
 export default async function handler(req, res) {
+  // ---------------------- POST (create order) ----------------------
   if (req.method === "POST") {
     const { item_id, buyer_id, seller_id, total } = req.body;
 
@@ -25,20 +26,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ order: data });
   }
-// When delivered, update FlipID trust
-if (status === "delivered") {
-  await supabase
-    .from("flipid_trust")
-    .update({ total_sales: supabase.raw("total_sales + 1"), trust_points: supabase.raw("trust_points + 20") })
-    .eq("user_id", seller_id);
 
-  await supabase
-    .from("flipid_trust")
-    .update({ total_purchases: supabase.raw("total_purchases + 1"), trust_points: supabase.raw("trust_points + 15") })
-    .eq("user_id", buyer_id);
-  }
+  // ---------------------- PATCH (update status) ----------------------
   if (req.method === "PATCH") {
     const { order_id, status } = req.body;
+
     const { data, error } = await supabase
       .from("orders")
       .update({ status, updated_at: new Date() })
@@ -48,19 +40,41 @@ if (status === "delivered") {
 
     if (error) return res.status(400).json({ error: error.message });
 
-    // Send notification to both buyer and seller
+    const buyer_id = data.buyer_id;
+    const seller_id = data.seller_id;
+
+    // ⬅️ FIXED: Delivered trust update (moved inside PATCH where variables exist)
+    if (status === "delivered") {
+      await supabase
+        .from("flipid_trust")
+        .update({
+          total_sales: supabase.raw("total_sales + 1"),
+          trust_points: supabase.raw("trust_points + 20"),
+        })
+        .eq("user_id", seller_id);
+
+      await supabase
+        .from("flipid_trust")
+        .update({
+          total_purchases: supabase.raw("total_purchases + 1"),
+          trust_points: supabase.raw("trust_points + 15"),
+        })
+        .eq("user_id", buyer_id);
+    }
+
+    // Notifications
     await supabase.from("notifications").insert([
       {
-        user_id: data.buyer_id,
+        user_id: buyer_id,
         type: "order",
-        actor_id: data.seller_id,
+        actor_id: seller_id,
         item_id: data.item_id,
         message: `Order marked as ${status}`,
       },
       {
-        user_id: data.seller_id,
+        user_id: seller_id,
         type: "order",
-        actor_id: data.buyer_id,
+        actor_id: buyer_id,
         item_id: data.item_id,
         message: `Order marked as ${status}`,
       },
@@ -69,5 +83,6 @@ if (status === "delivered") {
     return res.status(200).json({ order: data });
   }
 
-  res.status(405).json({ error: "Method not allowed" });
+  // ---------------------- Not allowed ----------------------
+  return res.status(405).json({ error: "Method not allowed" });
 }
