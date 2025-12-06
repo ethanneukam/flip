@@ -202,7 +202,7 @@ await supabase.from("likes").insert({ item_id: itemId, user_id: user.id });
   user_id: user.id,
   text,
 });
-
+};
 
   const openComments = (itemId: string) => setCommentingItem(itemId);
   const submitComment = async () => {
