@@ -197,8 +197,12 @@ await supabase.from("likes").insert({ item_id: itemId, user_id: user.id });
 
   const handleComment = async (itemId: string, text: string) => {
     if (!user) return;
-    await supabase.from("comments").insert({ item_id, user_id: user.id, text });
-  };
+    await supabase.from("comments").insert({
+  item_id: itemId,
+  user_id: user.id,
+  text,
+});
+
 
   const openComments = (itemId: string) => setCommentingItem(itemId);
   const submitComment = async () => {
