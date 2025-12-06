@@ -175,7 +175,7 @@ function MarketplaceContent() {
       await supabase.from("favorites").delete().eq("item_id", itemId).eq("user_id", user.id);
     } else {
       setFavorites((prev) => [...prev, itemId]);
-      await supabase.from("favorites").insert([{ user_id: user.id, item_id }]);
+     await supabase.from("favorites").insert([{ user_id: user.id, item_id: itemId }]);
     }
   };
 
