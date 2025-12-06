@@ -67,7 +67,7 @@ function MarketplaceContent() {
     };
     fetchProfiles();
   }, []);
-export default function FeedItemCard({ item }: any) {
+
   // ✅ Fetch items with counts
   const fetchItems = async () => {
     const { data: itemsData, error } = await supabase
