@@ -190,7 +190,7 @@ function MarketplaceContent() {
       .single();
 
     if (existing) await supabase.from("likes").delete().eq("id", existing.id);
-    else await supabase.from("likes").insert({ item_id, user_id: user.id });
+await supabase.from("likes").insert({ item_id: itemId, user_id: user.id });
 
     fetchItems();
   };
