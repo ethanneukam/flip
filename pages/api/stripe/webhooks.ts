@@ -1,42 +1,63 @@
-// pages/api/stripe/webhook.ts
-import { buffer } from "micro";
+// pages/api/stripe/webhooks.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-dotenv.config();
 
-export const config = { api: { bodyParser: false } };
+// Disable Next.js body parser (required for Stripe)
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-08-15" });
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+});
+
+// Convert incoming request into a raw buffer
+async function getRawBody(req: NextApiRequest): Promise<Buffer> {
+  const chunks: any[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const sig = req.headers["stripe-signature"] as string | undefined;
-  if (!sig) return res.status(400).end("Missing signature");
+  if (req.method !== "POST") {
+    return res.status(405).send("Method Not Allowed");
+  }
 
-  const buf = await buffer(req);
-  let event: Stripe.Event;
+  const buf = await getRawBody(req);
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+
   try {
-    event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(
+      buf,
+      sig!,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err: any) {
-    console.error("Webhook signature error", err);
+    console.error("❌ Stripe webhook error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "invoice.paid") {
-    const invoice = event.data.object as Stripe.Invoice;
-    const billId = invoice.metadata?.promotion_bill_id;
-    if (billId) {
-      await supabase.from("promotion_bills").update({ status: "paid", updated_at: new Date().toISOString() }).eq("id", billId);
-    }
-  } else if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object as Stripe.Invoice;
-    const billId = invoice.metadata?.promotion_bill_id;
-    if (billId) {
-      await supabase.from("promotion_bills").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", billId);
-    }
+  // Initialize Supabase
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  );
+
+  // 👉 Handle events
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    await supabase.from("orders").update({
+      payment_status: "paid",
+    }).eq("checkout_session_id", session.id);
   }
 
-  res.json({ received: true });
+  res.status(200).json({ received: true });
 }
