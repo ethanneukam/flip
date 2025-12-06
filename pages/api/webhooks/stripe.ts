@@ -1,19 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
-import { supabase } from "@/lib/supabaseClient"; // adjust path if different
+import { supabase } from "@/lib/supabaseClient";
 
-// Keep Basil API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-10-29.clover",
 });
 
 export const config = {
   api: {
-    bodyParser: false, // required by Stripe to verify signatures
+    bodyParser: false,
   },
 };
 
-// helper: raw body buffer
 const buffer = async (req: NextApiRequest) => {
   const chunks: Uint8Array[] = [];
   for await (const chunk of req) {
@@ -38,45 +36,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle completed checkout sessions
+  // -------------------------------
+  // CHECKOUT SESSION COMPLETE
+  // -------------------------------
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
     const { error } = await supabase.from("transactions").insert([
       {
         stripe_session_id: session.id,
-        amount: session.amount_total, // cents
+        amount: session.amount_total,
         currency: session.currency,
         customer_email: session.customer_details?.email,
-        status: session.payment_status, // new field for basil version
+        status: session.payment_status,
         created_at: new Date().toISOString(),
       },
     ]);
 
-    if (error) {
-      console.error("❌ Supabase insert error:", error);
-    } else {
-      console.log("✅ Transaction stored in Supabase:", session.id);
+    if (error) console.error("❌ Supabase insert error:", error);
+    else console.log("✅ Transaction stored in Supabase:", session.id);
+  }
+
+  // -------------------------------
+  // IDENTITY VERIFICATION COMPLETE
+  // -------------------------------
+  if (event.type === "identity.verification_session.verified") {
+    const typed = event as any;
+
+    const session = typed.data.object as Stripe.Identity.VerificationSession;
+    const userId = session.metadata?.user_id;
+
+    if (userId) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ verified: true })
+        .eq("id", userId);
+
+      if (error) console.error("Supabase update error:", error);
+      else console.log(`✅ User ${userId} verified`);
     }
   }
 
-  res.json({ received: true });
-}
-if (event.type === "identity.verification_session.verified") {
-  const typed = event as unknown as {
-    data: { object: Stripe.Identity.VerificationSession };
-  };
-
-  const session = typed.data.object;
-  const userId = session.metadata?.user_id;
-
-  if (userId) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ verified: true })
-      .eq("id", userId);
-
-    if (error) console.error("Supabase update error:", error);
-    else console.log(`✅ User ${userId} verified`);
-  }
+  return res.json({ received: true });
 }
