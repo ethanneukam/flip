@@ -56,12 +56,18 @@ async function run() {
 
     try {
       // Create invoice item
-      await stripe.invoiceItems.create({
-        customer: sellerRow.stripe_customer_id,
-        unit_amount: Math.round(amountDue * 100),
-        currency: "usd",
-        description: `Promoted listing ${p.item_id} clicks (${clicksCount}) @ $${p.cpc}`,
-      });
+    await stripe.invoiceItems.create({
+  customer: sellerRow.stripe_customer_id,
+  description: `Promoted listing ${p.item_id} clicks (${clicksCount}) @ $${p.cpc}`,
+  price_data: {
+    currency: "usd",
+    unit_amount: Math.round(amountDue * 100), // amount in cents
+    product_data: {
+      name: `Promoted listing ${p.item_id}`,
+    },
+  },
+});
+
 
       // Create & finalize invoice (auto charge)
       const invoice = await stripe.invoices.create({
