@@ -58,7 +58,7 @@ export default function PublicProfilePage() {
       .select(
         "id, rating, comment, created_at, reviewer:reviewer_id(username, avatar_url)"
       )
-      .eq("reviewed_user_id", data.id)
+    .eq("reviewed_user_id", profile.id)
       .order("created_at", { ascending: false });
     setReviews(reviewsData || []);
 
