@@ -1,4 +1,4 @@
-import { ScraperResult } from "../scrapeRunner";
+import { ScraperResult } from "../../scrapeRunner";
 
 export const craigslistScraper = {
   source: "craigslist",
