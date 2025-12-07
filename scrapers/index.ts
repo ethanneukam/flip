@@ -1,6 +1,6 @@
 import { amazonScraper } from "./amazonScraper";
 import { ebayScraper } from "./ebayScraper";
-import { fbMarketplaceScraper } from "./fbMarketplaceScraper";
+import { facebookScraper } from "./facebookScraper";
 import { walmartScraper } from "./walmartScraper";
 import { targetScraper } from "./targetScraper";
 import { bestbuyScraper } from "./bestbuyScraper";
