@@ -174,7 +174,7 @@ const siteScrapers: Scraper[] = [
 ];
 
 // --- Scraper runner with updateExisting ---
-async function scrapeAll({ updateExisting = true } = {}) {
+export async function scrapeAll({ updateExisting = true } = {}) { // ✅ add 'export'
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -193,7 +193,6 @@ async function scrapeAll({ updateExisting = true } = {}) {
           .single();
 
         if (existing && updateExisting) {
-          // Update existing row
           await supabase
             .from('external_prices')
             .update({
@@ -208,7 +207,6 @@ async function scrapeAll({ updateExisting = true } = {}) {
 
           console.log(`Updated ${scraper.source} price for ${item.keyword}: $${result.price}`);
         } else if (!existing) {
-          // Insert new row
           await supabase.from('external_prices').insert([
             {
               item_id: item.item_id,
