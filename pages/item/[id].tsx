@@ -254,8 +254,8 @@ export default function ItemDetail() {
   // Realtime subscriptions for likes/comments
   useEffect(() => {
     if (!id) return;
-    let likesChannel: RealtimeChannel | undefined;
-    let commentsChannel: RealtimeChannel | undefined;
+   let likesChannel: any;
+let commentsChannel: any;
 
     const setupRealtime = async () => {
       likesChannel = supabase
