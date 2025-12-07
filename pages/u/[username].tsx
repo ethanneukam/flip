@@ -49,7 +49,7 @@ export default function PublicProfilePage() {
     const { data: items } = await supabase
       .from("items")
       .select("*")
-      .eq("user_id", data.id);
+      .eq("user_id", profile.id);
     setUserItems(items || []);
 
     // ✅ Fetch reviews + reviewer profiles
