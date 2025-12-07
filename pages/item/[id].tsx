@@ -57,6 +57,10 @@ const momentumScoreMap: Record<string, number> = {
   "Cooling Off": 5,
   "Crashing": 0,
 };
+const momentumTag =
+  volatility > 60 ? "hot" : 
+  volatility > 30 ? "warm" : 
+  "cold";
 
 const flipScore = Math.min(
   100,
