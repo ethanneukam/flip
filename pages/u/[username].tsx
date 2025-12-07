@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import Link from "next/link";
 import { useUser } from "@supabase/auth-helpers-react";
-import { sendNotification } from "../lib/notifications";
+import { sendNotification } from "../../lib/notifications";
 
 // ✅ First Component: PublicProfilePage
 export default function PublicProfilePage() {
