@@ -62,7 +62,7 @@ async function loginIfNeeded(context: BrowserContext, page: Page, email: string,
   }
 }
 
-export const fbMarketplaceScraper = {
+export const facebookScraper = {
   source: "Facebook Marketplace",
   scrape: async (page: Page, keyword: string) => {
     try {
