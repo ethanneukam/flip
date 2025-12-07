@@ -241,32 +241,41 @@ export default function PublicProfilePage() {
           <div className="border p-4 rounded-lg bg-gray-50 mb-6">
             <h3 className="font-semibold mb-2">Leave a Review</h3>
             <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-  const rating = parseInt((form.elements.namedItem("rating") as HTMLInputElement).value);
-  const comment = (form.elements.namedItem("comment") as HTMLInputElement).value.trim();
-                if (!rating) return alert("Please select a rating.");
+            onSubmit={async (e) => {
+  e.preventDefault();
 
-                const { error } = await supabase.from("reviews").insert([
-                  {
-                    reviewer_id: user.id,
-                    reviewed_user_id: profile.id,
-                    rating,
-                    comment,
-                  },
-                ]);
+  const form = e.target as HTMLFormElement;
 
-                if (error) {
-                  console.error(error);
-                  alert("Error submitting review.");
-                } else {
-                  e.target.reset();
-                  fetchProfile();
-                  alert("Review submitted!");
-                }
-              }}
-            >
+  const rating = parseInt(
+    (form.elements.namedItem("rating") as HTMLInputElement).value
+  );
+
+  const comment = (
+    form.elements.namedItem("comment") as HTMLInputElement
+  ).value.trim();
+
+  if (!rating) return alert("Please select a rating.");
+
+  const { error } = await supabase.from("reviews").insert([
+    {
+      reviewer_id: user.id,
+      reviewed_user_id: profile.id,
+      rating,
+      comment,
+    },
+  ]);
+
+  if (error) {
+    console.error(error);
+    alert("Error submitting review.");
+  } else {
+    form.reset();        // ✅ Correct, TS-safe
+    fetchProfile();
+    alert("Review submitted!");
+  }
+}}
+>
+
               <select
                 name="rating"
                 className="border rounded p-2 mb-2 w-full"
