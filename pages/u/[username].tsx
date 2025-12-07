@@ -80,25 +80,7 @@ export default function PublicProfilePage() {
     setLoading(false);
   };
 
-
-  // 2️⃣ Get items listed by this user
-  const { data: itemData } = await supabase
-    .from("items")
-    .select("*")
-    .eq("user_id", profileData.id)
-    .order("created_at", { ascending: false });
-  setItems(itemData || []);
-
-  // 3️⃣ Get reviews for this user
-  const { data: reviewData } = await supabase
-    .from("reviews")
-    .select(
-      `id, rating, comment, created_at, reviewer:reviewer_id ( username, avatar_url )`
-    )
-    .eq("reviewed_user_id", profileData.id)
-    .order("created_at", { ascending: false });
-  setReviews(reviewData || []);
-  setLoading(false);
+  // ⛔ NOTHING IS ALLOWED HERE (DELETED THE BAD BLOCKS)
 
   if (loading) return <p className="p-6">Loading...</p>;
   if (!profile) return <p className="p-6">User not found.</p>;
@@ -189,7 +171,7 @@ export default function PublicProfilePage() {
       }
     }
   };
-
+  
   return (
     <main className="max-w-3xl mx-auto p-6 space-y-6">
       {/* 👤 Profile Header */}
