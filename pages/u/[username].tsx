@@ -80,18 +80,6 @@ export default function PublicProfilePage() {
     setLoading(false);
   };
 
-  // ✅ Fetch ratings summary
-  const { data: reviewsData } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("reviewed_user_id", user.id);
-  if (reviewsData && reviewsData.length > 0) {
-    const total = reviewsData.reduce((sum, r) => sum + r.rating, 0);
-    const avg = total / reviewsData.length;
-    setRatingSummary({ avg: avg.toFixed(1), count: reviewsData.length });
-  } else {
-    setRatingSummary({ avg: null, count: 0 });
-  }
 
   // 2️⃣ Get items listed by this user
   const { data: itemData } = await supabase
