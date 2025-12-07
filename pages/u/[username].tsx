@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useUser } from "@supabase/auth-helpers-react";
 import { sendNotification } from "../../lib/notifications";
 
-// ✅ First Component: PublicProfilePage
 export default function PublicProfilePage() {
   const router = useRouter();
   const { username } = router.query;
+
+  const user = useUser();
 
   const [profile, setProfile] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
@@ -17,7 +18,6 @@ export default function PublicProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [ratingSummary, setRatingSummary] = useState<{ avg: string | null; count: number }>({
     avg: null,
     count: 0,
@@ -30,7 +30,7 @@ export default function PublicProfilePage() {
   const fetchProfile = async () => {
     setLoading(true);
 
-    // 1️⃣ Get the profile by username
+    // 1️⃣ Get the user profile
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
@@ -45,28 +45,34 @@ export default function PublicProfilePage() {
 
     setProfile(profileData);
 
-    // ✅ Fetch user’s items
-    const { data: items } = await supabase
+    // 2️⃣ Fetch items
+    const { data: itemsData } = await supabase
       .from("items")
       .select("*")
-      .eq("user_id", profile.id);
-   setItems(items || []);
+      .eq("user_id", profileData.id);
 
-    // ✅ Fetch reviews + reviewer profiles
+    setItems(itemsData || []);
+
+    // 3️⃣ Fetch reviews
     const { data: reviewsData } = await supabase
       .from("reviews")
       .select(
         "id, rating, comment, created_at, reviewer:reviewer_id(username, avatar_url)"
       )
-    .eq("reviewed_user_id", profile.id)
+      .eq("reviewed_user_id", profileData.id)
       .order("created_at", { ascending: false });
+
     setReviews(reviewsData || []);
 
-    // ✅ Calculate rating summary
+    // 4️⃣ Calculate rating summary
     if (reviewsData && reviewsData.length > 0) {
       const total = reviewsData.reduce((sum, r) => sum + r.rating, 0);
       const avg = total / reviewsData.length;
-      setRatingSummary({ avg: avg.toFixed(1), count: reviewsData.length });
+
+      setRatingSummary({
+        avg: avg.toFixed(1),
+        count: reviewsData.length,
+      });
     } else {
       setRatingSummary({ avg: null, count: 0 });
     }
