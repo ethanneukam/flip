@@ -10,7 +10,7 @@ export * from "./types";
 export const allScrapers = [
   amazonScraper,
   ebayScraper,
-  fbMarketplaceScraper,
+  facebookScraper,
   walmartScraper,
   targetScraper,
   bestbuyScraper,
