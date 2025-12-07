@@ -11,6 +11,7 @@ import { useFlipCoins } from "@/lib/useFlipCoins";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState({
+    id: "",
     username: "",
     avatar_url: "",
     bio: "",
@@ -36,8 +37,17 @@ export default function ProfilePage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [posts, setPosts] = useState<any[]>([]);
+const session = useSession();
+  const userId = session?.user?.id;
+  const balance = useFlipCoins(userId);
+const router = useRouter();
+const { user_id } = router.query;
 
+useEffect(() => {
+  if (!user_id) return;
 
+  // fetch profile info for user_id
+}, [user_id]);
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -64,14 +74,7 @@ export default function ProfilePage() {
     if (error) console.error(error);
     else setProfile(data);
   };
-const router = useRouter();
-const { user_id } = router.query;
 
-useEffect(() => {
-  if (!user_id) return;
-
-  // fetch profile info for user_id
-}, [user_id]);
 
   // ---------- Follows ----------
   const fetchFollowCounts = async (userId: string) => {
@@ -158,10 +161,7 @@ useEffect(() => {
       setRatingSummary({ avg: avg.toFixed(1), count: reviewsData.length });
     }
   };
-export default function ProfileCoins() {
-  const session = useSession();
-  const userId = session?.user?.id;
-  const balance = useFlipCoins(userId);
+
   // ---------- Upload Avatar ----------
   const uploadAvatar = async (event: any) => {
     try {
