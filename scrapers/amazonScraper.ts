@@ -83,7 +83,7 @@ async function applyFingerprintSpoofing(page) {
     });
 
     // Fake battery
-    navigator.getBattery = () =>
+  (navigator as any).getBattery = () =>
       Promise.resolve({
         level: 0.77,
         charging: false,
