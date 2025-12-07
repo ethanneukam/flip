@@ -243,8 +243,9 @@ export default function PublicProfilePage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                const rating = parseInt(e.target.rating.value);
-                const comment = e.target.comment.value.trim();
+                const form = e.target as HTMLFormElement;
+  const rating = parseInt((form.elements.namedItem("rating") as HTMLInputElement).value);
+  const comment = (form.elements.namedItem("comment") as HTMLInputElement).value.trim();
                 if (!rating) return alert("Please select a rating.");
 
                 const { error } = await supabase.from("reviews").insert([
