@@ -67,6 +67,7 @@ export default function WalletPage() {
       <BottomNav />
     </main>
   );
+}
 useEffect(() => {
   const sub = supabase
     .channel("realtime:wallets")
