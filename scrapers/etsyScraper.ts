@@ -1,4 +1,4 @@
-import { ScraperResult } from "../scrapeRunner";
+import { ScraperResult } from "../scripts/scrapeRunner";
 
 export const etsyScraper = {
   source: "etsy",
