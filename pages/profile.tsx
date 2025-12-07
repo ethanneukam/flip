@@ -58,7 +58,7 @@ export default function ProfilePage() {
   const getProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("username, avatar_url, bio, instagram, tiktok, youtube")
+      .select("id, username, avatar_url, bio, instagram, tiktok, youtube")
       .eq("id", userId)
       .single();
     if (error) console.error(error);
