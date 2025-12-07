@@ -7,7 +7,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import PriceChart from "@/components/PriceChart";
 import AddressPicker from "@/components/AddressPicker";
 import PriceInsights from "@/components/PriceInsights";
-import TrendBadge from "../../components/TrendBadge";
+import TrendBadge from "../../components/Trendbadge";
 import FlipScore from "@/components/FlipScore";
 import MomentumTag from "@/components/MomentumTag";
 
