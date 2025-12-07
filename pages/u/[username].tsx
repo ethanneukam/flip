@@ -18,6 +18,7 @@ export default function PublicProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [ratingSummary, setRatingSummary] = useState<{ avg: string | null; count: number }>({
     avg: null,
     count: 0,
