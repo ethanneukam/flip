@@ -60,7 +60,7 @@ await stripe.invoiceItems.create({
   customer: sellerRow.stripe_customer_id,
   description: `Promoted listing ${p.item_id} clicks (${clicksCount}) @ $${p.cpc}`,
   currency: "usd",
-  unit_amount: Math.round(amountDue * 100), // amount in cents
+  amount: Math.round(amountDue * 100), // amount in cents
 });
 
 
