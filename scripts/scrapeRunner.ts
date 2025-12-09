@@ -9,7 +9,7 @@ import UserAgent from "user-agents";
 // ❌ REMOVE this line
 // import { itemsToScrape } from "./itemsToScrape"; 
 import { amazonScraper } from "../scrapers/amazonScraper";
-import { allScrapers } from "./scrapers";
+import { allScrapers } from "../scrapers";
 
 // --- Supabase ---
 const supabase = createClient(
