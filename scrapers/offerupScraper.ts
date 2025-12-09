@@ -4,7 +4,7 @@ import { ScraperResult } from "../scripts/scrapeRunner";
 export const offerupScraper = {
   source: "offerup",
 
-  run: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
     try {
       await page.goto(
         `https://offerup.com/search/?q=${encodeURIComponent(keyword)}`,
