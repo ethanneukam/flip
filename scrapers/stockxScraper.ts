@@ -4,7 +4,7 @@ import { ScraperResult } from "../scripts/scrapeRunner";
 export const stockxScraper = {
   source: "stockx",
 
-  run: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
     try {
       await page.waitForTimeout(600 + Math.random() * 600);
 
