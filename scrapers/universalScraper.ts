@@ -14,13 +14,19 @@ const itemsToScrape = [
 // --- Define site scrapers
 interface Scraper {
   source: string;
-  scrape: (page: any, keyword: string) => Promise<{ price: number; url: string; shipping?: number; condition?: string; seller_rating?: number } | null>;
+  scrape: (page: any, keyword: string) => Promise<{
+    price: number;
+    url: string;
+    shipping?: number;
+    condition?: string;
+    seller_rating?: number;
+  } | null>;
 }
 
 // --- AMAZON ---
 const amazonScraper: Scraper = {
   source: 'Amazon',
-run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.amazon.com/s?k=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.s-result-item');
@@ -41,14 +47,19 @@ run: async (page, keyword) => {
 // --- WALMART ---
 const walmartScraper: Scraper = {
   source: 'Walmart',
-  run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.walmart.com/search/?query=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('div.search-result-gridview-item');
     if (!product) return null;
+
     const url = await product.$eval('a', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('[data-type="price"]', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval('[data-type="price"]', el =>
+      el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
     const price = parseFloat(priceText);
+
     return { price, url: `https://www.walmart.com${url}` };
   }
 };
@@ -56,13 +67,19 @@ const walmartScraper: Scraper = {
 // --- TARGET ---
 const targetScraper: Scraper = {
   source: 'Target',
-run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.target.com/s?searchTerm=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('li[data-test="list-entry-product-card"]');
     if (!product) return null;
+
     const url = await product.$eval('a', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('span[data-test="current-price"]', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval(
+      'span[data-test="current-price"]',
+      el => el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
+
     const price = parseFloat(priceText);
     return { price, url: `https://www.target.com${url}` };
   }
@@ -71,13 +88,18 @@ run: async (page, keyword) => {
 // --- GAMESTOP ---
 const gamestopScraper: Scraper = {
   source: 'GameStop',
- run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.gamestop.com/search/?q=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('div.product-tile');
     if (!product) return null;
+
     const url = await product.$eval('a', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('.product-price', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval('.product-price', el =>
+      el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
+
     const price = parseFloat(priceText);
     return { price, url: `https://www.gamestop.com${url}` };
   }
@@ -86,46 +108,50 @@ const gamestopScraper: Scraper = {
 // --- WISH ---
 const wishScraper: Scraper = {
   source: 'Wish',
- run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.wish.com/search/${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('.ProductCard');
     if (!product) return null;
+
     const url = await product.$eval('a', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('.price', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval('.price', el =>
+      el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
+
     const price = parseFloat(priceText);
     return { price, url: `https://www.wish.com${url}` };
   }
 };
 
-// --- FACEBOOK MARKETPLACE (placeholder/fallback) ---
+// --- FACEBOOK (skip) ---
 const fbMarketplaceScraper: Scraper = {
   source: 'Facebook Marketplace',
-  run: async (_page, _keyword) => {
-    // FB requires login, anti-bot, skipping for now
-    return null;
-  }
+  scrape: async () => null
 };
 
-// --- TIKTOK SHOP (placeholder/fallback) ---
+// --- TIKTOK (skip) ---
 const tiktokScraper: Scraper = {
   source: 'TikTok Shop',
-  run: async (_page, _keyword) => {
-    // Needs login/API access, skipping for now
-    return null;
-  }
+  scrape: async () => null
 };
 
 // --- EBAY ---
 const ebayScraper: Scraper = {
   source: 'eBay',
-  run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('.s-item');
     if (!product) return null;
+
     const url = await product.$eval('a.s-item__link', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('.s-item__price', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval('.s-item__price', el =>
+      el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
+
     const price = parseFloat(priceText);
     return { price, url };
   }
@@ -134,31 +160,36 @@ const ebayScraper: Scraper = {
 // --- OFFERUP ---
 const offerupScraper: Scraper = {
   source: 'OfferUp',
- run: async (_page, _keyword) => null // Placeholder, dynamic content
+  scrape: async () => null
 };
 
 // --- GRAILED ---
 const grailedScraper: Scraper = {
   source: 'Grailed',
- run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const searchUrl = `https://www.grailed.com/shop?query=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+
     const product = await page.$('.feed-item');
     if (!product) return null;
+
     const url = await product.$eval('a', el => el.getAttribute('href') || '');
-    const priceText = await product.$eval('.price', el => el.textContent?.replace(/[^0-9.]/g, '') || '0');
+    const priceText = await product.$eval('.price', el =>
+      el.textContent?.replace(/[^0-9.]/g, '') || '0'
+    );
+
     const price = parseFloat(priceText);
     return { price, url: `https://www.grailed.com${url}` };
   }
 };
 
-// --- ALDI (placeholder/fallback) ---
+// --- ALDI ---
 const aldiScraper: Scraper = {
   source: 'Aldi',
-run: async (_page, _keyword) => null // Needs local store API, skipping for now
+  scrape: async () => null
 };
 
-// --- All scrapers ---
+// --- Export all ---
 const siteScrapers: Scraper[] = [
   amazonScraper,
   walmartScraper,
@@ -173,8 +204,7 @@ const siteScrapers: Scraper[] = [
   aldiScraper,
 ];
 
-// --- Scraper runner with updateExisting ---
-export async function scrapeAll({ updateExisting = true } = {}) { // ✅ add 'export'
+export async function scrapeAll({ updateExisting = true } = {}) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -184,7 +214,6 @@ export async function scrapeAll({ updateExisting = true } = {}) { // ✅ add 'ex
         const result = await scraper.scrape(page, item.keyword);
         if (!result) continue;
 
-        // Check if price already exists for this item + source
         const { data: existing } = await supabase
           .from('external_prices')
           .select('id')
@@ -231,5 +260,4 @@ export async function scrapeAll({ updateExisting = true } = {}) { // ✅ add 'ex
   await browser.close();
 }
 
-// Run
 scrapeAll();
