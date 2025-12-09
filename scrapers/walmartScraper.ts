@@ -13,7 +13,7 @@ async function humanScroll(page) {
 export const walmartScraper = {
   source: "Walmart",
 
-  run: async (page, keyword) => {
+ scrape: async (page, keyword) => {
     try {
       await page.setExtraHTTPHeaders({
         "user-agent": new UserAgent().toString(),
