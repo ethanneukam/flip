@@ -20,7 +20,7 @@ interface Scraper {
 // --- AMAZON ---
 const amazonScraper: Scraper = {
   source: 'Amazon',
-  scrape: async (page, keyword) => {
+run: async (page, keyword) => {
     const searchUrl = `https://www.amazon.com/s?k=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.s-result-item');
@@ -41,7 +41,7 @@ const amazonScraper: Scraper = {
 // --- WALMART ---
 const walmartScraper: Scraper = {
   source: 'Walmart',
-  scrape: async (page, keyword) => {
+  run: async (page, keyword) => {
     const searchUrl = `https://www.walmart.com/search/?query=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('div.search-result-gridview-item');
@@ -56,7 +56,7 @@ const walmartScraper: Scraper = {
 // --- TARGET ---
 const targetScraper: Scraper = {
   source: 'Target',
-  scrape: async (page, keyword) => {
+run: async (page, keyword) => {
     const searchUrl = `https://www.target.com/s?searchTerm=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('li[data-test="list-entry-product-card"]');
@@ -71,7 +71,7 @@ const targetScraper: Scraper = {
 // --- GAMESTOP ---
 const gamestopScraper: Scraper = {
   source: 'GameStop',
-  scrape: async (page, keyword) => {
+ run: async (page, keyword) => {
     const searchUrl = `https://www.gamestop.com/search/?q=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('div.product-tile');
@@ -86,7 +86,7 @@ const gamestopScraper: Scraper = {
 // --- WISH ---
 const wishScraper: Scraper = {
   source: 'Wish',
-  scrape: async (page, keyword) => {
+ run: async (page, keyword) => {
     const searchUrl = `https://www.wish.com/search/${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('.ProductCard');
@@ -101,7 +101,7 @@ const wishScraper: Scraper = {
 // --- FACEBOOK MARKETPLACE (placeholder/fallback) ---
 const fbMarketplaceScraper: Scraper = {
   source: 'Facebook Marketplace',
-  scrape: async (_page, _keyword) => {
+  run: async (_page, _keyword) => {
     // FB requires login, anti-bot, skipping for now
     return null;
   }
@@ -110,7 +110,7 @@ const fbMarketplaceScraper: Scraper = {
 // --- TIKTOK SHOP (placeholder/fallback) ---
 const tiktokScraper: Scraper = {
   source: 'TikTok Shop',
-  scrape: async (_page, _keyword) => {
+  run: async (_page, _keyword) => {
     // Needs login/API access, skipping for now
     return null;
   }
@@ -119,7 +119,7 @@ const tiktokScraper: Scraper = {
 // --- EBAY ---
 const ebayScraper: Scraper = {
   source: 'eBay',
-  scrape: async (page, keyword) => {
+  run: async (page, keyword) => {
     const searchUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('.s-item');
@@ -134,13 +134,13 @@ const ebayScraper: Scraper = {
 // --- OFFERUP ---
 const offerupScraper: Scraper = {
   source: 'OfferUp',
-  scrape: async (_page, _keyword) => null // Placeholder, dynamic content
+ run: async (_page, _keyword) => null // Placeholder, dynamic content
 };
 
 // --- GRAILED ---
 const grailedScraper: Scraper = {
   source: 'Grailed',
-  scrape: async (page, keyword) => {
+ run: async (page, keyword) => {
     const searchUrl = `https://www.grailed.com/shop?query=${encodeURIComponent(keyword)}`;
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
     const product = await page.$('.feed-item');
@@ -155,7 +155,7 @@ const grailedScraper: Scraper = {
 // --- ALDI (placeholder/fallback) ---
 const aldiScraper: Scraper = {
   source: 'Aldi',
-  scrape: async (_page, _keyword) => null // Needs local store API, skipping for now
+run: async (_page, _keyword) => null // Needs local store API, skipping for now
 };
 
 // --- All scrapers ---
