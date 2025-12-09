@@ -24,7 +24,7 @@ async function humanScroll(page: Page) {
 
 export const ebayScraper = {
   source: "eBay",
-  scrape: async (page: Page, keyword: string) => {
+  run: async (page: Page, keyword: string) => {
     try {
       const ua = new UserAgent().toString();
       await page.setExtraHTTPHeaders({ "user-agent": ua, "accept-language": "en-US,en;q=0.9" });
