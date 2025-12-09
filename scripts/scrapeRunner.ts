@@ -141,7 +141,7 @@ async function main() {
     // Amazon max stealth
     await runScraper({
       page,
-      scraper: amazonScraper,
+      run: amazonScraper,
       item_id: item.item_id,
       keyword: item.keyword,
     });
