@@ -95,7 +95,8 @@ async function applyFingerprintSpoofing(page) {
 
 export const amazonScraper = {
   source: "Amazon",
-  run: async (page, keyword) => {
+  scrape
+    : async (page, keyword) => {
     try {
       // Random real user agent
       const ua = new UserAgent().toString();
