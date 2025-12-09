@@ -140,11 +140,12 @@ async function main() {
 
     // Amazon max stealth
     await runScraper({
-      page,
-      run: amazonScraper,
-      item_id: item.item_id,
-      keyword: item.keyword,
-    });
+  page,
+  scraper: amazonScraper,
+  item_id: item.item_id,
+  keyword: item.keyword,
+});
+
 
     // Human-like behavior
     await wait(1200, 2500);
