@@ -15,7 +15,8 @@ export async function runScraperWithRetries(
     attempt++;
 
     try {
-      const result = await scraper.scrape(page, keyword);
+    const result = await runScraperWithRetries(scraper, page, keyword, 2);
+
 
       if (!result) throw new Error("no-result");
 
