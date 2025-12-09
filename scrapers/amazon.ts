@@ -3,7 +3,7 @@ import { Scraper } from "../scripts/scrapeRunner";
 export const amazonScraper: Scraper = {
   source: "Amazon",
 
-  run: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     const url = `https://www.amazon.com/s?k=${encodeURIComponent(keyword)}`;
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
