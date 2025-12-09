@@ -6,7 +6,7 @@ const wait = (min = 300, max = 900) =>
 export const targetScraper = {
   source: "Target",
 
-  run: async (page, keyword) => {
+ scrape: async (page, keyword) => {
     try {
       await page.setExtraHTTPHeaders({
         "user-agent": new UserAgent().toString(),
