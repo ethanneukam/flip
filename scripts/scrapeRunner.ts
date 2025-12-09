@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 // ❌ REMOVE this line
 // import { itemsToScrape } from "./itemsToScrape"; 
-import { amazonScraper } from "./scrapers/amazonScraper";
+import { amazonScraper } from "../scrapers/amazonScraper";
 import { allScrapers } from "./scrapers";
 
 // --- Supabase ---
