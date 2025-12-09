@@ -6,26 +6,33 @@ dotenv.config({ path: ".env.local" });
 import { chromium, Browser, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
-import { itemsToScrape } from "./itemsToScrape"; 
+// ❌ REMOVE this line
+// import { itemsToScrape } from "./itemsToScrape"; 
 import { amazonScraper } from "./scrapers/amazonScraper";
 import { allScrapers } from "./scrapers";
-
-for (const scraper of allScrapers) {
-  console.log(`\n🔎 ${scraper.source}`);
-  await runScraper({
-    page,
-    scraper,
-    item_id: item.item_id,
-    keyword: item.keyword,
-  });
-  await wait(800, 1800);
-}
 
 // --- Supabase ---
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// ✅ DYNAMIC ITEMS LOADER (replaces itemsToScrape file)
+async function getItemsToScrape() {
+  const { data, error } = await supabase
+    .from("items") // your items table
+    .select("id, title"); // adjust if you use "keyword"
+
+  if (error) {
+    console.error("❌ Failed loading items:", error);
+    return [];
+  }
+
+  return data.map((item: any) => ({
+    item_id: item.id,
+    keyword: item.title, // or item.keyword
+  }));
+}
 
 // --- Types ---
 export interface ScraperResult {
@@ -43,7 +50,7 @@ export interface Scraper {
 
 // --- Human-like helpers ---
 const wait = (min = 100, max = 400) =>
-  new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
+  new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
 
 async function humanScroll(page: Page) {
   const scrolls = Math.floor(Math.random() * 3) + 2;
@@ -76,7 +83,7 @@ async function runScraper({
   keyword: string;
 }) {
   try {
-    const result = await runScraperWithRetries(page, keyword);
+    const result = await scraper.run(page, keyword);
 
     if (!result) {
       console.log(`[SKIP] ${scraper.source} → No price found`);
@@ -97,10 +104,7 @@ async function runScraper({
       },
     ]);
 
-    console.log(
-      `[OK] ${scraper.source}: $${result.price} (${keyword}) → saved`
-    );
-
+    console.log(`[OK] ${scraper.source}: $${result.price} (${keyword}) → saved`);
     return result;
   } catch (err: any) {
     console.error(`[ERROR] ${scraper.source}:`, err.message);
@@ -111,7 +115,7 @@ async function runScraper({
 // --- MAX STEALTH RUNNER ---
 async function main() {
   const browser: Browser = await chromium.launch({
-    headless: false, // can set to true, but false helps avoid detection
+    headless: false,
     args: [
       "--disable-blink-features=AutomationControlled",
       "--disable-web-security",
@@ -128,6 +132,9 @@ async function main() {
 
   const page: Page = await context.newPage();
 
+  // ✅ LOAD ITEMS DYNAMICALLY
+  const itemsToScrape = await getItemsToScrape();
+
   for (const item of itemsToScrape) {
     console.log(`\n🔍 Scraping: ${item.keyword}`);
 
@@ -139,7 +146,7 @@ async function main() {
       keyword: item.keyword,
     });
 
-    // Wait like a real human
+    // Human-like behavior
     await wait(1200, 2500);
     await humanScroll(page);
     await humanMouse(page);
