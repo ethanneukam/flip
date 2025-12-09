@@ -4,7 +4,7 @@ import { ScraperResult } from "../scripts/scrapeRunner";
 export const craigslistScraper = {
   source: "craigslist",
 
-  run: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
     try {
       await page.goto(
         `https://www.craigslist.org/search/sss?query=${encodeURIComponent(
