@@ -64,7 +64,7 @@ async function loginIfNeeded(context: BrowserContext, page: Page, email: string,
 
 export const facebookScraper = {
   source: "Facebook Marketplace",
-  scrape: async (page: Page, keyword: string) => {
+  run: async (page: Page, keyword: string) => {
     try {
       // read creds and optional proxy from env
       const FB_EMAIL = process.env.FB_EMAIL;
