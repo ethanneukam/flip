@@ -57,13 +57,7 @@ const worker = new Worker(
     // --- Loop Scrapers Registry ---
     for (const scraper of allScrapers) {
       try {
-        const result = await runScraperWithRetries({
-          page,
-          scraper,
-          item_id,
-          keyword,
-          maxRetries: 2,
-        });
+        const result = await runScraperWithRetries(scraper, page, keyword, 2);
 
         if (result) {
           await supabase.from("external_prices").upsert(
