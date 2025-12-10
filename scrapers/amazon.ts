@@ -1,4 +1,4 @@
-import { Scraper } from "../scripts/scrapeRunner";
+import { Scraper } from "./types";
 
 export const amazonScraper: Scraper = {
   source: "Amazon",
