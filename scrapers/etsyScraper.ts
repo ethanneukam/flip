@@ -3,7 +3,7 @@ import { ScraperResult } from "../scripts/scrapeRunner";
 export const etsyScraper = {
   source: "etsy",
 
- scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
     try {
       await page.goto(
         `https://www.etsy.com/search?q=${encodeURIComponent(keyword)}`,
@@ -25,7 +25,14 @@ export const etsyScraper = {
 
       const price = parseFloat(priceText);
 
-      return { price, url };
+      // REQUIRED BY TYPE
+      const condition = "Unknown";
+
+      return { 
+        price, 
+        url, 
+        condition 
+      };
     } catch {
       return null;
     }
