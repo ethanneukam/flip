@@ -1,10 +1,9 @@
-import { ScraperResult } from "../scripts/scrapeRunner";
+import { Scraper } from "../scrapers/types"; // <-- required import
 
-
-export const craigslistScraper = {
+export const craigslistScraper: Scraper = {
   source: "craigslist",
 
-  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+  scrape: async (page: any, keyword: string) => {
     try {
       await page.goto(
         `https://www.craigslist.org/search/sss?query=${encodeURIComponent(
@@ -28,7 +27,11 @@ export const craigslistScraper = {
 
       const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
 
-      return { price, url };
+      return {
+        price,
+        url,
+        condition: "Unknown", // <-- REQUIRED to match Scraper interface
+      };
     } catch {
       return null;
     }
