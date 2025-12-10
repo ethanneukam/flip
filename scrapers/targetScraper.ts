@@ -6,7 +6,7 @@ const wait = (min = 300, max = 900) =>
 export const targetScraper = {
   source: "Target",
 
- scrape: async (page, keyword) => {
+  scrape: async (page: any, keyword: string) => {
     try {
       await page.setExtraHTTPHeaders({
         "user-agent": new UserAgent().toString(),
@@ -24,7 +24,6 @@ export const targetScraper = {
       await wait(1000, 1500);
 
       const product = await page.$("a[data-test='product-title']");
-
       if (!product) {
         console.log("⚠️ No Target product found.");
         return null;
@@ -35,7 +34,6 @@ export const targetScraper = {
       );
 
       const priceEl = await page.$("[data-test='current-price']");
-
       if (!priceEl) {
         console.log("⚠️ Target price not found.");
         return null;
