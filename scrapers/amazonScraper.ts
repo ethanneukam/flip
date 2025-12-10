@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import UserAgent from "user-agents";
+import { Scraper } from "./types"; // <-- REQUIRED
 
 // Random delay (human reaction / thinking)
 const wait = (min = 120, max = 450) =>
@@ -12,7 +13,6 @@ async function humanType(page, selector, text) {
   for (const char of text) {
     const typoChance = Math.random();
     if (typoChance < 0.08) {
-      // add typo
       const typo = String.fromCharCode(97 + Math.floor(Math.random() * 26));
       await page.type(selector, typo, { delay: Math.random() * 150 + 30 });
       await wait(80, 160);
@@ -58,7 +58,6 @@ async function humanScroll(page) {
 // Add fingerprint spoofing polyfills
 async function applyFingerprintSpoofing(page) {
   await page.addInitScript(() => {
-    // WebGL spoof
     const getParameter = WebGLRenderingContext.prototype.getParameter;
     WebGLRenderingContext.prototype.getParameter = function (param) {
       if (param === 37445) return "NVIDIA Corporation";
@@ -66,12 +65,10 @@ async function applyFingerprintSpoofing(page) {
       return getParameter.apply(this, [param]);
     };
 
-    // Fix plugins
     Object.defineProperty(navigator, "plugins", {
       get: () => [{ name: "Chrome PDF Plugin" }],
     });
 
-    // Fake media devices
     Object.defineProperty(navigator, "mediaDevices", {
       get: () => ({
         enumerateDevices: () =>
@@ -82,8 +79,7 @@ async function applyFingerprintSpoofing(page) {
       }),
     });
 
-    // Fake battery
-  (navigator as any).getBattery = () =>
+    (navigator as any).getBattery = () =>
       Promise.resolve({
         level: 0.77,
         charging: false,
@@ -93,12 +89,14 @@ async function applyFingerprintSpoofing(page) {
   });
 }
 
-export const amazonScraper = {
+// -------------------------------------------------------------
+// FIXED EXPORT — now typed correctly & scrape property is correct
+// -------------------------------------------------------------
+export const amazonScraper: Scraper = {
   source: "Amazon",
-  scrape
-    : async (page, keyword) => {
+
+  scrape: async (page, keyword) => {
     try {
-      // Random real user agent
       const ua = new UserAgent().toString();
 
       await page.setExtraHTTPHeaders({
@@ -108,7 +106,6 @@ export const amazonScraper = {
 
       await applyFingerprintSpoofing(page);
 
-      // Navigate to Amazon homepage
       await page.goto("https://www.amazon.com", {
         waitUntil: "domcontentloaded",
         timeout: 60000,
@@ -117,35 +114,25 @@ export const amazonScraper = {
       await wait(1000, 1800);
       await humanMouse(page);
 
-      // Human typing search
       await humanType(page, "#twotabsearchtextbox", keyword);
       await wait(300, 600);
       await page.keyboard.press("Enter");
 
-      await page.waitForSelector(".s-main-slot", {
-        timeout: 15000,
-      });
+      await page.waitForSelector(".s-main-slot", { timeout: 15000 });
 
       await wait(1200, 2000);
       await humanScroll(page);
       await humanMouse(page);
       await humanTabSwitch(page);
 
-      // Check for CAPTCHA
       const captcha = await page.$("form[action='/errors/validateCaptcha']");
-      if (captcha) {
-        console.log("⚠️ CAPTCHA detected — skipping.");
-        return null;
-      }
+      if (captcha) return null;
 
-      // Find clean ASIN product
       const product = await page.$(
         '.s-result-item[data-asin]:not([data-asin=""]):not([data-asin="0"])'
       );
-      if (!product) {
-        console.log("⚠️ No product found.");
-        return null;
-      }
+
+      if (!product) return null;
 
       const asin = await product.getAttribute("data-asin");
       const url = `https://www.amazon.com/dp/${asin}`;
@@ -168,21 +155,14 @@ export const amazonScraper = {
         } catch {}
       }
 
-      if (!price) {
-        console.log("⚠️ Price not found.");
-        return null;
-      }
+      if (!price) return null;
 
       await humanMouse(page);
       await humanScroll(page);
 
       console.log(`✅ Amazon: $${price} — ${url}`);
 
-      return {
-        price,
-        url,
-        condition: "New",
-      };
+      return { price, url, condition: "New" };
     } catch (err) {
       console.log("❌ Amazon Scrape Error:", err);
       return null;
