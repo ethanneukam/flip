@@ -1,6 +1,5 @@
 import { ScraperResult } from "../scripts/scrapeRunner";
 
-
 export const offerupScraper = {
   source: "offerup",
 
@@ -30,7 +29,11 @@ export const offerupScraper = {
       const priceText = await priceEl.innerText();
       const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
 
-      return { price, url: fullUrl };
+      return {
+        price,
+        url: fullUrl,
+        condition: "Unknown"       // <-- REQUIRED FIX
+      };
     } catch {
       return null;
     }
