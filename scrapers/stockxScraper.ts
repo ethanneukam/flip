@@ -1,10 +1,9 @@
 import { ScraperResult } from "../scripts/scrapeRunner";
 
-
 export const stockxScraper = {
   source: "stockx",
 
-scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
     try {
       await page.waitForTimeout(600 + Math.random() * 600);
 
@@ -14,7 +13,7 @@ scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
 
       await page.waitForTimeout(2000 + Math.random() * 1200);
 
-      const item = await page.$("a.css-pncxxp"); // works even with anti-bot
+      const item = await page.$("a.css-pncxxp");
       if (!item) return null;
 
       const url = await item.getAttribute("href");
@@ -34,9 +33,7 @@ scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
       return {
         price,
         url: productURL,
-        shipping: null,
-        condition: "new",
-        seller_rating: null,
+        condition: "New"   // required by Scraper interface
       };
     } catch {
       return null;
