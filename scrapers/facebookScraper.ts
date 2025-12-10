@@ -4,6 +4,7 @@ import path from "path";
 import { BrowserContext, Page } from "playwright";
 import UserAgent from "user-agents";
 import { chromium } from "playwright";
+import { ScraperResult } from "../scripts/scrapeRunner"; // <-- ONLY CHANGE ADDED
 
 const COOKIE_DIR = path.resolve(process.cwd(), ".fb_cookies");
 if (!fs.existsSync(COOKIE_DIR)) fs.mkdirSync(COOKIE_DIR);
@@ -19,7 +20,6 @@ async function humanMoves(page: Page){
 }
 
 async function createOrRestoreContext(browser: any, profileId = "default", proxy?: string): Promise<BrowserContext> {
-  // create context with mobile UA / viewport
   const ua = new UserAgent({ deviceCategory: "mobile" }).toString();
   const context = await browser.newContext({
     userAgent: ua,
@@ -47,7 +47,6 @@ async function saveCookies(context: BrowserContext, profileId = "default"){
 }
 
 async function loginIfNeeded(context: BrowserContext, page: Page, email: string, pass: string) {
-  // quick check if logged in
   await page.goto("https://m.facebook.com/marketplace", { waitUntil: "domcontentloaded", timeout: 30000 });
   if (await page.$("a[href*='login']")) {
     console.log("[FB] Not logged in, performing login...");
@@ -64,43 +63,39 @@ async function loginIfNeeded(context: BrowserContext, page: Page, email: string,
 
 export const facebookScraper = {
   source: "Facebook Marketplace",
-  scrape: async (page: Page, keyword: string) => {
+
+  // <-- ONLY ADDED RETURN TYPE
+  scrape: async (page: Page, keyword: string): Promise<ScraperResult | null> => {
     try {
-      // read creds and optional proxy from env
       const FB_EMAIL = process.env.FB_EMAIL;
       const FB_PASSWORD = process.env.FB_PASSWORD;
-      const PROXY = process.env.SCRAPE_PROXY; // optional "http://user:pass@host:port"
+      const PROXY = process.env.SCRAPE_PROXY;
 
       if (!FB_EMAIL || !FB_PASSWORD) {
         console.log("[FB] Missing FB_EMAIL/FB_PASSWORD in env; skipping Facebook Marketplace.");
         return null;
       }
 
-      // We'll create a context per run using the browser that's passed in by your runner.
-      // BUT runner typically shares one context/page; for FB create a fresh context for isolation:
-      // NOTE: If your runner passes a shared page, create new context here:
       const browser = (page as any)._browser || (await chromium.launch({ headless: true }));
       const context = await createOrRestoreContext(browser, "default", PROXY);
       const fbPage = await context.newPage();
 
-      // set mobile UA
-      await fbPage.setExtraHTTPHeaders({ "user-agent": new UserAgent({ deviceCategory: "mobile" }).toString(), "accept-language":"en-US,en;q=0.9" });
+      await fbPage.setExtraHTTPHeaders({
+        "user-agent": new UserAgent({ deviceCategory: "mobile" }).toString(),
+        "accept-language":"en-US,en;q=0.9"
+      });
 
-      // Login if necessary
       await loginIfNeeded(context, fbPage, FB_EMAIL, FB_PASSWORD);
       await wait(1000, 2500);
       await humanMoves(fbPage);
 
-      // Search mobile Marketplace
       const searchUrl = `https://m.facebook.com/marketplace/search/?query=${encodeURIComponent(keyword)}`;
       console.log("[FB] Searching:", searchUrl);
       await fbPage.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
       await wait(1200, 2800);
       await humanMoves(fbPage);
 
-      // Wait for listing cards
       await fbPage.waitForSelector("a[href*='/marketplace/item/'], div[role='article']", { timeout: 15000 }).catch(()=>{});
-      // pick first listing link
       const listingHandle = await fbPage.$("a[href*='/marketplace/item/'], div[role='article']");
       if (!listingHandle) {
         console.log("[FB] No marketplace listing found");
@@ -109,13 +104,11 @@ export const facebookScraper = {
         return null;
       }
 
-      // attempt to extract price and url
       let priceText = null;
       try {
         priceText = await listingHandle.$eval("span", (el: any) => el.textContent).catch(()=>null);
-      } catch(e){}
+      } catch {}
 
-      // fallback: try to click and open detail page
       let listingUrl = null;
       try {
         const link = await listingHandle.$eval("a[href*='/marketplace/item/']", (a:any)=>a.getAttribute("href")).catch(()=>null);
@@ -123,18 +116,17 @@ export const facebookScraper = {
           listingUrl = link.startsWith("http") ? link : `https://m.facebook.com${link}`;
           await fbPage.goto(listingUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
           await wait(900, 1600);
-          // try extracting price from detail
           priceText = priceText || await fbPage.$eval("[aria-label='Price'] , span[dir='ltr'], div[role='article'] span", (el:any)=>el.textContent).catch(()=>null);
         }
-      } catch(e){}
+      } catch {}
 
-      // parse price
       if (!priceText) {
         console.log("[FB] Could not find price text");
         await saveCookies(context);
         await context.close();
         return null;
       }
+
       const priceMatch = priceText.replace(/,/g,'').match(/([0-9]+(?:\.[0-9]{1,2})?)/);
       const price = priceMatch ? parseFloat(priceMatch[1]) : null;
       if (!price) {
@@ -144,12 +136,13 @@ export const facebookScraper = {
         return null;
       }
 
-      // save cookies for reuse
       await saveCookies(context);
-
       console.log(`[FB] Found ${price} @ ${listingUrl}`);
+
       await context.close();
+
       return { price, url: listingUrl || searchUrl, condition: "Used (FB Listing)" };
+
     } catch (err) {
       console.error("❌ FB Marketplace error:", err);
       return null;
