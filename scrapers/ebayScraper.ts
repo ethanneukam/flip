@@ -1,6 +1,7 @@
 // scrapers/ebayScraper.ts
 import { Page } from "playwright";
 import UserAgent from "user-agents";
+import { Scraper } from "./types"; // <-- REQUIRED IMPORT
 
 const wait = (min = 120, max = 450) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
@@ -22,59 +23,83 @@ async function humanScroll(page: Page) {
   }
 }
 
-export const ebayScraper = {
+export const ebayScraper: Scraper = {
   source: "eBay",
+
   scrape: async (page: Page, keyword: string) => {
     try {
       const ua = new UserAgent().toString();
-      await page.setExtraHTTPHeaders({ "user-agent": ua, "accept-language": "en-US,en;q=0.9" });
-      await page.setViewportSize({ width: 1200 + Math.floor(Math.random()*100), height: 800 + Math.floor(Math.random()*100) });
+      await page.setExtraHTTPHeaders({
+        "user-agent": ua,
+        "accept-language": "en-US,en;q=0.9"
+      });
+
+      await page.setViewportSize({
+        width: 1200 + Math.floor(Math.random() * 100),
+        height: 800 + Math.floor(Math.random() * 100)
+      });
 
       const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`;
       console.log("🔍 eBay search:", url);
+
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
 
       await wait(800, 1600);
       await humanMouse(page);
       await humanScroll(page);
 
-      // Wait main results
       await page.waitForSelector(".srp-results .s-item", { timeout: 10000 });
 
-      // Pick first result that looks like a listing
       const product = await page.$(".srp-results .s-item");
       if (!product) {
         console.log("⚠️ eBay: no product found");
         return null;
       }
 
-      // URL
-      const productUrl = await product.$eval("a.s-item__link", (a: any) => a.href).catch(()=>null);
-      // Price (supports "$1,234.56" and "$1,234")
-      const priceText = await product.$eval(".s-item__price", (el: any) => el.textContent).catch(()=>null);
+      const productUrl = await product
+        .$eval("a.s-item__link", (a: any) => a.href)
+        .catch(() => null);
+
+      const priceText = await product
+        .$eval(".s-item__price", (el: any) => el.textContent)
+        .catch(() => null);
+
       if (!priceText) {
         console.log("⚠️ eBay: price not found");
         return null;
       }
-      const priceNumMatch = priceText.replace(/,/g,'').match(/([0-9]+(?:\.[0-9]{1,2})?)/);
-      const price = priceNumMatch ? parseFloat(priceNumMatch[1]) : null;
 
-      // Condition
-      const condition = await product.$eval(".s-item__subtitle .SECONDARY_INFO", el => el.textContent).catch(()=>null) || await product.$eval(".s-item__subtitle", el => el.textContent).catch(()=>"");
+      const priceNumMatch = priceText
+        .replace(/,/g, "")
+        .match(/([0-9]+(?:\.[0-9]{1,2})?)/);
+
+      const price = priceNumMatch ? parseFloat(priceNumMatch[1]) : null;
 
       if (!price) {
         console.log("⚠️ eBay: could not parse price");
         return null;
       }
 
+      const condition =
+        (await product
+          .$eval(".s-item__subtitle .SECONDARY_INFO", el => el.textContent)
+          .catch(() => null)) ||
+        (await product
+          .$eval(".s-item__subtitle", el => el.textContent)
+          .catch(() => "")) ||
+        "Unknown";
+
       await humanMouse(page);
       await humanScroll(page);
 
       console.log(`✅ eBay: $${price} — ${productUrl}`);
+
       return {
         price,
-        url: productUrl || `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`,
-        condition: (condition || "Unknown").trim(),
+        url:
+          productUrl ||
+          `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`,
+        condition: condition.trim()
       };
     } catch (err) {
       console.error("❌ eBay scrape error:", err);
