@@ -1,12 +1,13 @@
 import UserAgent from "user-agents";
+import { Scraper } from "./types"; // <-- REQUIRED
 
 const wait = (min = 300, max = 900) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
 
-export const bestbuyScraper = {
+export const bestbuyScraper: Scraper = {
   source: "BestBuy",
 
-scrape: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     try {
       await page.setExtraHTTPHeaders({
         "user-agent": new UserAgent().toString(),
@@ -30,7 +31,10 @@ scrape: async (page, keyword) => {
         return null;
       }
 
-      const url = await product.$eval("h4 a", el => "https://www.bestbuy.com" + el.getAttribute("href"));
+      const url = await product.$eval(
+        "h4 a",
+        el => "https://www.bestbuy.com" + el.getAttribute("href")
+      );
 
       const priceText = await product.$eval(".priceView-hero-price span", el =>
         el.textContent?.replace(/[^0-9.]/g, "")
