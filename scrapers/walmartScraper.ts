@@ -13,12 +13,17 @@ async function humanScroll(page) {
 export const walmartScraper = {
   source: "Walmart",
 
- scrape: async (page, keyword) => {
+  scrape: async (page, keyword) => {
     try {
+      const ua = new UserAgent().toString();
+
       await page.setExtraHTTPHeaders({
-        "user-agent": new UserAgent().toString(),
+        "user-agent": ua,
         "accept-language": "en-US,en;q=0.9",
       });
+
+      // REQUIRED FIX — Walmart blocks without this
+      await page.setUserAgent(ua);
 
       const searchUrl = `https://www.walmart.com/search?q=${encodeURIComponent(keyword)}`;
       console.log("🔍 Navigating:", searchUrl);
@@ -31,7 +36,6 @@ export const walmartScraper = {
       await wait(1000, 1500);
       await humanScroll(page);
 
-      // Walmart uses div[data-item-id]
       const product = await page.$("[data-item-id]");
 
       if (!product) {
@@ -39,10 +43,8 @@ export const walmartScraper = {
         return null;
       }
 
-      // Pull URL
       const url = await product.$eval("a", el => "https://www.walmart.com" + el.getAttribute("href"));
-      
-      // Price selector attempts
+
       const selectors = [
         "[data-automation='product-price'] span",
         ".mr2.lh-copy.f6 span",
