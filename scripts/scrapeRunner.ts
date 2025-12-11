@@ -57,8 +57,6 @@ export interface Scraper {
   } | null>;
 }
 
-}
-
 // --- Human-like helpers ---
 const wait = (min = 100, max = 400) =>
   new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
