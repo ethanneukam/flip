@@ -6,7 +6,7 @@ export interface Scraper {
   ) => Promise<{
     price: number;
     url: string;
-    condition: string;
+    condition?: string;
     shipping?: number | null;
     seller_rating?: number | null;
   } | null>;
