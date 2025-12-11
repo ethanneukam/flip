@@ -143,19 +143,7 @@ export default function UploadPage() {
 
     if (error) setMessage("Failed to save item");
     else {
-      setMessage("Posted!");
-      setTitle("");
-      setPrice("");
-      setDescription("");
-      setCategory("");
-      setTags("");
-      setImageFiles([]);
-      setSelectedTrack(null);
-    }
-
-    setLoading(false);
-  };
-  // Award coins for creating a listing
+        // Award coins for creating a listing
 await fetch("/api/coins/award", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -173,6 +161,19 @@ await fetch("/api/moderate", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ item_id: itemId, image_url: imageUrl }),
 });
+
+      setMessage("Posted!");
+      setTitle("");
+      setPrice("");
+      setDescription("");
+      setCategory("");
+      setTags("");
+      setImageFiles([]);
+      setSelectedTrack(null);
+    }
+
+    setLoading(false);
+  };
 
   return (
     <main className="bg-white min-h-screen flex flex-col">
