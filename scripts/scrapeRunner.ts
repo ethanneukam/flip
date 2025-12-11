@@ -92,7 +92,7 @@ async function runScraper({
   keyword: string;
 }) {
   try {
-    const result = await scraper.run(page, keyword);
+    const result = await scraper.scrape(page, keyword);
 
     if (!result) {
       console.log(`[SKIP] ${scraper.source} → No price found`);
