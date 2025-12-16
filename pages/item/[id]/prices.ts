@@ -1,15 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // ✅ FIXED
-);
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: "Supabase env vars not configured" });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
   const { id } = req.query;
 
   if (!id || typeof id !== "string") {
@@ -17,7 +21,6 @@ export default async function handler(
   }
 
   try {
-    // 1️⃣ Fetch internal price
     const { data: itemData, error: itemError } = await supabase
       .from("items")
       .select("id, title, price, stock")
@@ -26,7 +29,6 @@ export default async function handler(
 
     if (itemError) throw itemError;
 
-    // 2️⃣ Fetch external prices
     const { data: externalPrices, error: extError } = await supabase
       .from("external_prices")
       .select("source, price, url, condition, last_checked")
@@ -35,7 +37,6 @@ export default async function handler(
 
     if (extError) throw extError;
 
-    // 3️⃣ Compute best price
     const allPrices = [
       ...(itemData?.price
         ? [{ source: "Flip", price: itemData.price, url: null }]
@@ -48,18 +49,12 @@ export default async function handler(
       })),
     ];
 
-    if (allPrices.length === 0) {
-      return res.status(200).json({
-        item: itemData,
-        externalPrices,
-        bestPrice: null,
-        allPrices: [],
-      });
-    }
-
-    const bestPrice = allPrices.reduce((prev, curr) =>
-      curr.price < prev.price ? curr : prev
-    );
+    const bestPrice =
+      allPrices.length > 0
+        ? allPrices.reduce((prev, curr) =>
+            curr.price < prev.price ? curr : prev
+          )
+        : null;
 
     res.status(200).json({
       item: itemData,
