@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // ✅ FIXED
 );
 
 export default async function handler(
@@ -17,7 +17,7 @@ export default async function handler(
   }
 
   try {
-    // 1️⃣ Fetch internal price from Flip items table
+    // 1️⃣ Fetch internal price
     const { data: itemData, error: itemError } = await supabase
       .from("items")
       .select("id, title, price, stock")
@@ -26,7 +26,7 @@ export default async function handler(
 
     if (itemError) throw itemError;
 
-    // 2️⃣ Fetch latest external prices
+    // 2️⃣ Fetch external prices
     const { data: externalPrices, error: extError } = await supabase
       .from("external_prices")
       .select("source, price, url, condition, last_checked")
@@ -35,10 +35,12 @@ export default async function handler(
 
     if (extError) throw extError;
 
-    // 3️⃣ Compute best price across all sources
+    // 3️⃣ Compute best price
     const allPrices = [
-      ...(itemData?.price ? [{ source: "Flip", price: itemData.price, url: null }] : []),
-      ...externalPrices.map((p) => ({
+      ...(itemData?.price
+        ? [{ source: "Flip", price: itemData.price, url: null }]
+        : []),
+      ...(externalPrices ?? []).map((p) => ({
         source: p.source,
         price: p.price,
         url: p.url,
@@ -46,9 +48,18 @@ export default async function handler(
       })),
     ];
 
+    if (allPrices.length === 0) {
+      return res.status(200).json({
+        item: itemData,
+        externalPrices,
+        bestPrice: null,
+        allPrices: [],
+      });
+    }
+
     const bestPrice = allPrices.reduce((prev, curr) =>
       curr.price < prev.price ? curr : prev
-    , allPrices[0]);
+    );
 
     res.status(200).json({
       item: itemData,
@@ -56,7 +67,7 @@ export default async function handler(
       bestPrice,
       allPrices,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Price fusion API error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
