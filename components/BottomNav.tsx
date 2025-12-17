@@ -6,11 +6,9 @@ export default function BottomNav() {
   const router = useRouter();
 
   const navItems = [
-    { href: "/", icon: <Home size={20} />, label: "Home" },
-    { href: "/index", icon: <ShoppingBag size={20} />, label: "Shop" },
-    { href: "/trade", icon: <Repeat size={20} />, label: "Trade" }, // NEW
+    { href: "/", icon: <Home size={20} />, label: "Feed" },
+    { href: "/trade", icon: <Repeat size={20} />, label: "Charts" }, // NEW
     { href: "/search", icon: <Search size={20} />, label: "Search" }, // NEW
-    { href: "/notifications", icon: <Bell size={20} />, label: "Alerts" },
     { href: "/messages", icon: <MessageCircle size={20} />, label: "Chat" },
     { href: "/profile", icon: <User size={20} />, label: "Me" },
   ];
