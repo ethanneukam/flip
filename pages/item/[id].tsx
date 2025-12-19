@@ -10,7 +10,7 @@ import PriceInsights from "@/components/PriceInsights";
 import TrendBadge from "../../components/Trendbadge";
 import FlipScore from "@/components/FlipScore";
 import MomentumTag from "@/components/MomentumTag";
-import { getPriceHistory, getExternalPrices } from "@/lib/prices"; // adjust paths
+import { getPriceHistory, getExternalPrices } from "@/lib/price"; // adjust paths
 
 export default function ItemDetail() {
   const router = useRouter();
