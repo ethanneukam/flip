@@ -36,7 +36,7 @@ const { data } = await readPriceHistory(id);
     history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     res.status(200).json({
-      flipPrices: (flipHistory || []).map((p: any) => ({ date: new Date(p.created_at).toLocaleDateString(), price: p.price })),
+      flipPrices: (data || []).map((p: any) => ({ date: new Date(p.created_at).toLocaleDateString(), price: p.price })),
       externalPrices: external || [],
       history,
     });
