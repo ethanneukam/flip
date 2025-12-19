@@ -1,6 +1,7 @@
 // pages/api/item/[id]/market-prices.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { readPriceHistory } from "@/lib/price/readPrices";
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
 
