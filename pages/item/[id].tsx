@@ -10,6 +10,7 @@ import PriceInsights from "@/components/PriceInsights";
 import TrendBadge from "../../components/Trendbadge";
 import FlipScore from "@/components/FlipScore";
 import MomentumTag from "@/components/MomentumTag";
+import { getPriceHistory, getExternalPrices } from "@/lib/prices"; // adjust paths
 
 export default function ItemDetail() {
   const router = useRouter();
@@ -53,9 +54,10 @@ const [priceHistory, setPriceHistory] = useState<any[]>([]);
 
   // ---------- Derived metrics (computed inside component to use state safely) ----------
   const priceNumbers = priceData.map((p) => p.price);
-  const priceMin = priceNumbers.length ? Math.min(...priceNumbers) : 0;
-  const priceMax = priceNumbers.length ? Math.max(...priceNumbers) : 0;
-  const priceAvg = priceNumbers.length ? priceNumbers.reduce((s, v) => s + v, 0) / priceNumbers.length : 0;
+  const priceMin = Math.min(...priceData.map(p => p.price), item.price || Infinity);
+const priceMax = Math.max(...priceData.map(p => p.price), item.price || 0);
+const sevenDayAvg = Math.round(priceData.slice(-7).reduce((s, p) => s + p.price, 0) / Math.max(1, Math.min(7, priceData.length)));
+const thirtyDayAvg = Math.round(priceData.slice(-30).reduce((s, p) => s + p.price, 0) / Math.max(1, Math.min(30, priceData.length)));
 
   // volatility as percent (0..100)
   const volatilityPercent =
@@ -496,11 +498,11 @@ const enriched = await Promise.all(
             </div>
             <div>
               <p className="text-gray-500">7-Day Avg</p>
-              <p className="font-semibold">${Math.round(priceData.slice(-7).reduce((s, p) => s + p.price, 0) / Math.min(7, priceData.length) || 0)}</p>
+             <p className="font-semibold">${sevenDayAvg}</p>
             </div>
             <div>
               <p className="text-gray-500">30-Day Avg</p>
-              <p className="font-semibold">${Math.round(priceData.slice(-30).reduce((s, p) => s + p.price, 0) / Math.min(30, priceData.length) || 0)}</p>
+             <p className="font-semibold">${thirtyDayAvg}</p>
             </div>
           </div>
 
