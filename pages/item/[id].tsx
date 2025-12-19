@@ -342,7 +342,7 @@ let commentsChannel: any;
           if (likedItems.includes(rec.id)) ai += 7;
           if (favoritedItems.includes(rec.id)) ai += 7;
 
-        const { data } = await readPriceHistory(id);
+   
 
 
           if (trend && trend.length >= 2) {
