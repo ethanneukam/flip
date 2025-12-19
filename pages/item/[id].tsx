@@ -28,6 +28,7 @@ export default function ItemDetail() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
+const [priceHistory, setPriceHistory] = useState<any[]>([]);
 
   const [seller, setSeller] = useState<any>(null);
 
@@ -157,22 +158,12 @@ export default function ItemDetail() {
   useEffect(() => {
     if (!id) return;
     const fetchPriceHistory = async () => {
-     const { data } = await readPriceHistory(id);
+  const res = await fetch(`/api/api/${id}/market-prices`);
+  const json = await res.json();
 
+  setPriceHistory(json.history || []);
+};
 
-      if (error) {
-        console.error("Error fetching price history:", error.message);
-        return;
-      }
-
-      const formattedData =
-        data?.map((entry: any) => ({
-          date: new Date(entry.created_at).toLocaleDateString(),
-          price: entry.price,
-        })) ?? [];
-
-      setPriceData(formattedData);
-    };
 
     fetchPriceHistory();
   }, [id]);
