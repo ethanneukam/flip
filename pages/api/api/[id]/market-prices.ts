@@ -10,11 +10,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Flip internal price history
-    const { data: flipHistory } = await supabase
-      .from("item_prices")
-      .select("price, created_at")
-      .eq("item_id", id)
-      .order("created_at", { ascending: true });
+const { data } = await readPriceHistory(id);
+
 
     // External prices latest per source (lowest/latest)
     const { data: external } = await supabase
