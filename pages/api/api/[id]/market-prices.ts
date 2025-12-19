@@ -24,7 +24,7 @@ const { data } = await readPriceHistory(id);
     // Build merged history: combine flipHistory + external last_checked points
     const history: any[] = [];
 
-    (flipHistory || []).forEach((p: any) => {
+   (data || []).forEach((p: any) => {
       history.push({ date: new Date(p.created_at).toLocaleDateString(), price: p.price, source: "Flip" });
     });
 
