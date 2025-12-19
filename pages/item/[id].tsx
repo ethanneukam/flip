@@ -157,11 +157,8 @@ export default function ItemDetail() {
   useEffect(() => {
     if (!id) return;
     const fetchPriceHistory = async () => {
-      const { data, error } = await supabase
-        .from("item_prices")
-        .select("price, created_at")
-        .eq("item_id", id)
-        .order("created_at", { ascending: true });
+     const { data } = await readPriceHistory(id);
+
 
       if (error) {
         console.error("Error fetching price history:", error.message);
@@ -354,12 +351,8 @@ let commentsChannel: any;
           if (likedItems.includes(rec.id)) ai += 7;
           if (favoritedItems.includes(rec.id)) ai += 7;
 
-          const { data: trend } = await supabase
-            .from("item_prices")
-            .select("price, created_at")
-            .eq("item_id", rec.id)
-            .order("created_at", { ascending: true })
-            .limit(5);
+        const { data } = await readPriceHistory(id);
+
 
           if (trend && trend.length >= 2) {
             const first = trend[0].price;
