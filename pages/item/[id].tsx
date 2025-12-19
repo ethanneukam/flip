@@ -334,34 +334,34 @@ let commentsChannel: any;
         };
       });
 
-      const enriched = await Promise.all(
-        withExternal.map(async (rec) => {
-          let ai = 50;
-          ai += Math.max(0, 25 - Math.abs(rec.price - (item.price || 0)) * 0.5);
-          if (rec.externalPrice && rec.externalPrice < rec.price) ai += 10;
-          if (likedItems.includes(rec.id)) ai += 7;
-          if (favoritedItems.includes(rec.id)) ai += 7;
+const enriched = await Promise.all(
+  withExternal.map(async (rec) => {
+    let ai = 50;
+    ai += Math.max(0, 25 - Math.abs(rec.price - (item.price || 0)) * 0.5);
+    if (rec.externalPrice && rec.externalPrice < rec.price) ai += 10;
+    if (likedItems.includes(rec.id)) ai += 7;
+    if (favoritedItems.includes(rec.id)) ai += 7;
+    
+    const trend = priceHistory || [];
 
-   
+    if (trend.length >= 2) {
+      const first = trend[0].price;
+      const last = trend[trend.length - 1].price;
+      const pct = first !== 0 ? ((last - first) / first) * 100 : 0;
+      if (pct > 10) ai += 10;
+      else if (pct < -10) ai -= 10;
+      rec.momentumPct = pct;
+    } else {
+      rec.momentumPct = 0;
+    }
 
+    return {
+      ...rec,
+      aiScore: Math.min(100, Math.max(1, Math.round(ai))),
+    };
+  })
+);
 
-          if (trend && trend.length >= 2) {
-            const first = trend[0].price;
-            const last = trend[trend.length - 1].price;
-            const pct = first !== 0 ? ((last - first) / first) * 100 : 0;
-            if (pct > 10) ai += 10;
-            else if (pct < -10) ai -= 10;
-            rec.momentumPct = pct;
-          } else {
-            rec.momentumPct = 0;
-          }
-
-          return {
-            ...rec,
-            aiScore: Math.min(100, Math.max(1, Math.round(ai))),
-          };
-        })
-      );
 
       const sorted = enriched.sort(
         (a, b) =>
