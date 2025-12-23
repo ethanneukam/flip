@@ -58,7 +58,9 @@ const [priceHistory, setPriceHistory] = useState<any[]>([]);
 const priceMax = Math.max(...priceData.map(p => p.price), item.price || 0);
 const sevenDayAvg = Math.round(priceData.slice(-7).reduce((s, p) => s + p.price, 0) / Math.max(1, Math.min(7, priceData.length)));
 const thirtyDayAvg = Math.round(priceData.slice(-30).reduce((s, p) => s + p.price, 0) / Math.max(1, Math.min(30, priceData.length)));
-
+const priceSum = priceData.reduce((acc, curr) => acc + curr.price, 0);
+const priceAvg = priceData.length > 0 ? priceSum / priceData.length : 0; 
+  
   // volatility as percent (0..100)
   const volatilityPercent =
     priceData.length > 1 && priceAvg > 0
