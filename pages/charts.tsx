@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Timer, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
-import { OracleService } from '../lib/oracle-api';
+import { OracleService } from '../lib/oracle';
 
 export default function OracleDashboard() {
   const [indices, setIndices] = useState([]);
