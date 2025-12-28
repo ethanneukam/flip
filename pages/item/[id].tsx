@@ -15,7 +15,7 @@ import {
   Clock,
   ChevronRight
 } from "lucide-react";
-import BottomNav from "@/components/layout/BottomNav";
+import BottomNav from "@/components/BottomNav";
 import OraclePriceEmbed from "@/components/asset/OraclePriceEmbed";
 
 export default function ItemDetail() {
