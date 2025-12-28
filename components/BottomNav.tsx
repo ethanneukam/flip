@@ -8,7 +8,7 @@ import {
   Search, // For Lookup
   Lock // For Vault (Private)
 } from 'lucide-react';
-import { PIVOT_CONFIG } from '../../lib/pivot';
+import { PIVOT_CONFIG } from '../lib/pivot';
 
 export default function BottomNav() {
   const router = useRouter();
