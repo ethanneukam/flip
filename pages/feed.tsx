@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabaseClient";
-import BottomNav from "@/components/layout/BottomNav";
+import BottomNav from "@/components/BottomNav";
 import { Zap, TrendingDown, TrendingUp, MessageCircle } from "lucide-react";
 
 export default function PulseFeed() {
