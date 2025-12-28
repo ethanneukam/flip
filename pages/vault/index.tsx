@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { getUserPortfolio } from '@/lib/portfolio';
 import { supabase } from '@/lib/supabaseClient';
-import BottomNav from '@/components/layout/BottomNav';
+import BottomNav from '@/components/BottomNav';
 import { TrendingUp, TrendingDown, Shield, Wallet, ChevronRight } from 'lucide-react';
 
 export default function VaultDashboard() {
