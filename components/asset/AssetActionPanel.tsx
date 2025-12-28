@@ -1,7 +1,7 @@
 // components/asset/AssetActionPanel.tsx
 import React from 'react';
 import { ShieldCheck, Database, ExternalLink } from 'lucide-react';
-import FeatureGuard from '../components/common/FeatureGuard';
+import FeatureGuard from '../common/FeatureGuard';
 import { VaultAsset, OracleMetric } from '../../types/core';
 
 interface AssetActionPanelProps {
