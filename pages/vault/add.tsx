@@ -28,6 +28,7 @@ export default function SecureAssetPage() {
   const [status, setStatus] = useState("");
 
   const categories = ["Luxury", "Tech", "Sneakers", "Collectibles", "Art"];
+const [isManual, setIsManual] = useState(false);
 
   // Handle Image Selection
   const handleFilesChange = (e) => {
@@ -105,6 +106,7 @@ const handleScan = async (file) => {
   setStatus("Scan Complete. Verify details.");
   setLoading(false);
 };
+
       // 4. Award FlipCoins (Engagement)
       await fetch("/api/coins/award", {
         method: "POST",
@@ -241,7 +243,46 @@ const handleScan = async (file) => {
           </button>
         </div>
       </div>
-      
+      const [isManual, setIsManual] = useState(false);
+
+return (
+  <main className="min-h-screen bg-[#F9FAFB]">
+    {/* ... Header ... */}
+    
+    <div className="max-w-md mx-auto p-6">
+      {/* Toggle between AI Scan and Manual */}
+      <div className="flex bg-gray-100 p-1 rounded-2xl mb-8">
+        <button 
+          onClick={() => setIsManual(false)}
+          className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${!isManual ? 'bg-white shadow-sm' : 'text-gray-400'}`}
+        >
+          AI Google Scan
+        </button>
+        <button 
+          onClick={() => setIsManual(true)}
+          className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${isManual ? 'bg-white shadow-sm' : 'text-gray-400'}`}
+        >
+          Manual Secure
+        </button>
+      </div>
+
+      {!isManual ? (
+        <section className="animate-in fade-in slide-in-from-bottom-4">
+          {/* Your existing Google Vision Camera/Upload UI */}
+          <p className="text-center text-[10px] text-gray-400 font-bold uppercase mt-4">
+            Point camera at asset labels or serial numbers
+          </p>
+        </section>
+      ) : (
+        <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+          {/* Manual Form Fields (Title, SKU, Category) */}
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
+             <Info size={16} className="text-blue-500 mt-1" />
+             <p className="text-[11px] font-medium text-blue-700 leading-relaxed">
+               Manual entries are flagged for Oracle verification. 
+               Ensure the SKU matches official manufacturer records.
+             </p>
+          </div>
       {/* Decorative Oracle Background Element */}
       <div className="fixed bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-white to-transparent pointer-events-none -z-10" />
     </main>
