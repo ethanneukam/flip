@@ -83,7 +83,28 @@ export default function SecureAssetPage() {
           category: category
         }
       });
+// Add this function to your SecureAssetPage
+const handleScan = async (file) => {
+  setLoading(true);
+  setStatus("AI Analyzing Asset...");
+  
+  // 1. Upload to Supabase first to get a URL
+  const url = await uploadImage(file);
+  
+  // 2. Send to our new Vision API
+  const res = await fetch('/api/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageUrl: url })
+  });
+  const data = await res.json();
 
+  // 3. Auto-fill the form
+  setTitle(data.suggestion || "");
+  setSku(data.probableSku || "");
+  setStatus("Scan Complete. Verify details.");
+  setLoading(false);
+};
       // 4. Award FlipCoins (Engagement)
       await fetch("/api/coins/award", {
         method: "POST",
