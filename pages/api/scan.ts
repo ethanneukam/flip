@@ -2,40 +2,67 @@
 import { ImageAnnotatorClient } from '@google-cloud/vision';
 
 const client = new ImageAnnotatorClient({
-  credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS),
+  // Use the JSON environment variable we discussed earlier
+  credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '{}'),
 });
 
-export default async function handler(req, res) {
-  const { imageUrl } = req.body;
-
-  // 1. Google Vision Label & Text Detection
-  const [result] = await client.annotateImage({
-    image: { source: { imageUri: imageUrl } },
-    features: [{ type: 'LABEL_DETECTION' }, { type: 'TEXT_DETECTION' }],
-  });
-
-  const labels = result.labelAnnotations || [];
-  const text = result.textAnnotations?.[0]?.description || "";
-
-  // 2. Logic to "Guess" the SKU from text or labels
-  // This is a simple version: searching for model numbers in the text
-  const skuMatch = text.match(/[A-Z0-9-]{5,15}/g); 
-
-  res.status(200).json({
-    suggestion: labels[0]?.description, // e.g., "Sneaker"
-    detectedText: text,
-    probableSku: skuMatch ? skuMatch[0] : null
-    async function calculateConditionScore(labels: any[]) {
-  // We look for negative visual cues in Google's labels
-  const wearKeywords = ['scratch', 'stain', 'tear', 'damage', 'used'];
+/**
+ * Day 26: Condition Scoring Logic
+ * Scans labels for negative keywords to calculate a value multiplier.
+ */
+function calculateConditionScore(labels: any[]) {
+  const wearKeywords = ['scratch', 'stain', 'tear', 'damage', 'used', 'worn', 'dirty'];
   let penalty = 0;
 
   labels.forEach(l => {
-    if (wearKeywords.includes(l.description.toLowerCase())) {
+    const description = l.description?.toLowerCase() || "";
+    if (wearKeywords.some(keyword => description.includes(keyword))) {
       penalty += 0.15; // 15% drop per negative trait found
     }
   });
 
-  return Math.max(1 - penalty, 0.5); // Never drop below 50% value
-  });
+  // Never drop below 50% value (0.5)
+  return Math.max(1 - penalty, 0.5);
+}
+
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  try {
+    const { imageUrl } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: "Image URL is required" });
+    }
+
+    // 1. Google Vision Label & Text Detection
+    const [result] = await client.annotateImage({
+      image: { source: { imageUri: imageUrl } },
+      features: [{ type: 'LABEL_DETECTION' }, { type: 'TEXT_DETECTION' }],
+    });
+
+    const labels = result.labelAnnotations || [];
+    const text = result.textAnnotations?.[0]?.description || "";
+
+    // 2. SKU Matching Logic (Regex for model numbers/serial codes)
+    const skuMatch = text.match(/[A-Z0-9-]{5,15}/g); 
+
+    // 3. Calculate Condition Score (Day 26)
+    const score = calculateConditionScore(labels);
+
+    // 4. Return the complete Oracle Analysis
+    res.status(200).json({
+      suggestion: labels[0]?.description || "Unknown Asset",
+      detectedText: text,
+      probableSku: skuMatch ? skuMatch[0] : null,
+      conditionScore: score,
+      labels: labels.slice(0, 5).map(l => l.description) // Send top 5 labels for UI debug
+    });
+
+  } catch (error: any) {
+    console.error("Vision API Error:", error);
+    res.status(500).json({ error: "Analysis failed", details: error.message });
+  }
 }
