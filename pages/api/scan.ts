@@ -25,5 +25,17 @@ export default async function handler(req, res) {
     suggestion: labels[0]?.description, // e.g., "Sneaker"
     detectedText: text,
     probableSku: skuMatch ? skuMatch[0] : null
+    async function calculateConditionScore(labels: any[]) {
+  // We look for negative visual cues in Google's labels
+  const wearKeywords = ['scratch', 'stain', 'tear', 'damage', 'used'];
+  let penalty = 0;
+
+  labels.forEach(l => {
+    if (wearKeywords.includes(l.description.toLowerCase())) {
+      penalty += 0.15; // 15% drop per negative trait found
+    }
+  });
+
+  return Math.max(1 - penalty, 0.5); // Never drop below 50% value
   });
 }
