@@ -32,9 +32,9 @@ export async function getUserPortfolio(userId: string) {
     }
   });
 
- return {
-    totalValue: totalValue || 0,
-    avgChange: priceCount > 0 ? totalChange / priceCount : 0,
-    count: items?.length || 0
+return {
+    totalValue: Number(totalValue || 0),
+    avgChange: Number(priceCount > 0 ? totalChange / priceCount : 0),
+    count: Number(items?.length || 0)
   };
 }
