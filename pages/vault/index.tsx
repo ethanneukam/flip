@@ -6,7 +6,11 @@ import BottomNav from '@/components/BottomNav';
 import { TrendingUp, TrendingDown, Shield, Wallet, ChevronRight } from 'lucide-react';
 
 export default function VaultDashboard() {
-  const [stats, setStats] = useState({ totalValue: 0, avgChange: 0, count: 0 });
+  const [stats, setStats] = useState({ 
+  totalValue: 0, 
+  avgChange: 0, 
+  count: 0 
+});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
