@@ -40,8 +40,6 @@
     "puppeteer": "^24.30.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "posthog-js": "^1.88.0",
-    "posthog-node": "^3.3.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "recharts": "^3.4.1",
