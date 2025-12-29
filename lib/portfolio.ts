@@ -8,7 +8,7 @@ export async function getUserPortfolio(userId: string) {
     .select('sku, title')
     .eq('user_id', userId);
 
-  if (!items || items.length === 0) return { totalValue: 0, change24h: 0, count: 0 };
+  if (!items || items.length === 0) return { totalValue: 0, avgChange: 0, count: 0 };
 
   const skus = items.map(i => i.sku).filter(Boolean);
 
