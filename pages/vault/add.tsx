@@ -1,4 +1,3 @@
-// pages/vault/add.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { uploadImage } from "@/lib/uploadImage";
@@ -11,7 +10,10 @@ import {
   Plus, 
   X, 
   Loader2, 
-  Zap 
+  Zap,
+  Info,
+  Edit3,
+  Camera
 } from "lucide-react";
 
 export default function SecureAssetPage() {
@@ -19,39 +21,73 @@ export default function SecureAssetPage() {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
-  const [sku, setSku] = useState(""); // Critical for Oracle lookup
+  const [sku, setSku] = useState(""); 
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Luxury");
-  const [imageFiles, setImageFiles] = useState([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
+  const [isManual, setIsManual] = useState(false);
+  const [scanResult, setScanResult] = useState<any>(null);
 
   const categories = ["Luxury", "Tech", "Sneakers", "Collectibles", "Art"];
-const [isManual, setIsManual] = useState(false);
 
   // Handle Image Selection
-  const handleFilesChange = (e) => {
-    const files = Array.from(e.target.files);
-    setImageFiles((prev) => [...prev, ...files].slice(0, 1)); // Restricting to 1 primary for Oracle consistency
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const selected = files.slice(0, 1);
+    setImageFiles(selected);
+    
+    // Auto-trigger scan if not in manual mode
+    if (!isManual && selected[0]) {
+      handleScan(selected[0]);
+    }
   };
 
-  const removeImage = () => setImageFiles([]);
+  const removeImage = () => {
+    setImageFiles([]);
+    setScanResult(null);
+  };
 
-  // --- THE SECURE LOGIC ---
-  const handleSecureAsset = async (e) => {
-    e.preventDefault();
+  // AI Scan Logic
+  const handleScan = async (file: File) => {
+    setLoading(true);
+    setStatus("AI Analyzing Asset...");
+    
+    try {
+      const url = await uploadImage(file);
+      const res = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: url })
+      });
+      const data = await res.json();
+
+      setScanResult(data);
+      setTitle(data.suggestion || "");
+      setSku(data.probableSku || "");
+      setStatus("Scan Complete. Verify details.");
+    } catch (err) {
+      console.error(err);
+      setStatus("Scan failed. Try manual entry.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // The Secure Logic
+  const handleSecureAsset = async () => {
     if (!title || imageFiles.length === 0) return;
     
     setLoading(true);
     setStatus("Uploading to encrypted storage...");
 
     try {
-      // 1. Upload Image
       const imageUrl = await uploadImage(imageFiles[0]);
       if (!imageUrl) throw new Error("Storage upload failed");
 
-      // 2. Insert into 'items' (The Vault)
+      // Insert into 'items'
       const { data: item, error: itemError } = await supabase
         .from("items")
         .insert([
@@ -61,8 +97,9 @@ const [isManual, setIsManual] = useState(false);
             description,
             image_url: imageUrl,
             category,
-            user_id: session.user.id,
-            status: 'secured'
+            user_id: session?.user.id,
+            status: 'secured',
+            condition_score: scanResult?.conditionScore || 1.0
           },
         ])
         .select()
@@ -70,11 +107,11 @@ const [isManual, setIsManual] = useState(false);
 
       if (itemError) throw itemError;
 
-      // 3. Post to Pulse Feed (The Social Logic)
+      // Post to Pulse Feed
       setStatus("Broadcasting to Pulse...");
       await supabase.from('feed_events').insert({
         type: 'VAULT_ADD',
-        user_id: session.user.id,
+        user_id: session?.user.id,
         title: `Asset Secured`,
         description: `added ${title} to their private vault.`,
         metadata: {
@@ -84,35 +121,13 @@ const [isManual, setIsManual] = useState(false);
           category: category
         }
       });
-// Add this function to your SecureAssetPage
-const handleScan = async (file) => {
-  setLoading(true);
-  setStatus("AI Analyzing Asset...");
-  
-  // 1. Upload to Supabase first to get a URL
-  const url = await uploadImage(file);
-  
-  // 2. Send to our new Vision API
-  const res = await fetch('/api/scan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUrl: url })
-  });
-  const data = await res.json();
 
-  // 3. Auto-fill the form
-  setTitle(data.suggestion || "");
-  setSku(data.probableSku || "");
-  setStatus("Scan Complete. Verify details.");
-  setLoading(false);
-};
-
-      // 4. Award FlipCoins (Engagement)
+      // Award FlipCoins
       await fetch("/api/coins/award", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: session.user.id,
+          user_id: session?.user.id,
           amount: 5,
           reason: "Vault Security Bonus",
           related_id: item.id,
@@ -120,7 +135,7 @@ const handleScan = async (file) => {
       });
 
       setStatus("Asset Secured!");
-      setTimeout(() => router.push(`/item/${item.id}`), 1000);
+      setTimeout(() => router.push(`/vault`), 1000);
 
     } catch (err) {
       console.error(err);
@@ -133,8 +148,8 @@ const handleScan = async (file) => {
   if (!session) return null;
 
   return (
-    <main className="bg-[#F9FAFB] min-h-screen flex flex-col">
-      {/* High-Contrast Header */}
+    <main className="bg-[#F9FAFB] min-h-screen flex flex-col pb-12">
+      {/* Header */}
       <nav className="bg-white border-b border-gray-100 p-4 sticky top-0 z-30 flex items-center justify-between">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
           <ArrowLeft size={20} />
@@ -143,20 +158,36 @@ const handleScan = async (file) => {
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 leading-none mb-1">Vault Entry</p>
           <h1 className="text-xs font-bold text-black font-mono tracking-widest">NEW_ASSET_SECURE</h1>
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </nav>
 
-      <div className="max-w-md mx-auto w-full p-6 space-y-8">
+      <div className="max-w-md mx-auto w-full p-6 space-y-6">
         
-        {/* 1. Image Upload Area (Vault Identity) */}
+        {/* Toggle between AI Scan and Manual */}
+        <div className="flex bg-gray-100 p-1 rounded-2xl">
+          <button 
+            onClick={() => setIsManual(false)}
+            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all flex items-center justify-center space-x-2 ${!isManual ? 'bg-white shadow-sm text-black' : 'text-gray-400'}`}
+          >
+            <Zap size={12} /> <span>AI Google Scan</span>
+          </button>
+          <button 
+            onClick={() => setIsManual(true)}
+            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all flex items-center justify-center space-x-2 ${isManual ? 'bg-white shadow-sm text-black' : 'text-gray-400'}`}
+          >
+            <Edit3 size={12} /> <span>Manual Secure</span>
+          </button>
+        </div>
+
+        {/* Image Upload Area */}
         <section>
-          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 block">Primary Asset View</label>
           <div className="relative aspect-square rounded-[32px] overflow-hidden bg-white border-2 border-dashed border-gray-200 hover:border-black transition-colors group">
             {imageFiles.length > 0 ? (
               <div className="relative w-full h-full">
                 <img
                   src={URL.createObjectURL(imageFiles[0])}
                   className="object-contain w-full h-full p-8"
+                  alt="Asset Preview"
                 />
                 <button
                   onClick={removeImage}
@@ -168,16 +199,69 @@ const handleScan = async (file) => {
             ) : (
               <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <Plus size={24} className="text-gray-400" />
+                  <Camera size={24} className="text-gray-400" />
                 </div>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upload Proof</span>
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center px-4">
+                  {isManual ? "Upload Asset Proof" : "Scan Asset for AI ID"}
+                </span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleFilesChange} />
               </label>
             )}
           </div>
+          {!isManual && !imageFiles.length && (
+             <p className="text-center text-[10px] text-gray-400 font-bold uppercase mt-4">
+               Point camera at asset labels or serial numbers
+             </p>
+          )}
         </section>
 
-        {/* 2. Asset Metadata */}
+        {/* Condition Scoring UI (Only if scanned) */}
+        {scanResult && !isManual && (
+          <div className="p-4 bg-white border border-gray-100 rounded-3xl shadow-sm animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Oracle Inspection</h4>
+              <div className="flex items-center space-x-1">
+                <div className={`h-2 w-2 rounded-full ${scanResult.conditionScore > 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                <span className="text-[10px] font-bold uppercase italic text-black">AI Graded</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-2xl font-black italic tracking-tighter">
+                  {(scanResult.conditionScore * 10).toFixed(1)}/10
+                </p>
+                <p className="text-[9px] font-bold text-gray-400 uppercase">Condition Grade</p>
+              </div>
+              
+              <div className="text-right">
+                <p className="text-sm font-bold text-red-500">
+                  -{((1 - scanResult.conditionScore) * 100).toFixed(0)}%
+                </p>
+                <p className="text-[9px] font-bold text-gray-400 uppercase">Value Adjustment</p>
+              </div>
+            </div>
+
+            <div className="mt-4 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-black h-full transition-all duration-1000" 
+                style={{ width: `${scanResult.conditionScore * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Manual Info Tip */}
+        {isManual && (
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
+             <Info size={16} className="text-blue-500 mt-1" />
+             <p className="text-[11px] font-medium text-blue-700 leading-relaxed">
+               Manual entries are flagged for Oracle verification. Ensure the SKU matches official manufacturer records.
+             </p>
+          </div>
+        )}
+
+        {/* Form Fields */}
         <section className="space-y-4">
           <div>
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">Asset Name</label>
@@ -222,7 +306,7 @@ const handleScan = async (file) => {
           </div>
         </section>
 
-        {/* 3. Status and Action */}
+        {/* Action Button */}
         <div className="pt-4">
           <p className="text-center text-[10px] font-bold text-gray-400 uppercase mb-4 tracking-tighter">
             {status || "Ready for vault encryption"}
@@ -243,80 +327,7 @@ const handleScan = async (file) => {
           </button>
         </div>
       </div>
-      const [isManual, setIsManual] = useState(false);
-
-return (
-  <main className="min-h-screen bg-[#F9FAFB]">
-    {/* ... Header ... */}
-    
-    <div className="max-w-md mx-auto p-6">
-      {/* Toggle between AI Scan and Manual */}
-      <div className="flex bg-gray-100 p-1 rounded-2xl mb-8">
-        <button 
-          onClick={() => setIsManual(false)}
-          className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${!isManual ? 'bg-white shadow-sm' : 'text-gray-400'}`}
-        >
-          AI Google Scan
-        </button>
-        <button 
-          onClick={() => setIsManual(true)}
-          className={`flex-1 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${isManual ? 'bg-white shadow-sm' : 'text-gray-400'}`}
-        >
-          Manual Secure
-        </button>
-      </div>
-
-      {!isManual ? (
-        <section className="animate-in fade-in slide-in-from-bottom-4">
-          {/* Your existing Google Vision Camera/Upload UI */}
-          <p className="text-center text-[10px] text-gray-400 font-bold uppercase mt-4">
-            Point camera at asset labels or serial numbers
-          </p>
-        </section>
-      ) : (
-        <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-          {/* Manual Form Fields (Title, SKU, Category) */}
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
-             <Info size={16} className="text-blue-500 mt-1" />
-             <p className="text-[11px] font-medium text-blue-700 leading-relaxed">
-               Manual entries are flagged for Oracle verification. 
-               Ensure the SKU matches official manufacturer records.
-             </p>
-          </div>
-          {scanResult && (
-  <div className="mt-6 p-4 bg-white border border-gray-100 rounded-3xl shadow-sm animate-in zoom-in-95">
-    <div className="flex justify-between items-center mb-4">
-      <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Oracle Inspection</h4>
-      <div className="flex items-center space-x-1">
-        <div className={`h-2 w-2 rounded-full ${scanResult.conditionScore > 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`} />
-        <span className="text-[10px] font-bold uppercase italic">AI Graded</span>
-      </div>
-    </div>
-
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-black italic tracking-tighter">
-          {(scanResult.conditionScore * 10).toFixed(1)}/10
-        </p>
-        <p className="text-[9px] font-bold text-gray-400 uppercase">Condition Grade</p>
-      </div>
       
-      <div className="text-right">
-        <p className="text-sm font-bold text-red-500">
-          -{((1 - scanResult.conditionScore) * 100).toFixed(0)}%
-        </p>
-        <p className="text-[9px] font-bold text-gray-400 uppercase">Value Adjustment</p>
-      </div>
-    </div>
-
-    <div className="mt-4 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-      <div 
-        className="bg-black h-full transition-all duration-1000" 
-        style={{ width: `${scanResult.conditionScore * 100}%` }}
-      />
-    </div>
-  </div>
-      {/* Decorative Oracle Background Element */}
       <div className="fixed bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-white to-transparent pointer-events-none -z-10" />
     </main>
   );
