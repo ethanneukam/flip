@@ -283,6 +283,39 @@ return (
                Ensure the SKU matches official manufacturer records.
              </p>
           </div>
+          {scanResult && (
+  <div className="mt-6 p-4 bg-white border border-gray-100 rounded-3xl shadow-sm animate-in zoom-in-95">
+    <div className="flex justify-between items-center mb-4">
+      <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">Oracle Inspection</h4>
+      <div className="flex items-center space-x-1">
+        <div className={`h-2 w-2 rounded-full ${scanResult.conditionScore > 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`} />
+        <span className="text-[10px] font-bold uppercase italic">AI Graded</span>
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-2xl font-black italic tracking-tighter">
+          {(scanResult.conditionScore * 10).toFixed(1)}/10
+        </p>
+        <p className="text-[9px] font-bold text-gray-400 uppercase">Condition Grade</p>
+      </div>
+      
+      <div className="text-right">
+        <p className="text-sm font-bold text-red-500">
+          -{((1 - scanResult.conditionScore) * 100).toFixed(0)}%
+        </p>
+        <p className="text-[9px] font-bold text-gray-400 uppercase">Value Adjustment</p>
+      </div>
+    </div>
+
+    <div className="mt-4 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+      <div 
+        className="bg-black h-full transition-all duration-1000" 
+        style={{ width: `${scanResult.conditionScore * 100}%` }}
+      />
+    </div>
+  </div>
       {/* Decorative Oracle Background Element */}
       <div className="fixed bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-white to-transparent pointer-events-none -z-10" />
     </main>
