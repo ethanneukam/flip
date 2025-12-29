@@ -5,12 +5,19 @@ import { supabase } from '@/lib/supabaseClient';
 import BottomNav from '@/components/BottomNav';
 import { TrendingUp, TrendingDown, Shield, Wallet, ChevronRight } from 'lucide-react';
 
+interface VaultStats {
+  totalValue: number;
+  avgChange: number;
+  count: number;
+}
+
 export default function VaultDashboard() {
-  const [stats, setStats] = useState({ 
-  totalValue: 0, 
-  avgChange: 0, 
-  count: 0 
-});
+  // 2. Apply the interface to the useState
+  const [stats, setStats] = useState<VaultStats>({ 
+    totalValue: 0, 
+    avgChange: 0, 
+    count: 0 
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
