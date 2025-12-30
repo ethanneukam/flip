@@ -1,40 +1,82 @@
-import { ScraperResult } from "../scripts/scrapeRunner";
+import { Scraper } from "./types";
 
-export const offerupScraper = {
-  source: "offerup",
+const wait = (min = 500, max = 1500) =>
+  new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
 
-  scrape: async (page: any, keyword: string): Promise<ScraperResult | null> => {
+// OfferUp is very sensitive to headless detection
+async function applyFingerprintSpoofing(page: any) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    const getParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function (param: number) {
+      if (param === 37445) return "NVIDIA Corporation";
+      if (param === 37446) return "NVIDIA GeForce GTX 1080/PCIe/SSE2";
+      return getParameter.apply(this, [param]);
+    };
+  });
+}
+
+export const offerupScraper: Scraper = {
+  source: "OfferUp",
+
+  scrape: async (page: any, keyword: string) => {
     try {
-      await page.goto(
-        `https://offerup.com/search/?q=${encodeURIComponent(keyword)}`,
-        { waitUntil: "domcontentloaded" }
-      );
+      await applyFingerprintSpoofing(page);
+      
+      const searchUrl = `https://offerup.com/search/?q=${encodeURIComponent(keyword)}`;
+      console.log("🔍 OfferUp search:", searchUrl);
 
-      await page.waitForTimeout(2000 + Math.random() * 1000);
+      await page.goto(searchUrl, { 
+        waitUntil: "networkidle", 
+        timeout: 50000 
+      });
 
-      const item = await page.$("a[href*='/item/']");
-      if (!item) return null;
+      await wait(2000, 4000);
 
-      const url = await item.getAttribute("href");
-      if (!url) return null;
+      // OfferUp uses 'db-item-tile' or generic links for items
+      const item = await page.$("a[href*='/item/detail/']");
+      if (!item) {
+        console.log("⚠️ OfferUp: No product found");
+        return null;
+      }
 
-      const fullUrl = url.startsWith("http") ? url : `https://offerup.com${url}`;
+      // --- METADATA EXTRACTION ---
+      // We grab title and image from the 'alt' and 'src' of the listing image
+      const title = await item.$eval("img", (img: any) => img.alt).catch(() => "Unknown Asset");
+      const imageUrl = await item.$eval("img", (img: any) => img.src).catch(() => null);
+      
+      const relUrl = await item.getAttribute("href");
+      const fullUrl = relUrl.startsWith("http") ? relUrl : `https://offerup.com${relUrl}`;
 
-      await page.goto(fullUrl, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(1200 + Math.random() * 800);
+      // Extract price from the aria-label or text content of the tile
+      const priceText = await item.$eval("span, div", (el: any) => {
+        // Look specifically for strings containing '$'
+        return el.textContent.includes('$') ? el.textContent : null;
+      }).catch(() => null);
 
-      const priceEl = await page.$("span[class*='Price']");
-      if (!priceEl) return null;
+      if (!priceText) {
+        // Fallback: if we can't find price on tile, we must navigate (riskier)
+        await page.goto(fullUrl, { waitUntil: "domcontentloaded" });
+        await wait(1000, 2000);
+        const detailPrice = await page.$eval("span[class*='Price'], h1 + span", (el: any) => el.innerText).catch(() => null);
+        if (!detailPrice) return null;
+        var finalPrice = parseFloat(detailPrice.replace(/[^0-9.]/g, ""));
+      } else {
+        var finalPrice = parseFloat(priceText.replace(/[^0-9.]/g, ""));
+      }
 
-      const priceText = await priceEl.innerText();
-      const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
+      console.log(`✅ OfferUp: $${finalPrice} — ${title}`);
 
       return {
-        price,
+        price: finalPrice,
         url: fullUrl,
-        condition: "Unknown"       // <-- REQUIRED FIX
+        condition: "Used",
+        title: title,
+        image_url: imageUrl,
+        ticker: keyword
       };
-    } catch {
+    } catch (err) {
+      console.error("❌ OfferUp Scrape Error:", err);
       return null;
     }
   },
