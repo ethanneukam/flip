@@ -3,6 +3,7 @@ import Head from "next/head";
 import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "@/components/BottomNav";
 import { Zap, TrendingUp, MessageCircle, ShieldCheck, Clock } from "lucide-react";
+import MarketChart from "@/components/oracle/MarketChart";
 
 export default function PulseFeed() {
   const [events, setEvents] = useState<any[]>([]);
