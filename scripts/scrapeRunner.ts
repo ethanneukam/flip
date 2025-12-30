@@ -8,7 +8,6 @@ import UserAgent from "user-agents";
 
 // Import all scrapers from your index file
 import { allScrapers } from "../scrapers";
-import { amazonScraper } from "../scrapers/amazonScraper";
 
 // --- Supabase Setup ---
 const supabase = createClient(
@@ -16,11 +15,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// --- Interfaces ---
+// --- Interfaces (Matched to your scrapers) ---
 export interface ScraperResult {
   price: number;
   url: string;
-  condition: string;
+  condition?: string; // Made optional to fix the build error
   title?: string;
   image_url?: string | null;
   ticker?: string;
@@ -97,7 +96,7 @@ async function runScraper({
         source: scraper.source,
         price: result.price,
         url: result.url,
-        condition: result.condition || "Unknown",
+        condition: result.condition || "New", // Fallback if missing
         title: result.title || null,
         image_url: result.image_url || null,
         created_at: new Date().toISOString(),
@@ -117,7 +116,7 @@ async function runScraper({
 // --- Main Stealth Runner ---
 async function main() {
   const browser: Browser = await chromium.launch({
-    headless: true, // Set to false for debugging
+    headless: true, 
     args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
   });
 
@@ -135,7 +134,6 @@ async function main() {
     let sumPrices = 0;
     let successfulScrapes = 0;
 
-    // Iterate through all imported scrapers
     for (const scraper of allScrapers) {
       const result = await runScraper({
         page,
@@ -149,15 +147,13 @@ async function main() {
         successfulScrapes++;
       }
 
-      // Stealth delay between scrapers
       await wait(1500, 3000);
-      await humanMouse(page);
     }
 
-    // ✅ Update "Flip Price" (The authoritative average)
+    // ✅ Update "Flip Price" in items table
     if (successfulScrapes > 0) {
       const flipPrice = sumPrices / successfulScrapes;
-      console.log(`✨ Aggregated Flip Price for ${item.keyword}: $${flipPrice.toFixed(2)}`);
+      console.log(`✨ FLIP PRICE: $${flipPrice.toFixed(2)}`);
 
       await supabase
         .from("items")
@@ -170,7 +166,7 @@ async function main() {
   }
 
   await browser.close();
-  console.log("\n✅ Global Market Scan Complete!");
+  console.log("\n✅ Market Scan Complete!");
 }
 
 main().catch(console.error);
