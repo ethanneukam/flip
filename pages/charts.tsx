@@ -1,120 +1,113 @@
-// pages/charts.tsx
-import { useEffect, useState } from 'react';
-import { Timer, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import MarketChart from "@/components/oracle/MarketChart";
+import { Search, ShieldCheck, TrendingUp, TrendingDown, Info } from "lucide-react";
 import BottomNav from '../components/BottomNav';
-import { OracleService } from '../lib/oracle';
-import MarketChart from '../components/oracle/MarketChart'; // Injected Chart Component
 
-export default function OracleDashboard() {
-  const [indices, setIndices] = useState([]);
-  const [topMovers, setTopMovers] = useState([]);
-  
-  // Logic to show user when the next Vercel Cron runs
-  const [nextSync, setNextSync] = useState("Calculating...");
+export default function OracleTerminal() {
+  const [ticker, setTicker] = useState("RLX-SUB-126610");
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mocking the countdown to the next daily scrape
-    const now = new Date();
-    const tonight = new Date().setHours(24, 0, 0, 0);
-    const diff = Math.abs(tonight - now.getTime());
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    setNextSync(`${hours}h remaining until next global sync`);
-  }, []);
+    fetchTickerData();
+  }, [ticker]);
+
+  const fetchTickerData = async () => {
+    setLoading(true);
+    const { data: marketData } = await supabase
+      .from("market_data")
+      .select("*")
+      .eq("ticker", ticker)
+      .single();
+    
+    if (marketData) setData(marketData);
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-24 font-sans">
-      {/* 1. Global Status Bar (The "Bloomberg" Tape) */}
-      <div className="bg-black text-white px-4 py-2 flex justify-between items-center overflow-hidden whitespace-nowrap">
-        <div className="flex space-x-6 animate-marquee">
-          <span className="text-[10px] font-mono tracking-tighter uppercase">
-            ROLEX SUB: $14,200 (+2.1%) • PANDA DUNK: $185 (-1.2%) • IPHONE 15P: $920 (+0.4%)
-          </span>
+    <main className="min-h-screen bg-[#0A0A0A] text-white p-4 font-mono">
+      {/* Top Header & Ticker Search */}
+      <div className="flex justify-between items-center border-b border-white/10 pb-4 mb-4">
+        <div>
+          <h1 className="text-blue-500 font-black text-xs uppercase tracking-widest">Oracle Terminal v1.0</h1>
+          <p className="text-[10px] text-gray-500">LIVE MARKET FEED</p>
+        </div>
+        
+        {/* Ticker Selector (Top Right) */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
+          <input 
+            className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48"
+            placeholder="ENTER TICKER..."
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+          />
         </div>
       </div>
 
-      <main className="p-4 space-y-6">
-        {/* 2. Oracle Identity & Sync Timer */}
-        <header className="space-y-1">
-          <h1 className="text-2xl font-black italic tracking-tighter">ORACLE</h1>
-          <div className="flex items-center space-x-2 text-gray-500">
-            <Timer size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">{nextSync}</span>
-          </div>
-        </header>
-
-        {/* 3. Category Indices (Updated with Chart Injection) */}
-        <section className="space-y-3">
-          {/* Main Chart Card */}
-          <div className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm">
-            <div className="flex justify-between items-start mb-4">
-               <div>
-                 <p className="text-[10px] font-bold text-gray-400 uppercase">Luxury Index</p>
-                 <p className="text-3xl font-black tracking-tighter">$24,102</p>
-               </div>
-               <span className="text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full flex items-center">
-                 <TrendingUp size={12} className="mr-1" /> +1.4%
-               </span>
+      {/* Main Layout */}
+      <div className="grid grid-cols-4 gap-4 h-[60vh]">
+        {/* Left: Price Chart (3/4 Width) */}
+        <div className="col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h2 className="text-2xl font-black italic">{data?.name || "LOADING..."}</h2>
+              <p className="text-gray-500 text-xs">{ticker}</p>
             </div>
-            
-            {/* The Visual Chart Injection */}
-            <div className="h-48 w-full -ml-2">
-               <MarketChart />
+            <div className="text-right">
+              <p className="text-3xl font-black text-green-500">${data?.price?.toLocaleString() || "0"}</p>
+              <p className="text-[10px] text-green-500/50">+2.41% (24H)</p>
             </div>
-          </div>
-
-          {/* Secondary Indices Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="text-[10px] font-bold text-gray-400 uppercase">Tech/Electronics</p>
-              <p className="text-xl font-black">$1,450</p>
-              <span className="text-xs font-bold text-red-500">-3.2%</span>
-            </div>
-            {/* Placeholder for future index */}
-             <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center">
-              <span className="text-[10px] font-bold text-gray-300 uppercase">Sneakers (Coming Soon)</span>
-            </div>
-          </div>
-        </section>
-
-        {/* 4. Top Movers (The Volatility Tab) */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Top Movers</h2>
-            <button className="text-[10px] font-bold text-blue-600">VIEW ALL</button>
           </div>
           
-          <div className="space-y-2">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden">
-                     {/* Placeholder image for mock data */}
-                     <img src={`https://picsum.photos/seed/${item}/100`} className="w-full h-full object-cover opacity-80" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold leading-none">Jordan 1 Retro High</p>
-                    <p className="text-[10px] text-gray-400 mt-1 font-mono">SKU: AJ1-85-RED</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-black">$1,200</p>
-                  <p className="text-[10px] font-bold text-green-500">+8.4%</p>
-                </div>
-              </div>
-            ))}
+          <div className="h-64 w-full">
+             <MarketChart ticker={ticker} />
           </div>
-        </section>
-
-        {/* 5. Oracle Disclaimer */}
-        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex space-x-3">
-          <AlertCircle className="text-blue-500 shrink-0" size={18} />
-          <p className="text-[10px] text-blue-700 leading-normal font-medium">
-            Oracle data is currently updated every 24 hours at 00:00 UTC via automated scraping cycles. Confidence scores reflect data density across 12+ secondary markets.
-          </p>
         </div>
-      </main>
 
-      <BottomNav />
-    </div>
+        {/* Right: Confidence & High/Lows */}
+        <div className="col-span-1 space-y-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <p className="text-[10px] text-gray-500 mb-2 uppercase">Confidence Score</p>
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="text-blue-500" size={20} />
+              <span className="text-xl font-black">{(data?.confidence * 100) || 0}%</span>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4">
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase">24H High</p>
+              <p className="text-sm font-bold text-gray-200">${data?.high24 || "0"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase">24H Low</p>
+              <p className="text-sm font-bold text-gray-200">${data?.low24 || "0"}</p>
+            </div>
+            <div className="pt-2 border-t border-white/5">
+              <p className="text-[10px] text-gray-500 uppercase">Volatility</p>
+              <p className="text-sm font-bold text-orange-500">MEDIUM</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scraper Source Log (Bottom) */}
+      <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+        <h3 className="text-[10px] font-black text-gray-500 uppercase mb-2">Active Data Sources</h3>
+        <div className="flex gap-4">
+            <div className="flex items-center space-x-2 text-[10px] bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span>ROLEX_OFFICIAL</span>
+            </div>
+            <div className="flex items-center space-x-2 text-[10px] bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span>CHRONO24_API</span>
+            </div>
+        </div>
+      </div>
+        <BottomNav />
+    </main>
   );
 }
