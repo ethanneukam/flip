@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "@/components/BottomNav";
-import { Zap, TrendingUp, MessageCircle, ShieldCheck, Clock } from "lucide-react";
+import { Zap, TrendingUp, MessageCircle, ShieldCheck, Clock, Activity } from "lucide-react";
 import MarketChart from "@/components/oracle/MarketChart";
 
 export default function PulseFeed() {
@@ -11,7 +11,6 @@ export default function PulseFeed() {
 
   useEffect(() => {
     const fetchFeed = async () => {
-      // Fetching from feed_events which includes VAULT_ADD and MARKET_PRICE types
       const { data, error } = await supabase
         .from("feed_events")
         .select(`
@@ -52,17 +51,11 @@ export default function PulseFeed() {
               {/* Event Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  {event.type === 'VAULT_ADD' ? (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                      <ShieldCheck size={12} className="text-white" />
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-black flex items-center justify-center">
-                      <Zap size={12} className="text-yellow-400" />
-                    </div>
-                  )}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${event.type === 'VAULT_ADD' ? 'bg-blue-500' : 'bg-black'}`}>
+                    {event.type === 'VAULT_ADD' ? <ShieldCheck size={12} className="text-white" /> : <Zap size={12} className="text-yellow-400" />}
+                  </div>
                   <span className="text-xs font-black uppercase tracking-widest">
-                    {event.type === 'VAULT_ADD' ? 'Security Protocol' : 'Oracle Alert'}
+                    {event.type === 'VAULT_ADD' ? 'Vault Entry' : 'Oracle Alert'}
                   </span>
                 </div>
                 <div className="flex items-center text-[10px] font-bold text-gray-400 uppercase">
@@ -76,53 +69,43 @@ export default function PulseFeed() {
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-blue-500 uppercase mb-1">
-                      @{event.profiles?.username || 'Anonymous'}
+                      AGENT: @{event.profiles?.username || 'Anonymous'}
                     </p>
-                    <h3 className="text-sm font-bold leading-tight">
-                      {event.title}
-                    </h3>
-                    <p className="text-[11px] text-gray-500 mt-1 font-medium">
-                      {event.description}
-                    </p>
-                    {event.metadata?.sku && (
-                      <p className="text-[9px] font-mono text-gray-400 mt-2 uppercase bg-white w-fit px-2 py-0.5 rounded border border-gray-100">
-                        {event.metadata.sku}
-                      </p>
-                    )}
+                    <h3 className="text-sm font-bold leading-tight">{event.title}</h3>
+                    <p className="text-[11px] text-gray-500 mt-1">{event.description}</p>
                   </div>
-                  
                   {event.metadata?.image_url && (
                     <div className="w-16 h-16 rounded-xl bg-white border border-gray-100 overflow-hidden flex-shrink-0">
-                      <img 
-                        src={event.metadata.image_url} 
-                        className="w-full h-full object-cover" 
-                        alt="Asset"
-                      />
+                      <img src={event.metadata.image_url} className="w-full h-full object-cover" alt="Asset" />
                     </div>
                   )}
                 </div>
+
+                {/* Day 32: Chart Embed */}
+                {event.type === 'VAULT_ADD' && (
+                  <div className="mt-4 pt-4 border-t border-gray-200/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center">
+                        <Activity size={10} className="mr-1" /> Market Performance
+                      </span>
+                      <span className="text-[10px] font-bold text-green-500">+2.4% Today</span>
+                    </div>
+                    <div className="h-20 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
+                      <MarketChart /> 
+                    </div>
+                  </div>
+                )}
               </div>
-{event.type === 'VAULT_ADD' && (
-  <div className="mt-3 bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
-    <div className="flex justify-between items-center mb-2">
-      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Market Performance</span>
-      <span className="text-[10px] font-bold text-green-500">+2.4% Today</span>
-    </div>
-    {/* Mini Chart for the Feed Post */}
-    <div className="h-20 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
-       <MarketChart /> 
-    </div>
-  </div>
 
               {/* Action Bar */}
-              <div className="flex items-center space-x-4 pt-1">
-                <button className="flex items-center space-x-1 text-gray-400 hover:text-black transition-colors">
-                  <MessageCircle size={16} />
-                  <span className="text-[10px] font-bold uppercase">Signal</span>
+              <div className="flex items-center space-x-6 pt-1">
+                <button className="flex items-center space-x-1.5 text-gray-400 hover:text-black transition-colors">
+                  <MessageCircle size={14} />
+                  <span className="text-[10px] font-black uppercase">Market Inquiry</span>
                 </button>
-                <button className="flex items-center space-x-1 text-gray-400 hover:text-blue-500 transition-colors">
-                  <Zap size={16} />
-                  <span className="text-[10px] font-bold uppercase">Verify</span>
+                <button className="flex items-center space-x-1.5 text-gray-400 hover:text-blue-500 transition-colors">
+                  <ShieldCheck size={14} />
+                  <span className="text-[10px] font-black uppercase">Verify</span>
                 </button>
               </div>
             </article>
@@ -133,7 +116,6 @@ export default function PulseFeed() {
           </div>
         )}
       </main>
-
       <BottomNav />
     </div>
   );
