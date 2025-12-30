@@ -34,27 +34,19 @@ async function getItemsToScrape() {
   }));
 }
 
-// --- Types ---
 export interface ScraperResult {
   price: number;
   url: string;
-  shipping?: number | null;
-  condition?: string | null;
-  seller_rating?: number | null;
+  condition: string;
+  // Add these optional fields so the compiler stops complaining:
+  title?: string;
+  image_url?: string | null;
+  ticker?: string;
 }
 
 export interface Scraper {
   source: string;
-  scrape: (
-    page: any,
-    keyword: string
-  ) => Promise<{
-    price: number;
-    url: string;
-    condition?: string;
-    shipping?: number | null;
-    seller_rating?: number | null;
-  } | null>;
+  scrape: (page: any, keyword: string) => Promise<ScraperResult | null>;
 }
 
 // --- Human-like helpers ---
