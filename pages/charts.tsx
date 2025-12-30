@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Timer, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react';
 import BottomNav from '../components/BottomNav';
 import { OracleService } from '../lib/oracle';
+import MarketChart from '../components/oracle/MarketChart'; // Injected Chart Component
 
 export default function OracleDashboard() {
   const [indices, setIndices] = useState([]);
@@ -41,17 +42,37 @@ export default function OracleDashboard() {
           </div>
         </header>
 
-        {/* 3. Category Indices (Days 14-15 Focus) */}
-        <section className="grid grid-cols-2 gap-3">
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-[10px] font-bold text-gray-400 uppercase">Luxury Index</p>
-            <p className="text-xl font-black">$24,102</p>
-            <span className="text-xs font-bold text-green-500">+1.4%</span>
+        {/* 3. Category Indices (Updated with Chart Injection) */}
+        <section className="space-y-3">
+          {/* Main Chart Card */}
+          <div className="bg-white p-4 rounded-[24px] border border-gray-100 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+               <div>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase">Luxury Index</p>
+                 <p className="text-3xl font-black tracking-tighter">$24,102</p>
+               </div>
+               <span className="text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full flex items-center">
+                 <TrendingUp size={12} className="mr-1" /> +1.4%
+               </span>
+            </div>
+            
+            {/* The Visual Chart Injection */}
+            <div className="h-48 w-full -ml-2">
+               <MarketChart />
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-[10px] font-bold text-gray-400 uppercase">Tech/Electronics</p>
-            <p className="text-xl font-black">$1,450</p>
-            <span className="text-xs font-bold text-red-500">-3.2%</span>
+
+          {/* Secondary Indices Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-[10px] font-bold text-gray-400 uppercase">Tech/Electronics</p>
+              <p className="text-xl font-black">$1,450</p>
+              <span className="text-xs font-bold text-red-500">-3.2%</span>
+            </div>
+            {/* Placeholder for future index */}
+             <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center">
+              <span className="text-[10px] font-bold text-gray-300 uppercase">Sneakers (Coming Soon)</span>
+            </div>
           </div>
         </section>
 
@@ -64,9 +85,12 @@ export default function OracleDashboard() {
           
           <div className="space-y-2">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100">
+              <div key={item} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg" />
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                     {/* Placeholder image for mock data */}
+                     <img src={`https://picsum.photos/seed/${item}/100`} className="w-full h-full object-cover opacity-80" />
+                  </div>
                   <div>
                     <p className="text-sm font-bold leading-none">Jordan 1 Retro High</p>
                     <p className="text-[10px] text-gray-400 mt-1 font-mono">SKU: AJ1-85-RED</p>
