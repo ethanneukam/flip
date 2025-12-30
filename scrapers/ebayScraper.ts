@@ -1,7 +1,6 @@
-// scrapers/ebayScraper.ts
 import { Page } from "playwright";
 import UserAgent from "user-agents";
-import { Scraper } from "./types"; // <-- REQUIRED IMPORT
+import { Scraper } from "./types";
 
 const wait = (min = 120, max = 450) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
@@ -39,7 +38,7 @@ export const ebayScraper: Scraper = {
         height: 800 + Math.floor(Math.random() * 100)
       });
 
-      const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`;
+      const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&_sop=15`; // _sop=15 sorts by "Best Match"
       console.log("🔍 eBay search:", url);
 
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
@@ -48,13 +47,19 @@ export const ebayScraper: Scraper = {
       await humanMouse(page);
       await humanScroll(page);
 
-      await page.waitForSelector(".srp-results .s-item", { timeout: 10000 });
+      await page.waitForSelector(".srp-results", { timeout: 10000 });
 
-      const product = await page.$(".srp-results .s-item");
+      // Logic: Skip the first "placeholder" item if it exists and find the first real result card
+      const product = await page.$(".srp-results .s-item:not(.s-item--placeholder)");
+      
       if (!product) {
         console.log("⚠️ eBay: no product found");
         return null;
       }
+
+      // --- METADATA EXTRACTION ---
+      const title = await product.$eval(".s-item__title", (el: any) => el.textContent?.trim()).catch(() => "Unknown Asset");
+      const imageUrl = await product.$eval(".s-item__image-img img", (el: any) => el.src).catch(() => null);
 
       const productUrl = await product
         .$eval("a.s-item__link", (a: any) => a.href)
@@ -92,14 +97,15 @@ export const ebayScraper: Scraper = {
       await humanMouse(page);
       await humanScroll(page);
 
-      console.log(`✅ eBay: $${price} — ${productUrl}`);
+      console.log(`✅ eBay: $${price} — ${title}`);
 
       return {
         price,
-        url:
-          productUrl ||
-          `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}`,
-        condition: condition.trim()
+        url: productUrl || url,
+        condition: condition.trim(),
+        title,
+        image_url: imageUrl,
+        ticker: keyword
       };
     } catch (err) {
       console.error("❌ eBay scrape error:", err);
