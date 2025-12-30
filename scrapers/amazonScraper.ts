@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import UserAgent from "user-agents";
-import { Scraper } from "./types"; // <-- REQUIRED
+import { Scraper } from "./types";
 
 // Random delay (human reaction / thinking)
 const wait = (min = 120, max = 450) =>
@@ -18,7 +18,6 @@ async function humanType(page, selector, text) {
       await wait(80, 160);
       await page.keyboard.press("Backspace");
     }
-
     await page.type(selector, char, { delay: Math.random() * 120 + 20 });
     current += char;
     await wait(50, 180);
@@ -64,11 +63,9 @@ async function applyFingerprintSpoofing(page) {
       if (param === 37446) return "NVIDIA GeForce GTX 1080/PCIe/SSE2";
       return getParameter.apply(this, [param]);
     };
-
     Object.defineProperty(navigator, "plugins", {
       get: () => [{ name: "Chrome PDF Plugin" }],
     });
-
     Object.defineProperty(navigator, "mediaDevices", {
       get: () => ({
         enumerateDevices: () =>
@@ -78,7 +75,6 @@ async function applyFingerprintSpoofing(page) {
           ]),
       }),
     });
-
     (navigator as any).getBattery = () =>
       Promise.resolve({
         level: 0.77,
@@ -89,9 +85,6 @@ async function applyFingerprintSpoofing(page) {
   });
 }
 
-// -------------------------------------------------------------
-// FIXED EXPORT — now typed correctly & scrape property is correct
-// -------------------------------------------------------------
 export const amazonScraper: Scraper = {
   source: "Amazon",
 
@@ -137,6 +130,10 @@ export const amazonScraper: Scraper = {
       const asin = await product.getAttribute("data-asin");
       const url = `https://www.amazon.com/dp/${asin}`;
 
+      // --- ADDED: TITLE & IMAGE EXTRACTION ---
+      const title = await product.$eval('h2 a span', el => el.textContent?.trim()).catch(() => "Unknown Asset");
+      const imageUrl = await product.$eval('img.s-image', el => (el as HTMLImageElement).src).catch(() => null);
+
       const priceSelectors = [
         ".a-price .a-offscreen",
         ".a-price-whole",
@@ -151,7 +148,7 @@ export const amazonScraper: Scraper = {
             el.textContent?.replace(/[^0-9.]/g, "")
           );
           if (raw) price = parseFloat(raw);
-          if (!isNaN(price)) break;
+          if (price && !isNaN(price)) break;
         } catch {}
       }
 
@@ -160,9 +157,17 @@ export const amazonScraper: Scraper = {
       await humanMouse(page);
       await humanScroll(page);
 
-      console.log(`✅ Amazon: $${price} — ${url}`);
+      console.log(`✅ Amazon: $${price} — ${title}`);
 
-      return { price, url, condition: "New" };
+      // Returning full metadata for Oracle/Pulse
+      return { 
+        price, 
+        url, 
+        condition: "New", 
+        title, 
+        image_url: imageUrl,
+        ticker: keyword 
+      };
     } catch (err) {
       console.log("❌ Amazon Scrape Error:", err);
       return null;
