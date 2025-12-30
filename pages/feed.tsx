@@ -101,6 +101,17 @@ export default function PulseFeed() {
                   )}
                 </div>
               </div>
+{event.type === 'VAULT_ADD' && (
+  <div className="mt-3 bg-white rounded-xl border border-gray-100 p-3 shadow-sm">
+    <div className="flex justify-between items-center mb-2">
+      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Market Performance</span>
+      <span className="text-[10px] font-bold text-green-500">+2.4% Today</span>
+    </div>
+    {/* Mini Chart for the Feed Post */}
+    <div className="h-20 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
+       <MarketChart /> 
+    </div>
+  </div>
 
               {/* Action Bar */}
               <div className="flex items-center space-x-4 pt-1">
