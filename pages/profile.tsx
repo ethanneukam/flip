@@ -1,387 +1,160 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import AuthWrapper from "../components/AuthWrapper";
-import LogoutButton from "../components/LogoutButton";
-import Link from "next/link";
-import { useRouter } from "next/router";
 import BottomNav from "../components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@supabase/auth-helpers-react";
-import { useFlipCoins } from "@/lib/useFlipCoins";
+import { useRouter } from "next/router";
+import { Shield, TrendingUp, TrendingDown, Package, PieChart, Settings } from "lucide-react";
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState({
-    id: "",
-    username: "",
-    avatar_url: "",
-    bio: "",
-    instagram: "",
-    tiktok: "",
-    youtube: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"posts" | "favorites" | "reviews">(
-    "posts"
-  );
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [ratingSummary, setRatingSummary] = useState({
-    avg: null as string | null,
-    count: 0,
-  });
-  const [followerCount, setFollowerCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
-  const [followersList, setFollowersList] = useState<any[]>([]);
-  const [followingList, setFollowingList] = useState<any[]>([]);
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const session = useSession();
+  const router = useRouter();
+  
+  const [profile, setProfile] = useState<any>({});
   const [posts, setPosts] = useState<any[]>([]);
-const session = useSession();
-  const userId = session?.user?.id;
-  const balance = useFlipCoins(userId);
-const router = useRouter();
-const { user_id } = router.query;
+  const [totalNetWorth, setTotalNetWorth] = useState(0);
+  const [dailyChange, setDailyChange] = useState(0);
+  const [activeTab, setActiveTab] = useState<"vault" | "analytics">("vault");
 
-useEffect(() => {
-  if (!user_id) return;
-
-  // fetch profile info for user_id
-}, [user_id]);
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (session?.user?.id) {
+      fetchVaultData(session.user.id);
+    }
+  }, [session]);
 
-      await getProfile(user.id);
-      await fetchFavorites(user.id);
-      await fetchReviews(user.id);
-      await fetchRatingSummary(user.id);
-      await fetchFollowCounts(user.id);
-      await fetchUserPosts(user.id);
-      setupRealtime(user.id);
-    };
-    fetchData();
-  }, []);
+  const fetchVaultData = async (userId: string) => {
+    // 1. Get Profile
+    const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (prof) setProfile(prof);
 
-  // ---------- Profile ----------
-  const getProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url, bio, instagram, tiktok, youtube")
-      .eq("id", userId)
-      .single();
-    if (error) console.error(error);
-    else setProfile(data);
-  };
-
-
-  // ---------- Follows ----------
-  const fetchFollowCounts = async (userId: string) => {
-    const { count: followersCount } = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("following_id", userId);
-
-    const { count: followingCount } = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("follower_id", userId);
-
-    setFollowerCount(followersCount || 0);
-    setFollowingCount(followingCount || 0);
-  };
-
-  const fetchFollowersList = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("follows")
-      .select("follower_id, profiles!follower_id(username, avatar_url)")
-      .eq("following_id", userId);
-    if (!error) setFollowersList(data.map((f) => f.profiles));
-  };
-
-  const fetchFollowingList = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("follows")
-      .select("following_id, profiles!following_id(username, avatar_url)")
-      .eq("follower_id", userId);
-    if (!error) setFollowingList(data.map((f) => f.profiles));
-  };
-
-  const setupRealtime = async (userId: string) => {
-    const channel = supabase
-      .channel("realtime-follows")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "follows" },
-        () => fetchFollowCounts(userId)
-      )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  };
-
-  // ---------- Posts ----------
-  const fetchUserPosts = async (userId: string) => {
-    const { data, error } = await supabase
+    // 2. Get Vault Items (Day 10 Logic: Valuation)
+    const { data: items } = await supabase
       .from("items")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    if (!error) setPosts(data);
-  };
 
-  // ---------- Favorites ----------
-  const fetchFavorites = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("favorites")
-      .select("item_id, items(*)")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    if (!error) setFavorites(data.map((r) => r.items));
-  };
-
-  // ---------- Reviews ----------
-  const fetchReviews = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*, reviewer:profiles(username, avatar_url)")
-      .eq("profile_id", userId)
-      .order("created_at", { ascending: false });
-    if (!error) setReviews(data);
-  };
-
-  const fetchRatingSummary = async (userId: string) => {
-    const { data: reviewsData } = await supabase
-      .from("reviews")
-      .select("rating")
-      .eq("reviewed_user_id", userId);
-    if (reviewsData && reviewsData.length > 0) {
-      const total = reviewsData.reduce((sum, r) => sum + r.rating, 0);
-      const avg = total / reviewsData.length;
-      setRatingSummary({ avg: avg.toFixed(1), count: reviewsData.length });
+    if (items) {
+      setPosts(items);
+      // Valuation Engine: Summing item values (using condition_score as a multiplier for mock base price)
+      // In a real scenario, this would join with your Oracle price table
+      const total = items.reduce((sum, item) => sum + (1200 * (item.condition_score || 1)), 0);
+      setTotalNetWorth(total);
+      setDailyChange(total * 0.014); // Mocking a 1.4% daily gain
     }
   };
-
-  // ---------- Upload Avatar ----------
-  const uploadAvatar = async (event: any) => {
-    try {
-      setUploading(true);
-      const file = event.target.files[0];
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      setProfile((prev) => ({ ...prev, avatar_url: data.publicUrl }));
-    } catch (error: any) {
-      alert(error.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // ---------- Modal UI ----------
-  const Modal = ({ title, list, onClose }: any) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-80 max-h-[80vh] overflow-y-auto p-4">
-        <h2 className="text-xl font-semibold mb-3">{title}</h2>
-        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500">
-          ✕
-        </button>
-        {list.length === 0 ? (
-          <p className="text-gray-500 text-center">No users yet</p>
-        ) : (
-          <ul className="space-y-3">
-            {list.map((u) => (
-              <li key={u.username} className="flex items-center space-x-3">
-                <img
-                  src={u.avatar_url || "/default-avatar.png"}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <p className="font-medium">{u.username}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <AuthWrapper>
-      <main className="max-w-md mx-auto pb-24">
-        {/* --- Banner --- */}
-        <div className="relative w-full h-36 bg-gray-300">
-          {profile.avatar_url && (
-            <img
-              src={profile.avatar_url}
-              className="absolute inset-0 w-full h-full object-cover blur-sm opacity-70"
-            />
-          )}
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-            <img
-              src={profile.avatar_url || "/default-avatar.png"}
-              className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-            />
+      <main className="max-w-md mx-auto pb-24 bg-[#F9FAFB] min-h-screen">
+        {/* --- Phase 2: Vault Header --- */}
+        <div className="bg-black text-white p-8 pt-12 rounded-b-[40px] shadow-2xl relative overflow-hidden">
+          {/* Background Decorative Element */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl" />
+          
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-2xl border border-white/20 overflow-hidden bg-gray-800">
+                <img src={profile.avatar_url || "/default-avatar.png"} className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Secure Vault</p>
+                <h1 className="text-lg font-bold tracking-tight">@{profile.username}</h1>
+              </div>
+            </div>
+            <button onClick={() => router.push("/edit-profile")} className="p-2 bg-white/10 rounded-xl">
+              <Settings size={18} />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">Estimated Net Worth</p>
+            <div className="flex items-baseline space-x-2">
+              <h2 className="text-4xl font-black italic tracking-tighter">
+                ${totalNetWorth.toLocaleString()}
+              </h2>
+              <div className="flex items-center text-xs font-bold text-green-400">
+                <TrendingUp size={12} className="mr-1" />
+                +1.4%
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* --- Info --- */}
-        <div className="mt-16 text-center px-4">
-          <h1 className="text-2xl font-bold">{profile.username}</h1>
-          <p className="text-gray-600 text-sm mt-1">{profile.bio}</p>
-
-      <button
-  onClick={() => router.push("/edit-profile")}
-  className="px-4 py-2 bg-black text-white rounded-lg"
->
-  Edit Profile
-</button>
- <div className="p-4 border rounded-lg bg-yellow-50 text-center">
-      <h3 className="font-bold text-lg">💰 Flip Coins</h3>
-      <p className="text-2xl font-semibold">{balance?.toFixed(2)} FC</p>
-    </div>
-          {/* --- Stats --- */}
-          <div className="flex justify-around items-center text-center mt-6">
-            <div onClick={() => { setShowFollowersModal(true); fetchFollowersList(profile.id); }} className="cursor-pointer">
-              <p className="text-lg font-semibold">{followerCount}</p>
-              <p className="text-gray-500 text-sm">Followers</p>
-            </div>
-            <div onClick={() => { setShowFollowingModal(true); fetchFollowingList(profile.id); }} className="cursor-pointer">
-              <p className="text-lg font-semibold">{followingCount}</p>
-              <p className="text-gray-500 text-sm">Following</p>
-            </div>
+        {/* --- Quick Actions --- */}
+        <div className="grid grid-cols-2 gap-4 px-4 -mt-6">
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-3">
+            <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><Package size={20} /></div>
             <div>
-              <p className="text-lg font-semibold">{ratingSummary.count}</p>
-              <p className="text-gray-500 text-sm">Reviews</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase">Assets</p>
+              <p className="font-bold">{posts.length}</p>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-3">
+            <div className="bg-green-50 p-2 rounded-lg text-green-600"><Shield size={20} /></div>
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase">Status</p>
+              <p className="font-bold text-xs">VERIFIED</p>
             </div>
           </div>
         </div>
 
         {/* --- Tabs --- */}
-        <div className="flex justify-around border-b mt-6">
-          {["posts", "favorites", "reviews"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`py-3 w-full font-medium ${
-                activeTab === tab
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500"
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+        <div className="flex p-4 gap-4">
+          <button 
+            onClick={() => setActiveTab("vault")}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === "vault" ? 'bg-black text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
+          >
+            Vault Assets
+          </button>
+          <button 
+            onClick={() => setActiveTab("analytics")}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === "analytics" ? 'bg-black text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
+          >
+            Analytics
+          </button>
         </div>
 
         {/* --- Tab Content --- */}
-        <div className="p-4">
+        <div className="px-4">
           <AnimatePresence mode="wait">
-            {activeTab === "posts" && (
-              <motion.div
-                key="posts"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="grid grid-cols-3 gap-2"
+            {activeTab === "vault" ? (
+              <motion.div 
+                key="vault"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-2 gap-4"
               >
-                {posts.length === 0 ? (
-                  <p className="col-span-3 text-center text-gray-500">
-                    No posts yet.
-                  </p>
-                ) : (
-                  posts.map((p) => (
-                    <Link key={p.id} href={`/item/${p.id}`}>
-                      <img
-                        src={p.image_url}
-                        className="w-full h-32 object-cover rounded-lg hover:scale-105 transition"
-                      />
-                    </Link>
-                  ))
-                )}
-              </motion.div>
-            )}
-
-            {activeTab === "favorites" && (
-              <motion.div
-                key="favorites"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="grid grid-cols-2 gap-3"
-              >
-                {favorites.length === 0 ? (
-                  <p className="col-span-2 text-center text-gray-500">
-                    No favorites yet.
-                  </p>
-                ) : (
-                  favorites.map((f) => (
-                    <Link key={f.id} href={`/item/${f.id}`}>
-                      <img
-                        src={f.image_url}
-                        className="w-full h-36 object-cover rounded-xl hover:scale-105 transition"
-                      />
-                    </Link>
-                  ))
-                )}
-              </motion.div>
-            )}
-
-            {activeTab === "reviews" && (
-              <motion.div
-                key="reviews"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-3"
-              >
-                {reviews.length === 0 ? (
-                  <p className="text-center text-gray-500">
-                    No reviews yet.
-                  </p>
-                ) : (
-                  reviews.map((r) => (
-                    <div key={r.id} className="border rounded-lg p-3 shadow-sm">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <img
-                          src={r.reviewer?.avatar_url}
-                          className="w-8 h-8 rounded-full"
-                        />
-                        <p className="font-semibold">{r.reviewer?.username}</p>
-                        <span className="text-yellow-500">
-                          {"⭐".repeat(r.rating)}
-                        </span>
+                {posts.map((p) => (
+                  <div key={p.id} className="bg-white rounded-[24px] overflow-hidden border border-gray-100 shadow-sm group">
+                    <div className="aspect-square relative">
+                      <img src={p.image_url} className="w-full h-full object-cover" />
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-[8px] font-bold text-white px-2 py-1 rounded-full uppercase">
+                        {p.category}
                       </div>
-                      <p className="text-gray-700">{r.comment}</p>
                     </div>
-                  ))
-                )}
+                    <div className="p-3">
+                      <p className="text-[10px] font-black uppercase truncate">{p.title}</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="font-mono text-[10px] text-gray-400 uppercase">{p.sku || 'No SKU'}</p>
+                        <p className="text-xs font-black text-blue-600">${(1200 * (p.condition_score || 1)).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="analytics"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-6 rounded-[32px] border border-gray-100 text-center space-y-4"
+              >
+                <PieChart size={48} className="mx-auto text-gray-200" />
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Portfolio Distribution coming in Phase 7</p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {showFollowersModal && (
-          <Modal
-            title="Followers"
-            list={followersList}
-            onClose={() => setShowFollowersModal(false)}
-          />
-        )}
-        {showFollowingModal && (
-          <Modal
-            title="Following"
-            list={followingList}
-            onClose={() => setShowFollowingModal(false)}
-          />
-        )}
 
         <BottomNav />
       </main>
