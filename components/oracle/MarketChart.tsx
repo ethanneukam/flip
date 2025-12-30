@@ -69,5 +69,11 @@ export default function MarketChart({ ticker }: MarketChartProps) {
         </AreaChart>
       </ResponsiveContainer>
     </div>
+    <button 
+  onClick={() => window.open(data?.url, '_blank')}
+  className="w-full mt-4 py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all"
+>
+  View Original Listing // {data?.source}
+</button>
   );
 }
