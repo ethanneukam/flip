@@ -1,10 +1,8 @@
-// scrapers/fbMarketplaceScraper.ts
 import fs from "fs";
 import path from "path";
-import { BrowserContext, Page } from "playwright";
+import { BrowserContext, Page, chromium } from "playwright";
 import UserAgent from "user-agents";
-import { chromium } from "playwright";
-import { ScraperResult } from "../scripts/scrapeRunner"; // <-- ONLY CHANGE ADDED
+import { ScraperResult } from "../scripts/scrapeRunner";
 
 const COOKIE_DIR = path.resolve(process.cwd(), ".fb_cookies");
 if (!fs.existsSync(COOKIE_DIR)) fs.mkdirSync(COOKIE_DIR);
@@ -64,20 +62,20 @@ async function loginIfNeeded(context: BrowserContext, page: Page, email: string,
 export const facebookScraper = {
   source: "Facebook Marketplace",
 
-  // <-- ONLY ADDED RETURN TYPE
   scrape: async (page: Page, keyword: string): Promise<ScraperResult | null> => {
+    let context: BrowserContext | null = null;
     try {
       const FB_EMAIL = process.env.FB_EMAIL;
       const FB_PASSWORD = process.env.FB_PASSWORD;
       const PROXY = process.env.SCRAPE_PROXY;
 
       if (!FB_EMAIL || !FB_PASSWORD) {
-        console.log("[FB] Missing FB_EMAIL/FB_PASSWORD in env; skipping Facebook Marketplace.");
+        console.log("[FB] Missing FB_EMAIL/FB_PASSWORD; skipping.");
         return null;
       }
 
-      const browser = (page as any)._browser || (await chromium.launch({ headless: true }));
-      const context = await createOrRestoreContext(browser, "default", PROXY);
+      const browser = (page as any).context()?.browser() || (await chromium.launch({ headless: true }));
+      context = await createOrRestoreContext(browser, "default", PROXY);
       const fbPage = await context.newPage();
 
       await fbPage.setExtraHTTPHeaders({
@@ -87,63 +85,45 @@ export const facebookScraper = {
 
       await loginIfNeeded(context, fbPage, FB_EMAIL, FB_PASSWORD);
       await wait(1000, 2500);
-      await humanMoves(fbPage);
 
       const searchUrl = `https://m.facebook.com/marketplace/search/?query=${encodeURIComponent(keyword)}`;
       console.log("[FB] Searching:", searchUrl);
       await fbPage.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
       await wait(1200, 2800);
-      await humanMoves(fbPage);
 
-      await fbPage.waitForSelector("a[href*='/marketplace/item/'], div[role='article']", { timeout: 15000 }).catch(()=>{});
       const listingHandle = await fbPage.$("a[href*='/marketplace/item/'], div[role='article']");
       if (!listingHandle) {
-        console.log("[FB] No marketplace listing found");
-        await saveCookies(context);
         await context.close();
         return null;
       }
 
-      let priceText = null;
-      try {
-        priceText = await listingHandle.$eval("span", (el: any) => el.textContent).catch(()=>null);
-      } catch {}
+      // --- METADATA EXTRACTION ---
+      const title = await listingHandle.$eval("span[style*='-webkit-line-clamp']", (el: any) => el.textContent).catch(() => keyword);
+      const imageUrl = await listingHandle.$eval("img", (img: any) => img.src).catch(() => null);
 
-      let listingUrl = null;
-      try {
-        const link = await listingHandle.$eval("a[href*='/marketplace/item/']", (a:any)=>a.getAttribute("href")).catch(()=>null);
-        if (link) {
-          listingUrl = link.startsWith("http") ? link : `https://m.facebook.com${link}`;
-          await fbPage.goto(listingUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-          await wait(900, 1600);
-          priceText = priceText || await fbPage.$eval("[aria-label='Price'] , span[dir='ltr'], div[role='article'] span", (el:any)=>el.textContent).catch(()=>null);
-        }
-      } catch {}
+      let priceText = await listingHandle.$eval("span", (el: any) => el.textContent).catch(()=>null);
+      const link = await listingHandle.$eval("a[href*='/marketplace/item/']", (a:any)=>a.getAttribute("href")).catch(()=>null);
+      const listingUrl = link ? (link.startsWith("http") ? link : `https://m.facebook.com${link}`) : searchUrl;
 
-      if (!priceText) {
-        console.log("[FB] Could not find price text");
-        await saveCookies(context);
-        await context.close();
-        return null;
-      }
-
-      const priceMatch = priceText.replace(/,/g,'').match(/([0-9]+(?:\.[0-9]{1,2})?)/);
+      const priceMatch = priceText?.replace(/,/g,'').match(/([0-9]+(?:\.[0-9]{1,2})?)/);
       const price = priceMatch ? parseFloat(priceMatch[1]) : null;
-      if (!price) {
-        console.log("[FB] Price parse failed");
-        await saveCookies(context);
-        await context.close();
-        return null;
-      }
 
       await saveCookies(context);
-      console.log(`[FB] Found ${price} @ ${listingUrl}`);
+      console.log(`[FB] Found ${price} — ${title}`);
 
       await context.close();
 
-      return { price, url: listingUrl || searchUrl, condition: "Used (FB Listing)" };
+      return { 
+        price: price || 0, 
+        url: listingUrl, 
+        condition: "Used",
+        title: title || keyword,
+        image_url: imageUrl,
+        ticker: keyword
+      };
 
     } catch (err) {
+      if (context) await context.close();
       console.error("❌ FB Marketplace error:", err);
       return null;
     }
