@@ -24,8 +24,11 @@ jobs:
         run: npx playwright install chromium --with-deps
         
       - name: Run Scraper
-        # We are using 'npx tsx' specifically to bypass the ESM extension error
-        run: npx tsx scripts/scrapeRunner.ts
+        run: |
+          echo "Checking Secret Lengths (Should not be 0)"
+          echo "URL Length: ${#NEXT_PUBLIC_SUPABASE_URL}"
+          echo "Key Length: ${#SUPABASE_SERVICE_ROLE_KEY}"
+          npx tsx scripts/scrapeRunner.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
