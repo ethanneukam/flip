@@ -2,27 +2,30 @@ name: Hourly Market Scrape
 on:
   repository_dispatch:
     types: [start_scrape]
+  workflow_dispatch: # This adds a "Run" button in GitHub so you can test manually
   schedule:
-    - cron: '0 * * * *' # Also runs every hour automatically
+    - cron: '0 * * * *'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
+          
       - name: Install dependencies
         run: npm install
+        
       - name: Install Playwright Browsers
         run: npx playwright install chromium --with-deps
-   - name: Install Scraper Tools
-        run: npm install -g tsx
-
+        
       - name: Run Scraper
-        # We switch from 'ts-node' to 'tsx' which handles ESM perfectly
-        run: tsx scripts/scrapeRunner.ts
+        # We are using 'npx tsx' specifically to bypass the ESM extension error
+        run: npx tsx scripts/scrapeRunner.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
