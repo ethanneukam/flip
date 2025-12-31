@@ -17,9 +17,12 @@ jobs:
         run: npm install
       - name: Install Playwright Browsers
         run: npx playwright install chromium --with-deps
-    - name: Run Scraper
-        # Using npx tsx handles the ESM/Typescript conversion automatically
-        run: npx tsx scripts/scrapeRunner.ts
+   - name: Install Scraper Tools
+        run: npm install -g tsx
+
+      - name: Run Scraper
+        # We switch from 'ts-node' to 'tsx' which handles ESM perfectly
+        run: tsx scripts/scrapeRunner.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
