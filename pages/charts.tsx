@@ -46,25 +46,43 @@ export default function OracleTerminal() {
         </div>
       </div>
 
-      {/* Main Layout */}
-      <div className="grid grid-cols-4 gap-4 h-[60vh]">
-        {/* Left: Price Chart (3/4 Width) */}
-        <div className="col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h2 className="text-2xl font-black italic">{data?.name || "LOADING..."}</h2>
-              <p className="text-gray-500 text-xs">{ticker}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-black text-green-500">${data?.price?.toLocaleString() || "0"}</p>
-              <p className="text-[10px] text-green-500/50">+2.41% (24H)</p>
-            </div>
-          </div>
-          
-          <div className="h-64 w-full">
-             <MarketChart ticker={ticker} />
-          </div>
-        </div>
+     {/* Main Layout */}
+<div className="grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-[60vh]">
+  {/* Left: Price Chart (3/4 Width) */}
+  <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+    <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+      <div>
+        <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+          {data?.name || "ANALYZING ASSET..."}
+        </h2>
+        <p className="text-gray-500 text-xs font-mono">{ticker || 'GLOBAL_MARKET_INDEX'}</p>
+      </div>
+      <div className="text-left md:text-right">
+        <p className="text-3xl font-black text-green-500">
+          ${data?.price?.toLocaleString() || "0.00"}
+        </p>
+        <p className="text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
+          +2.41% (24H_VOL)
+        </p>
+      </div>
+    </div>
+    
+    <div className="h-64 md:h-80 w-full">
+        {/* FIX: Passing itemId correctly from your data object */}
+        <MarketChart 
+          itemId={data?.id} 
+          ticker={ticker} 
+          data={{ url: data?.url, source: data?.source }} 
+        />
+    </div>
+  </div>
+  
+  {/* Right: Sidebar/Metadata (Optional) */}
+  <div className="hidden lg:block lg:col-span-1 bg-black/20 border border-white/5 rounded-2xl p-4">
+     <p className="text-[10px] font-black text-gray-500 uppercase">Asset_Intelligence</p>
+     {/* Add more metadata here */}
+  </div>
+</div>
 
         {/* Right: Confidence & High/Lows */}
         <div className="col-span-1 space-y-4">
