@@ -14,18 +14,37 @@ const supabase = createClient(
 const wait = (min = 1000, max = 3000) =>
   new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
 
-async function getItemsToScrape() {
+async function getItemsToScrape(searchKeyword?: string) {
+  // If a keyword is provided (On-Demand), we use that. 
+  // Otherwise, we fetch everything from the 'items' table (Scheduled).
+  if (searchKeyword) {
+    console.log(`🎯 On-Demand Mode: Searching for "${searchKeyword}"`);
+    
+    // First, ensure the item exists in our main 'items' table so we have an ID to link to
+    const { data: item, error } = await supabase
+      .from("items")
+      .upsert({ title: searchKeyword }, { onConflict: 'title' })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ Error setting up On-Demand item:", error.message);
+      return [];
+    }
+    return [{ item_id: item.id, keyword: item.title }];
+  }
+
+  console.log("📡 Scheduled Mode: Fetching all tracked items...");
   const { data, error } = await supabase.from("items").select("id, title");
   if (error) return [];
   return data.map((item: any) => ({ item_id: item.id, keyword: item.title }));
 }
 
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
-  const page = await context.newPage(); // Fresh page for every scrape
+  const page = await context.newPage();
   try {
     console.log(`   🔍 [${scraper.source}] Searching: "${keyword}"`);
     
-    // Set a reasonable timeout for the whole scraper
     const result = await Promise.race([
       scraper.scrape(page, keyword),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 45000))
@@ -33,7 +52,9 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 
     if (result && result.price) {
       console.log(`   ✅ [${scraper.source}] Found: $${result.price}`);
-      const { error } = await supabase.from("market_data").insert([{
+
+      // 1. LOG TO MARKET_DATA (For the latest feed)
+      await supabase.from("market_data").insert([{
         item_id,
         source: scraper.source,
         price: result.price,
@@ -43,7 +64,16 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         image_url: result.image_url || null,
         created_at: new Date().toISOString()
       }]);
-      if (error) console.error(`   ❌ [DB Error] ${error.message}`);
+
+      // 2. LOG TO PRICE_LOGS (For the historical graph)
+      const { error: logError } = await supabase.from("price_logs").insert([{
+        item_id,
+        price: result.price,
+        source: scraper.source,
+        url: result.url
+      }]);
+
+      if (logError) console.error(`   ❌ [Log Error] ${logError.message}`);
       return result.price;
     }
     return null;
@@ -51,18 +81,22 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     console.error(`   ❌ [${scraper.source}] Error: ${err.message}`);
     return null;
   } finally {
-    await page.close(); // ALWAYS close the page to free up RAM
+    await page.close();
   }
 }
 
-export async function main() {
-  console.log("🚀 Starting Stabilized Scraper Runner...");
-  const items = await getItemsToScrape();
-  if (items.length === 0) return;
+export async function main(searchKeyword?: string) {
+  console.log("🚀 Starting Global Price Tracker...");
+  
+  const items = await getItemsToScrape(searchKeyword);
+  if (items.length === 0) {
+    console.log("⚠️ No items to process.");
+    return;
+  }
 
   const browser = await chromium.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'] // Vital for GitHub Actions memory
+    args: ['--no-sandbox', '--disable-dev-shm-usage'] 
   });
 
   const context = await browser.newContext({ 
@@ -80,20 +114,30 @@ export async function main() {
         sum += price;
         count++;
       }
-      await wait(2000, 5000); // Breathe between scrapers to avoid bot detection
+      // Delay to avoid IP bans
+      await wait(2000, 4000);
     }
 
     if (count > 0) {
-      const flipPrice = sum / count;
+      const avgPrice = sum / count;
+      console.log(`✨ Average Market Price: $${avgPrice.toFixed(2)}`);
       await supabase.from("items").update({ 
-        flip_price: flipPrice, 
+        flip_price: avgPrice, 
         last_updated: new Date().toISOString() 
       }).eq("id", item.item_id);
     }
   }
 
   await browser.close();
-  console.log("\n🏁 Market Scan Complete.");
+  console.log("\n🏁 Scrape Session Complete.");
 }
 
-main().then(() => process.exit(0)).catch(() => process.exit(1));
+// Support for Command Line: npx tsx scripts/scrapeRunner.ts "iPhone 15"
+const manualKeyword = process.argv[2];
+
+main(manualKeyword)
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
