@@ -33,7 +33,6 @@ async function getItemsToScrape(searchKeyword?: string) {
   if (searchKeyword) {
     console.log(`🎯 On-Demand Mode: Searching for "${searchKeyword}"`);
     
-    // Upsert ensures the item exists in the 'items' table so we have a UUID
     const { data: item, error } = await supabase
       .from("items")
       .upsert({ title: searchKeyword }, { onConflict: 'title' })
@@ -56,7 +55,7 @@ async function getItemsToScrape(searchKeyword?: string) {
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
   const page = await context.newPage();
   try {
-    console.log(`   🔍 [${scraper.source}] Searching: "${keyword}"`);
+    console.log(`    🔍 [${scraper.source}] Searching: "${keyword}"`);
     
     const result = await Promise.race([
       scraper.scrape(page, keyword),
@@ -64,9 +63,9 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     ]) as any;
 
     if (result && result.price) {
-      console.log(`   ✅ [${scraper.source}] Found: $${result.price}`);
+      console.log(`    ✅ [${scraper.source}] Found: $${result.price}`);
 
-      // 1. LOG TO MARKET_DATA (For the real-time "Pulse" feed)
+      // 1. LOG TO MARKET_DATA
       await supabase.from("market_data").insert([{
         item_id,
         source: scraper.source,
@@ -78,20 +77,34 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         created_at: new Date().toISOString()
       }]);
 
-      // 2. LOG TO PRICE_LOGS (For the historical line graph)
-      const { error: logError } = await supabase.from("price_logs").insert([{
+      // 2. LOG TO PRICE_LOGS (For Line Charts)
+      await supabase.from("price_logs").insert([{
         item_id,
         price: result.price,
         source: scraper.source,
         url: result.url
       }]);
 
-      if (logError) console.error(`   ❌ [Log Error] ${logError.message}`);
+      // 3. NEW: LOG TO FEED_EVENTS (To populate the Pulse Feed)
+      await supabase.from("feed_events").insert([{
+        type: 'ORACLE_ALERT',
+        title: `Price Signal: ${result.title || keyword}`,
+        description: `Market bot detected a listing for $${result.price.toLocaleString()} on ${scraper.source}.`,
+        metadata: {
+          item_id: item_id,
+          ticker: keyword,
+          price: result.price,
+          source: scraper.source,
+          image_url: result.image_url
+        },
+        created_at: new Date().toISOString()
+      }]);
+
       return result.price;
     }
     return null;
   } catch (err: any) {
-    console.error(`   ❌ [${scraper.source}] Error: ${err.message}`);
+    console.error(`    ❌ [${scraper.source}] Error: ${err.message}`);
     return null;
   } finally {
     await page.close();
