@@ -6,7 +6,6 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
 
-// VERCEL FIX: Exporting the types that the individual scrapers need to import
 export interface ScraperResult {
   price: number;
   url: string;
@@ -32,7 +31,6 @@ const wait = (min = 1000, max = 3000) =>
 async function getItemsToScrape(searchKeyword?: string) {
   if (searchKeyword) {
     console.log(`🎯 On-Demand Mode: Searching for "${searchKeyword}"`);
-    
     const { data: item, error } = await supabase
       .from("items")
       .upsert({ title: searchKeyword }, { onConflict: 'title' })
@@ -63,10 +61,10 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     ]) as any;
 
     if (result && result.price) {
-      console.log(`    ✅ [${scraper.source}] Found: $${result.price}`);
+      console.log(`    ✅ [${scraper.source}] Found: $${result.price}. Syncing to DB...`);
 
       // 1. LOG TO MARKET_DATA
-      await supabase.from("market_data").insert([{
+      const { error: mErr } = await supabase.from("market_data").insert([{
         item_id,
         source: scraper.source,
         price: result.price,
@@ -76,17 +74,19 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         image_url: result.image_url || null,
         created_at: new Date().toISOString()
       }]);
+      if (mErr) console.error("    ❌ Market Data DB Error:", mErr.message);
 
-      // 2. LOG TO PRICE_LOGS (For Line Charts)
-      await supabase.from("price_logs").insert([{
+      // 2. LOG TO PRICE_LOGS
+      const { error: pErr } = await supabase.from("price_logs").insert([{
         item_id,
         price: result.price,
         source: scraper.source,
         url: result.url
       }]);
+      if (pErr) console.error("    ❌ Price Logs DB Error:", pErr.message);
 
-      // 3. NEW: LOG TO FEED_EVENTS (To populate the Pulse Feed)
-      await supabase.from("feed_events").insert([{
+      // 3. LOG TO FEED_EVENTS
+      const { error: fErr } = await supabase.from("feed_events").insert([{
         type: 'ORACLE_ALERT',
         title: `Price Signal: ${result.title || keyword}`,
         description: `Market bot detected a listing for $${result.price.toLocaleString()} on ${scraper.source}.`,
@@ -99,6 +99,9 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         },
         created_at: new Date().toISOString()
       }]);
+      if (fErr) console.error("    ❌ Feed Events DB Error:", fErr.message);
+
+      if (!mErr && !pErr && !fErr) console.log("    ✨ Successfully synced all data.");
 
       return result.price;
     }
@@ -113,12 +116,8 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 
 export async function main(searchKeyword?: string) {
   console.log("🚀 Starting Global Price Tracker...");
-  
   const items = await getItemsToScrape(searchKeyword);
-  if (items.length === 0) {
-    console.log("⚠️ No items to process.");
-    return;
-  }
+  if (items.length === 0) return;
 
   const browser = await chromium.launch({ 
     headless: true,
@@ -145,7 +144,6 @@ export async function main(searchKeyword?: string) {
 
     if (count > 0) {
       const avgPrice = sum / count;
-      console.log(`✨ Average Market Price: $${avgPrice.toFixed(2)}`);
       await supabase.from("items").update({ 
         flip_price: avgPrice, 
         last_updated: new Date().toISOString() 
@@ -158,9 +156,7 @@ export async function main(searchKeyword?: string) {
 }
 
 const manualKeyword = process.argv[2];
-main(manualKeyword)
-  .then(() => process.exit(0))
-  .catch((err) => {
+main(manualKeyword).then(() => process.exit(0)).catch((err) => {
     console.error(err);
     process.exit(1);
-  });
+});
