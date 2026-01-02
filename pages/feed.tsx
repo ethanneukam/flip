@@ -91,7 +91,7 @@ export default function PulseFeed() {
                       <span className="text-[10px] font-bold text-green-500">+2.4% Today</span>
                     </div>
                     <div className="h-20 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
-                      <MarketChart /> 
+                      <MarketChart itemId={item.id} ticker={item.ticker} />
                     </div>
                   </div>
                 )}
