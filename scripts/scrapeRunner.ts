@@ -6,6 +6,21 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
 
+// VERCEL FIX: Exporting the types that the individual scrapers need to import
+export interface ScraperResult {
+  price: number;
+  url: string;
+  condition?: string;
+  title?: string;
+  image_url?: string | null;
+  ticker?: string;
+}
+
+export interface Scraper {
+  source: string;
+  scrape: (page: any, keyword: string) => Promise<ScraperResult | null>;
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,12 +30,10 @@ const wait = (min = 1000, max = 3000) =>
   new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
 
 async function getItemsToScrape(searchKeyword?: string) {
-  // If a keyword is provided (On-Demand), we use that. 
-  // Otherwise, we fetch everything from the 'items' table (Scheduled).
   if (searchKeyword) {
     console.log(`🎯 On-Demand Mode: Searching for "${searchKeyword}"`);
     
-    // First, ensure the item exists in our main 'items' table so we have an ID to link to
+    // Upsert ensures the item exists in the 'items' table so we have a UUID
     const { data: item, error } = await supabase
       .from("items")
       .upsert({ title: searchKeyword }, { onConflict: 'title' })
@@ -53,7 +66,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     if (result && result.price) {
       console.log(`   ✅ [${scraper.source}] Found: $${result.price}`);
 
-      // 1. LOG TO MARKET_DATA (For the latest feed)
+      // 1. LOG TO MARKET_DATA (For the real-time "Pulse" feed)
       await supabase.from("market_data").insert([{
         item_id,
         source: scraper.source,
@@ -65,7 +78,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         created_at: new Date().toISOString()
       }]);
 
-      // 2. LOG TO PRICE_LOGS (For the historical graph)
+      // 2. LOG TO PRICE_LOGS (For the historical line graph)
       const { error: logError } = await supabase.from("price_logs").insert([{
         item_id,
         price: result.price,
@@ -114,8 +127,7 @@ export async function main(searchKeyword?: string) {
         sum += price;
         count++;
       }
-      // Delay to avoid IP bans
-      await wait(2000, 4000);
+      await wait(2000, 4000); 
     }
 
     if (count > 0) {
@@ -132,9 +144,7 @@ export async function main(searchKeyword?: string) {
   console.log("\n🏁 Scrape Session Complete.");
 }
 
-// Support for Command Line: npx tsx scripts/scrapeRunner.ts "iPhone 15"
 const manualKeyword = process.argv[2];
-
 main(manualKeyword)
   .then(() => process.exit(0))
   .catch((err) => {
