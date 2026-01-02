@@ -67,14 +67,11 @@ export default function OracleTerminal() {
       </div>
     </div>
     
-    <div className="h-64 md:h-80 w-full">
-        {/* FIX: Passing itemId correctly from your data object */}
-        <MarketChart 
-          itemId={data?.id} 
-          ticker={ticker} 
-          data={{ url: data?.url, source: data?.source }} 
-        />
-    </div>
+
+<div className="h-64 w-full">
+  {/* Ensure 'data' contains the id from your Supabase fetch */}
+  <MarketChart itemId={data?.id} ticker={ticker} />
+</div>
   </div>
   
   {/* Right: Sidebar/Metadata (Optional) */}
