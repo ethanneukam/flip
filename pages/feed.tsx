@@ -20,7 +20,8 @@ export default function PulseFeed() {
         .order("created_at", { ascending: false })
         .limit(20);
 
-      if (!error) setEvents(data || []);
+      if (error) console.error("Pulse Error:", error.message);
+      if (data) setEvents(data);
       setLoading(false);
     };
     fetchFeed();
@@ -28,12 +29,10 @@ export default function PulseFeed() {
 
   return (
     <div className="min-h-screen bg-white pb-32">
-      <Head>
-        <title>Pulse | Flip</title>
-      </Head>
+      <Head><title>Pulse | Flip</title></Head>
 
       <header className="p-4 border-b border-gray-50 sticky top-0 bg-white/80 backdrop-blur-md z-50 flex justify-between items-center">
-        <h1 className="text-xl font-black italic tracking-tighter uppercase">The Pulse</h1>
+        <h1 className="text-xl font-black italic tracking-tighter uppercase text-black">The Pulse</h1>
         <div className="flex items-center space-x-1">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Live</span>
@@ -54,7 +53,7 @@ export default function PulseFeed() {
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center ${event.type === 'VAULT_ADD' ? 'bg-blue-500' : 'bg-black'}`}>
                     {event.type === 'VAULT_ADD' ? <ShieldCheck size={12} className="text-white" /> : <Zap size={12} className="text-yellow-400" />}
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest">
+                  <span className="text-xs font-black uppercase tracking-widest text-black">
                     {event.type === 'VAULT_ADD' ? 'Vault Entry' : 'Oracle Alert'}
                   </span>
                 </div>
@@ -64,55 +63,38 @@ export default function PulseFeed() {
                 </div>
               </div>
 
-              {/* Event Content */}
+              {/* Content Card */}
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-blue-500 uppercase mb-1">
                       AGENT: @{event.profiles?.username || 'Anonymous'}
                     </p>
-                    <h3 className="text-sm font-bold leading-tight">{event.title}</h3>
+                    <h3 className="text-sm font-bold leading-tight text-black">{event.title}</h3>
                     <p className="text-[11px] text-gray-500 mt-1">{event.description}</p>
                   </div>
-                  {event.metadata?.image_url && (
-                    <div className="w-16 h-16 rounded-xl bg-white border border-gray-100 overflow-hidden flex-shrink-0">
-                      <img src={event.metadata.image_url} className="w-full h-full object-cover" alt="Asset" />
-                    </div>
-                  )}
                 </div>
 
-                {/* Day 32: Chart Embed */}
-                {event.type === 'VAULT_ADD' && (
+                {/* FIXED: Using 'event' instead of 'item' */}
+                {event.type === 'VAULT_ADD' && event.metadata?.ticker && (
                   <div className="mt-4 pt-4 border-t border-gray-200/50">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center">
                         <Activity size={10} className="mr-1" /> Market Performance
                       </span>
-                      <span className="text-[10px] font-bold text-green-500">+2.4% Today</span>
                     </div>
-                    <div className="h-20 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
-                      <MarketChart itemId={item.id} ticker={item.ticker} />
+                    <div className="h-24 w-full opacity-80">
+                      <MarketChart itemId={event.metadata.item_id} ticker={event.metadata.ticker} />
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Action Bar */}
-              <div className="flex items-center space-x-6 pt-1">
-                <button className="flex items-center space-x-1.5 text-gray-400 hover:text-black transition-colors">
-                  <MessageCircle size={14} />
-                  <span className="text-[10px] font-black uppercase">Market Inquiry</span>
-                </button>
-                <button className="flex items-center space-x-1.5 text-gray-400 hover:text-blue-500 transition-colors">
-                  <ShieldCheck size={14} />
-                  <span className="text-[10px] font-black uppercase">Verify</span>
-                </button>
               </div>
             </article>
           ))
         ) : (
           <div className="p-20 text-center">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No Pulse Detected</p>
+             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No Pulse Detected</p>
+             <p className="text-[10px] text-gray-300 mt-2 italic">Check Supabase RLS Policies</p>
           </div>
         )}
       </main>
