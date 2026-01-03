@@ -52,16 +52,25 @@ async function getItemsToScrape(searchKeyword?: string) {
 
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
   const page = await context.newPage();
+  
+  // Set a standard timeout for all actions within the page
+  page.setDefaultTimeout(30000); 
+
   try {
     console.log(`    🔍 [${scraper.source}] Searching: "${keyword}"`);
     
+    // Improved Wait Strategy: Race the scraper against a hard timeout
     const result = await Promise.race([
       scraper.scrape(page, keyword),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 45000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 40000))
     ]) as any;
 
     if (result && result.price) {
       console.log(`    ✅ [${scraper.source}] Found: $${result.price}. Syncing to DB...`);
+
+      /** * FIX: We remove 'created_at' from the insert object. 
+       * This allows Supabase to use the DB default and bypasses the "schema cache" error.
+       */
 
       // 1. LOG TO MARKET_DATA
       const { error: mErr } = await supabase.from("market_data").insert([{
@@ -71,8 +80,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         url: result.url,
         condition: result.condition || "New",
         title: result.title || null,
-        image_url: result.image_url || null,
-        created_at: new Date().toISOString()
+        image_url: result.image_url || null
       }]);
       if (mErr) console.error("    ❌ Market Data DB Error:", mErr.message);
 
@@ -96,8 +104,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
           price: result.price,
           source: scraper.source,
           image_url: result.image_url
-        },
-        created_at: new Date().toISOString()
+        }
       }]);
       if (fErr) console.error("    ❌ Feed Events DB Error:", fErr.message);
 
@@ -121,11 +128,17 @@ export async function main(searchKeyword?: string) {
 
   const browser = await chromium.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'] 
+    args: [
+      '--no-sandbox', 
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled' // Helps bypass basic bot detection
+    ] 
   });
 
+  // Randomized viewport to look more human
   const context = await browser.newContext({ 
-    userAgent: new UserAgent({ deviceCategory: 'desktop' }).toString() 
+    userAgent: new UserAgent({ deviceCategory: 'desktop' }).toString(),
+    viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) }
   });
 
   for (const item of items) {
@@ -139,11 +152,13 @@ export async function main(searchKeyword?: string) {
         sum += price;
         count++;
       }
-      await wait(2000, 4000); 
+      // Human-like pause between different store lookups
+      await wait(3000, 6000); 
     }
 
     if (count > 0) {
       const avgPrice = sum / count;
+      console.log(`✨ Average Market Price for ${item.keyword}: $${avgPrice.toFixed(2)}`);
       await supabase.from("items").update({ 
         flip_price: avgPrice, 
         last_updated: new Date().toISOString() 
