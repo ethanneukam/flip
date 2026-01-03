@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { NotificationBell } from "./NotificationBell";
 import { useRouter } from "next/router";
-import { Settings, User, LogOut, Shield } from "lucide-react";
+import { Settings, User, LogOut, Activity } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
@@ -45,23 +45,31 @@ export default function Header() {
   const defaultAvatar = "/default-avatar.png";
 
   return (
-    <header className="w-full bg-white border-b border-gray-100 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-white/80">
+    <header className="w-full bg-[#0B0E11] border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-[#0B0E11]/90">
       {/* Updated Logo Section */}
       <Link href="/">
-        <div className="flex items-center cursor-pointer group">
+        <div className="flex items-center cursor-pointer group space-x-2">
           <img 
-            src="/logo.png" // Ensure your file is named logo.png in the public folder
+            src="/logo.png" 
             alt="FLIP Logo" 
-            className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
+            className="h-8 w-auto object-contain brightness-0 invert transition-transform group-hover:scale-105"
           />
+          <div className="h-4 w-[1px] bg-white/20 mx-2 hidden sm:block"></div>
+          <span className="hidden sm:block text-[10px] font-mono text-white/40 uppercase tracking-[0.2em]">Terminal_v3</span>
         </div>
       </Link>
 
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-4">
+        {/* Status Indicator (Broker Style) */}
+        <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-[9px] font-mono text-white/60 uppercase">Market_Open</span>
+        </div>
+
         {/* Notifications */}
-        <div className="p-2 hover:bg-gray-50 rounded-full transition-colors cursor-pointer">
+        <div className="hover:bg-white/5 p-2 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-white/10">
           <NotificationBell
-            className="text-black"
+            className="text-white"
             onClick={() => router.push("/notifications")}
           />
         </div>
@@ -73,47 +81,47 @@ export default function Header() {
               onClick={() => setDropdownOpen((prev) => !prev)}
               className="flex items-center focus:outline-none"
             >
-              <div className="w-10 h-10 rounded-full p-0.5 bg-gradient-to-tr from-gray-200 to-black hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl p-0.5 bg-gradient-to-tr from-blue-600 to-indigo-900 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all">
                 <img
                   src={user.user_metadata?.avatar_url || defaultAvatar}
                   alt="Profile"
-                  className="w-full h-full rounded-full border-2 border-white object-cover"
+                  className="w-full h-full rounded-[10px] border border-black/20 object-cover"
                 />
               </div>
             </button>
 
             {dropdownOpen && (
-              <div className="absolute right-0 mt-3 w-56 bg-white border border-gray-100 rounded-3xl shadow-2xl z-50 overflow-hidden animate-slideDown py-2">
-                <div className="px-4 py-3 border-b border-gray-50 mb-1">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Authenticated User</p>
-                  <p className="text-xs font-bold truncate text-black">{user.email}</p>
+              <div className="absolute right-0 mt-3 w-64 bg-[#161A1E] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-slideDown">
+                <div className="px-4 py-3 border-b border-white/5 mb-1">
+                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">Authenticated Operator</p>
+                  <p className="text-xs font-mono truncate text-white/90">{user.email}</p>
                 </div>
 
                 <Link
                   href={`/profile?user_id=${user.id}`}
-                  className="flex items-center space-x-3 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition hover:text-white"
                   onClick={() => setDropdownOpen(false)}
                 >
-                  <User size={16} />
-                  <span>Vault Profile</span>
+                  <User size={16} className="text-blue-500" />
+                  <span>Vault Assets</span>
                 </Link>
 
                 <Link
                   href="/edit-profile"
-                  className="flex items-center space-x-3 px-4 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 transition"
+                  className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition hover:text-white"
                   onClick={() => setDropdownOpen(false)}
                 >
-                  <Settings size={16} />
-                  <span>Security Settings</span>
+                  <Settings size={16} className="text-white/40" />
+                  <span>Terminal Config</span>
                 </Link>
 
-                <div className="border-t border-gray-50 mt-1 pt-1">
+                <div className="border-t border-white/5 mt-1 pt-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition text-left"
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 transition text-left"
                   >
                     <LogOut size={16} />
-                    <span>System Logout</span>
+                    <span>Terminate Session</span>
                   </button>
                 </div>
               </div>
@@ -122,9 +130,9 @@ export default function Header() {
         ) : (
           <Link
             href="/auth"
-            className="px-6 py-2.5 bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-gray-800 transition shadow-lg active:scale-95"
+            className="px-6 py-2.5 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 active:scale-95 border border-blue-400/20"
           >
-            Access Vault
+            Access Terminal
           </Link>
         )}
       </div>
@@ -136,7 +144,7 @@ export default function Header() {
         @keyframes slideDown {
           0% {
             opacity: 0;
-            transform: translateY(-8px) scale(0.95);
+            transform: translateY(-8px) scale(0.98);
           }
           100% {
             opacity: 1;
