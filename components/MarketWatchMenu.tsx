@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Activity, trendingUp, ChevronRight } from "lucide-react";
+import { Activity, TrendingUp, ChevronRight } from "lucide-react";
 
 export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string, ticker: string) => void, activeId?: string }) {
   const [items, setItems] = useState<any[]>([]);
