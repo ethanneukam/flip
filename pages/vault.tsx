@@ -27,7 +27,35 @@ export default function VaultPage() {
     } catch (e) { console.error('Failed to load vault', e); }
     finally { setLoading(false); }
   };
+const handleLiquidate = async (asset: VaultAsset) => {
+  const confirmSale = confirm(`Liquidate ${asset.title} for an instant payout?`);
+  if (!confirmSale) return;
 
+  setIsProcessing(true);
+  
+  try {
+    // 1. Calculate Payout (Market Price - 10% instant exit fee)
+    const payoutAmount = (asset as any).current_value * 0.90;
+
+    // 2. Remove from Vault / Mark as Sold
+    const { error } = await supabase
+      .from('user_assets')
+      .delete()
+      .eq('id', asset.id);
+
+    if (error) throw error;
+
+    // 3. Update User Balance (If you have a 'profiles' balance column)
+    // await supabase.rpc('increment_balance', { amount: payoutAmount });
+
+    alert(`Liquidation Successful. $${payoutAmount.toLocaleString()} credited to your account.`);
+    loadVault(); // Refresh list
+  } catch (err) {
+    alert("Liquidation failed. Market spread too high.");
+  } finally {
+    setIsProcessing(false);
+  }
+};
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -125,7 +153,15 @@ export default function VaultPage() {
           <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} disabled={isProcessing} />
         </label>
       </div>
-
+<button 
+  onClick={(e) => {
+    e.stopPropagation();
+    handleLiquidate(asset);
+  }}
+  className="ml-4 px-3 py-1 bg-red-600/10 border border-red-600/20 text-red-500 text-[10px] font-bold rounded hover:bg-red-600 hover:text-white transition-all uppercase"
+>
+  Liquidate
+</button>
       {/* 4. PROCESSING OVERLAY */}
       {isProcessing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center text-white p-6 text-center">
