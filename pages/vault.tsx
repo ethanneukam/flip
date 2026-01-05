@@ -127,25 +127,40 @@ const handleLiquidate = async (asset: VaultAsset) => {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {assets.map(asset => (
-              <div key={asset.id} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center">
-                <div className="h-12 w-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={asset.image_url} className="h-full w-full object-cover" />
-                </div>
-                <div className="ml-3 flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-gray-900 truncate">{asset.title}</h3>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold">${(asset.current_value || 0).toLocaleString()}</div>
-                </div>
-                <ArrowRight size={16} className="text-gray-300 ml-3" />
-              </div>
-            ))}
-          </div>
-        )}
+       <div className="space-y-3">
+  {assets.map((asset) => (
+    <div key={asset.id} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center">
+      {/* Image */}
+      <div className="h-12 w-12 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+        <img src={asset.image_url} className="h-full w-full object-cover" />
       </div>
 
+      {/* Title */}
+      <div className="ml-3 flex-1 min-w-0">
+        <h3 className="text-sm font-medium text-gray-900 truncate">{asset.title}</h3>
+      </div>
+
+      {/* Price & Liquidate Button */}
+      <div className="text-right flex items-center space-x-3">
+        <div>
+          <div className="text-sm font-bold">
+            ${((asset as any).current_value || 0).toLocaleString()}
+          </div>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLiquidate(asset); // This now correctly matches the 'asset' from the map
+            }}
+            className="mt-1 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase rounded hover:bg-red-500 hover:text-white transition-all"
+          >
+            Liquidate
+          </button>
+        </div>
+        <ArrowRight size={16} className="text-gray-300" />
+      </div>
+    </div>
+  ))}
+</div>
       {/* 3. CAMERA BUTTON */}
       <div className="fixed bottom-28 right-6 z-50">
         <label className={`flex items-center justify-center w-14 h-14 rounded-full shadow-2xl cursor-pointer transition-all active:scale-90 ${isProcessing ? 'bg-gray-400' : 'bg-blue-600'}`}>
@@ -153,15 +168,7 @@ const handleLiquidate = async (asset: VaultAsset) => {
           <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} disabled={isProcessing} />
         </label>
       </div>
-<button 
-  onClick={(e) => {
-    e.stopPropagation();
-    handleLiquidate(asset);
-  }}
-  className="ml-4 px-3 py-1 bg-red-600/10 border border-red-600/20 text-red-500 text-[10px] font-bold rounded hover:bg-red-600 hover:text-white transition-all uppercase"
->
-  Liquidate
-</button>
+
       {/* 4. PROCESSING OVERLAY */}
       {isProcessing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center text-white p-6 text-center">
