@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MarketChart from "@/components/oracle/MarketChart";
-import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight } from "lucide-react";
+import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera } from "lucide-react";
 import BottomNav from '../components/BottomNav';
 
 export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isScanning, setIsScanning] = useState(false); // For AI Scan state
   
   // Ticker Menu State
   const [marketItems, setMarketItems] = useState<any[]>([]);
@@ -42,6 +43,39 @@ export default function OracleTerminal() {
     setLoading(false);
   };
 
+  // AI CAMERA SCAN LOGIC (3b)
+  const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Image = (reader.result as string).split(',')[1];
+
+        const aiRes = await fetch('/api/ai-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image }),
+        });
+        
+        const { productName } = await aiRes.json();
+        
+        if (productName) {
+          // Updates the state which triggers fetchTickerData automatically
+          setTicker(productName.toUpperCase());
+        }
+        setIsScanning(false);
+      };
+    } catch (err) {
+      console.error("Chart AI Scan Error:", err);
+      setIsScanning(false);
+    }
+  };
+
   const marketPrice = data?.price || 0;
   const estimatedFees = marketPrice * 0.1325;
   const shippingCost = 15.00;
@@ -56,17 +90,37 @@ export default function OracleTerminal() {
           <p className="text-[10px] text-gray-500 uppercase">Broker_Layout // {new Date().toLocaleTimeString()}</p>
         </div>
         
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
-          <input 
-            className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48 transition-all"
-            placeholder="FILTER TICKERS..."
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-          />
+        <div className="flex items-center space-x-2">
+          {/* Camera Scan Button */}
+          <label className="cursor-pointer p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/50 transition-all flex items-center justify-center">
+            {isScanning ? (
+              <Loader2 size={14} className="animate-spin text-blue-500" />
+            ) : (
+              <Camera size={14} className="text-gray-400" />
+            )}
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              className="hidden" 
+              onChange={handleCameraScan} 
+              disabled={isScanning}
+            />
+          </label>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
+            <input 
+              className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48 transition-all"
+              placeholder="FILTER TICKERS..."
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            />
+          </div>
         </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: MARKET WATCHLIST MENU */}
         <div className="w-64 border-r border-white/10 bg-black/40 hidden md:flex flex-col h-[calc(100vh-140px)]">
@@ -98,8 +152,17 @@ export default function OracleTerminal() {
 
         {/* RIGHT: MAIN CONTENT AREA */}
         <div className="flex-1 p-4 overflow-y-auto">
+          {/* Overlay loader when AI is identifying from camera */}
+          {isScanning && (
+            <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+              <div className="flex flex-col items-center">
+                <Loader2 className="animate-spin text-blue-500 mb-2" size={32} />
+                <p className="text-[10px] font-bold tracking-widest uppercase text-blue-500">Oracle_Visual_Sync...</p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            
             {/* Price Chart */}
             <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
               <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
