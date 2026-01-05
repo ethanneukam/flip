@@ -43,7 +43,7 @@ export default function OracleTerminal() {
     setLoading(false);
   };
 
-  // AI CAMERA SCAN LOGIC (3b)
+  // AI CAMERA SCAN + SCRAPE CHAIN (3b)
   const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -56,6 +56,7 @@ export default function OracleTerminal() {
       reader.onload = async () => {
         const base64Image = (reader.result as string).split(',')[1];
 
+        // 1. Identify via AI
         const aiRes = await fetch('/api/ai-scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -65,7 +66,14 @@ export default function OracleTerminal() {
         const { productName } = await aiRes.json();
         
         if (productName) {
-          // Updates the state which triggers fetchTickerData automatically
+          // 2. Trigger Scraper to ensure market data exists for this specific find
+          await fetch('/api/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyword: productName }),
+          });
+
+          // 3. Update the ticker (triggers fetchTickerData automatically)
           setTicker(productName.toUpperCase());
         }
         setIsScanning(false);
@@ -121,7 +129,17 @@ export default function OracleTerminal() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        
+        {/* Visual Sync Overlay (Shows only when AI is working) */}
+        {isScanning && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+             <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+             <p className="font-bold uppercase tracking-[0.3em] text-sm text-blue-500">Visual_Sync_Active</p>
+             <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">Identifying Asset & Pulling Market Nodes</p>
+          </div>
+        )}
+
         {/* LEFT: MARKET WATCHLIST MENU */}
         <div className="w-64 border-r border-white/10 bg-black/40 hidden md:flex flex-col h-[calc(100vh-140px)]">
           <div className="p-3 border-b border-white/5 bg-white/5">
@@ -152,16 +170,6 @@ export default function OracleTerminal() {
 
         {/* RIGHT: MAIN CONTENT AREA */}
         <div className="flex-1 p-4 overflow-y-auto">
-          {/* Overlay loader when AI is identifying from camera */}
-          {isScanning && (
-            <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-              <div className="flex flex-col items-center">
-                <Loader2 className="animate-spin text-blue-500 mb-2" size={32} />
-                <p className="text-[10px] font-bold tracking-widest uppercase text-blue-500">Oracle_Visual_Sync...</p>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Price Chart */}
             <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
