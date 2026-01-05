@@ -25,6 +25,7 @@ export interface VaultAsset {
   
   // Metadata
   image_url: string;
+  current_value?: number;
   notes?: string;
   is_public: boolean; // Default false
 }
