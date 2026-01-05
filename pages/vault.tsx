@@ -1,4 +1,3 @@
-// pages/vault.tsx
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import BottomNav from '../components/BottomNav';
@@ -6,8 +5,9 @@ import NetWorthCard from '../components/vault/NetWorthCard';
 import { VaultService } from '../lib/vault-service';
 import { calculatePortfolio } from '../lib/valuation';
 import { VaultAsset, OracleMetric } from '../types/core';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, Camera, Loader2 } from 'lucide-react'; // Added icons
 import Link from 'next/link';
+import { supabase } from '../lib/supabaseClient'; // Added supabase import
 
 // Mock User ID for demo - in prod, useAuth() hook
 const MOCK_USER_ID = 'user_123';
@@ -16,6 +16,7 @@ export default function VaultPage() {
   const [assets, setAssets] = useState<VaultAsset[]>([]);
   const [oracleData, setOracleData] = useState<Record<string, OracleMetric>>({});
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false); // Added processing state
 
   useEffect(() => {
     loadVault();
@@ -30,6 +31,57 @@ export default function VaultPage() {
       console.error('Failed to load vault', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI SCAN LOGIC (3a)
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+
+    try {
+      // 1. Convert to Base64 for the AI API
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Image = (reader.result as string).split(',')[1];
+
+        // 2. Identify Item via AI Scan
+        const aiRes = await fetch('/api/ai-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image }),
+        });
+        const { productName } = await aiRes.json();
+
+        // 3. Get Flip Price via Scraper
+        const scrapeRes = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword: productName }),
+        });
+        const marketData = await scrapeRes.json();
+
+        // 4. Automatic Vault Add (Supabase)
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('user_assets').insert({
+          user_id: user?.id || MOCK_USER_ID,
+          title: productName,
+          sku: productName.substring(0, 8).toUpperCase(),
+          current_value: marketData.flipPrice || 0,
+          image_url: marketData.image || "https://via.placeholder.com/150",
+          condition_score: 100 // Default for new scan
+        });
+
+        // 5. Refresh the list
+        await loadVault();
+        setIsProcessing(false);
+      };
+    } catch (err) {
+      console.error("AI Scan Failed:", err);
+      setIsProcessing(false);
     }
   };
 
@@ -111,6 +163,33 @@ export default function VaultPage() {
           </div>
         )}
       </div>
+
+      {/* AI SCAN FLOATING BUTTON */}
+      <div className="fixed bottom-28 right-6 z-50">
+        <label className={`flex items-center justify-center w-14 h-14 rounded-full shadow-2xl cursor-pointer transition-all active:scale-90 ${isProcessing ? 'bg-gray-400' : 'bg-blue-600'}`}>
+          {isProcessing ? (
+            <Loader2 className="text-white animate-spin" size={24} />
+          ) : (
+            <Camera className="text-white" size={24} />
+          )}
+          <input 
+            type="file" 
+            accept="image/*" 
+            capture="environment" 
+            className="hidden" 
+            onChange={handlePhotoCapture} 
+            disabled={isProcessing}
+          />
+        </label>
+      </div>
+
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center text-white p-6 text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+          <p className="font-bold uppercase tracking-widest text-sm">AI_Oracle_Analyzing...</p>
+          <p className="text-[10px] text-gray-400 mt-2">Identifying asset and calculating market value</p>
+        </div>
+      )}
 
       <BottomNav />
     </div>
