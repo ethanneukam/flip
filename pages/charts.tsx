@@ -42,7 +42,32 @@ export default function OracleTerminal() {
     if (marketData) setData(marketData);
     setLoading(false);
   };
+const handleBuyAction = async () => {
+  setLoading(true);
+  
+  // 1. Search Supabase for any user who has listed this ticker for sale
+  const { data: listing } = await supabase
+    .from('user_assets')
+    .select('*, profiles(username)')
+    .eq('sku', ticker)
+    .eq('is_for_sale', true)
+    .limit(1)
+    .single();
 
+  if (listing) {
+    // INTERNAL BUY: Proceed to checkout from another user
+    const confirmBuy = confirm(`Buy this ${ticker} from user @${listing.profiles.username} for $${listing.current_value}?`);
+    if (confirmBuy) {
+      alert("Processing Peer-to-Peer Transaction...");
+      // Logic for moving asset between users goes here
+    }
+  } else {
+    // EXTERNAL BUY: Redirect to affiliate
+    const affiliateUrl = `https://www.amazon.com/s?k=${ticker}&tag=your-tag-20`;
+    window.open(affiliateUrl, '_blank');
+  }
+  setLoading(false);
+};
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
   const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,7 +220,13 @@ export default function OracleTerminal() {
                 <MarketChart itemId={data?.id} ticker={ticker} />
               </div>
             </div>
-            
+            <button 
+  onClick={handleBuyAction}
+  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-tighter rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+>
+  <ArrowUpRight size={18} />
+  Acquire Asset
+</button>
             {/* Intelligence Sidebar */}
             <div className="lg:col-span-1 space-y-4">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
