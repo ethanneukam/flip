@@ -32,19 +32,19 @@ const supabase = createClient(
  */
 async function applyStealthAndOptimization(page: Page) {
   // 1. Block heavy resources (Images/CSS/Fonts) from downloading
-  // We can still read the 'src' or 'srcset' from the HTML without downloading the pixels
   await page.route('**/*.{png,jpg,jpeg,gif,webp,svg,css,woff,woff2,ttf,eot,mp4,ad,ads,doubleclick,google-analytics}', (route) => {
     return route.abort();
   });
 
-  // 2. Randomize User Agent per page
-  const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
-  await page.setUserAgent(ua);
-
-  // 3. Set extra headers to look like a real browser
+  // 2. Set extra headers to look like a real browser
   await page.setExtraHTTPHeaders({
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  });
+
+  // 3. Hide automation footprint
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 }
 
@@ -74,6 +74,7 @@ async function getItemsToScrape(searchKeyword?: string) {
 }
 
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
+  // Fix: Generate UA here to be used if needed, but context handles it mostly.
   const page = await context.newPage();
   
   // Apply the new "Low Data" stealth mode
@@ -84,7 +85,6 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
   try {
     console.log(`    🔍 [${scraper.source}] Searching: "${keyword}"`);
     
-    // Improved Wait Strategy: DomContentLoaded is faster than 'networkidle'
     const result = await Promise.race([
       scraper.scrape(page, keyword),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Hard Timeout")), 45000))
@@ -152,12 +152,14 @@ export async function main(searchKeyword?: string) {
     args: [
       '--no-sandbox', 
       '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage', // Critical fix for "Target Crashed" errors
+      '--disable-dev-shm-usage', 
       '--disable-blink-features=AutomationControlled'
     ] 
   });
 
+  // Fix: UserAgent is set here at the context level where it is valid
   const context = await browser.newContext({ 
+    userAgent: new UserAgent({ deviceCategory: 'desktop' }).toString(),
     viewport: { width: 1280, height: 720 }
   });
 
@@ -172,7 +174,6 @@ export async function main(searchKeyword?: string) {
         sum += price;
         count++;
       }
-      // Pause slightly between scrapers
       await wait(2000, 4000); 
     }
 
