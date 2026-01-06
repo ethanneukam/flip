@@ -182,15 +182,21 @@ export default function OrderBook({ ticker }: { ticker: string }) {
         ))}
       </div>
 
-      {/* Action Buttons */}
-      <div className="p-3 border-t border-white/10 grid grid-cols-2 gap-3 bg-white/5">
-        <button className="bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl hover:bg-green-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter">
-          <ShoppingCart size={14} /> Post Bid
-        </button>
-        <button className="bg-red-500/10 border border-red-500/30 text-red-500 py-3 rounded-xl hover:bg-red-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter">
-          <Tag size={14} /> List Asset
-        </button>
-      </div>
-    </div>
+  {/* Action Buttons */}
+<div className="p-3 border-t border-white/10 grid grid-cols-2 gap-3 bg-white/5">
+  <button 
+    onClick={() => router.push('/market/create?type=buy&ticker=' + ticker)}
+    className="bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl hover:bg-green-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter"
+  >
+    <ShoppingCart size={14} /> Post Bid
+  </button>
+  
+  <button 
+    onClick={() => router.push('/market/create?type=sell&ticker=' + ticker)}
+    className="bg-red-500/10 border border-red-500/30 text-red-500 py-3 rounded-xl hover:bg-red-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter"
+  >
+    <Tag size={14} /> List Asset
+  </button>
+</div>
   );
 }
