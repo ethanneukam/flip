@@ -46,24 +46,27 @@ export default function ProfilePage() {
   };
 
 const handleStripeOnboarding = async () => {
+  if (!session?.user?.id) return alert("You must be logged in.");
+  
   setOnboardingLoading(true);
   try {
     const response = await fetch("/api/stripe/onboard", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: session?.user?.id }),
+      body: JSON.stringify({ userId: session.user.id }),
     });
     
     const data = await response.json();
-    
-    if (data.url) {
-      window.location.href = data.url; // This sends them to Stripe
+
+    if (response.ok && data.url) {
+      // Direct redirect to Stripe's hosted onboarding page
+      window.location.href = data.url;
     } else {
-      console.error("No URL returned from API", data);
-      alert("Failed to start onboarding. Check console.");
+      throw new Error(data.error || "Failed to generate onboarding link");
     }
-  } catch (err) {
-    console.error("Onboarding error:", err);
+  } catch (err: any) {
+    console.error("Stripe Onboarding Error:", err);
+    alert(`Error: ${err.message}`);
   } finally {
     setOnboardingLoading(false);
   }
