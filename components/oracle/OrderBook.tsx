@@ -75,27 +75,41 @@ export default function OrderBook({ ticker }: { ticker: string }) {
   };
 
   // --- NEW: Submit Order Logic ---
-  const submitOrder = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Please login");
+const submitOrder = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return alert("Please login");
 
-    const { error } = await supabase.from('market_orders').insert({
-      ticker: ticker,
-      order_type: showForm.type,
-      price: parseFloat(orderPrice),
-      quantity: parseInt(orderQty),
-      user_id: user.id,
-      status: 'open'
-    });
+  // IF SELLING: Verify ownership first
+  if (showForm.type === 'sell') {
+    const { data: ownership, error: ownerError } = await supabase
+      .from('items')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('ticker', ticker) // Ensure your items table has a ticker column
+      .limit(1);
 
-    if (error) alert(error.message);
-    else {
-      setShowForm({ ...showForm, active: false });
-      setOrderPrice('');
-      setOrderQty('1');
-      fetchBook(); // Refresh data immediately
+    if (ownerError || !ownership || ownership.length === 0) {
+      alert("Verification Failed: This asset is not in your Secure Vault.");
+      return;
     }
-  };
+  }
+
+  // Proceed with listing if verification passes
+  const { error } = await supabase.from('market_orders').insert({
+    ticker: ticker,
+    order_type: showForm.type,
+    price: parseFloat(orderPrice),
+    quantity: parseInt(orderQty),
+    user_id: user.id,
+    status: 'open'
+  });
+
+  if (error) alert(error.message);
+  else {
+    setShowForm({ ...showForm, active: false });
+    fetchBook();
+  }
+};
 
   /**
    * STRIPE INTEGRATION: handleBuy
