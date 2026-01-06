@@ -1,81 +1,54 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import { buffer } from "micro";
 import Stripe from "stripe";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@supabase/supabase-js";
+import { NextApiRequest, NextApiResponse } from "next";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-10-29.clover",
-});
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-06" as any });
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-const buffer = async (req: NextApiRequest) => {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-  }
-  return Buffer.concat(chunks);
-};
+export const config = { api: { bodyParser: false } }; // Critical: Stripe needs the raw body
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
   const buf = await buffer(req);
-  const sig = req.headers["stripe-signature"] as string;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
+  const sig = req.headers["stripe-signature"]!;
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
-    console.error("❌ Webhook signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // -------------------------------
-  // CHECKOUT SESSION COMPLETE
-  // -------------------------------
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+  // Handle the "Real Money" Logic
+  if (event.type === "payment_intent.succeeded") {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const { orderId } = paymentIntent.metadata;
 
-    const { error } = await supabase.from("transactions").insert([
-      {
-        stripe_session_id: session.id,
-        amount: session.amount_total,
-        currency: session.currency,
-        customer_email: session.customer_details?.email,
-        status: session.payment_status,
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    console.log(`💰 Payment Succeeded for Order: ${orderId}`);
 
-    if (error) console.error("❌ Supabase insert error:", error);
-    else console.log("✅ Transaction stored in Supabase:", session.id);
+    // Update Transaction status to 'escrow_locked'
+    const { error } = await supabase
+      .from("transactions")
+      .update({ status: "escrow_locked", updated_at: new Date() })
+      .eq("order_id", orderId);
+
+    if (error) console.error("DB Update Error:", error);
+
+    // Trigger Notification for Seller (Logic here...)
   }
 
-  // -------------------------------
-  // IDENTITY VERIFICATION COMPLETE
-  // -------------------------------
-  if (event.type === "identity.verification_session.verified") {
-    const typed = event as any;
-
-    const session = typed.data.object as Stripe.Identity.VerificationSession;
-    const userId = session.metadata?.user_id;
-
-    if (userId) {
-      const { error } = await supabase
+  // Handle Seller Onboarding Completion
+  if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    if (account.details_submitted && account.payouts_enabled) {
+      await supabase
         .from("profiles")
-        .update({ verified: true })
-        .eq("id", userId);
-
-      if (error) console.error("Supabase update error:", error);
-      else console.log(`✅ User ${userId} verified`);
+        .update({ is_merchant_verified: true })
+        .eq("stripe_connect_id", account.id);
     }
   }
 
-  return res.json({ received: true });
+  res.json({ received: true });
 }
