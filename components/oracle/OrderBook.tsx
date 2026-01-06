@@ -256,9 +256,16 @@ const submitOrder = async () => {
             <div className="absolute right-0 top-0 bottom-0 bg-green-900/10 z-0 transition-all duration-500" style={{ width: `${Math.min(bid.quantity * 10, 100)}%` }} />
             <span className="text-green-400 font-bold z-10 relative">${bid.price.toLocaleString()}</span>
             <span className="text-gray-500 z-10 relative">{bid.quantity}</span>
-            <button className="opacity-0 group-hover:opacity-100 absolute right-2 bg-red-600 text-white px-3 py-1 rounded-lg text-[9px] z-20 font-black">
-              FILL BID
-            </button>
+          <button 
+  disabled={isProcessing}
+  onClick={(e) => { 
+    e.stopPropagation(); 
+    handleBuy(bid); // Reusing handleBuy logic for instant execution
+  }}
+  className="opacity-0 group-hover:opacity-100 absolute right-2 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-lg text-[9px] z-20 font-black transition-all shadow-xl"
+>
+  {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'SELL NOW'}
+</button>
           </div>
         ))}
       </div>
