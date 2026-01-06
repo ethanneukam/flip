@@ -5,7 +5,7 @@ import BottomNav from "../components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useRouter } from "next/router";
-import { Shield, TrendingUp, TrendingDown, Package, PieChart, Settings } from "lucide-react";
+import { Shield, TrendingUp, Package, PieChart, Settings, Banknote, Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
   const session = useSession();
@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [totalNetWorth, setTotalNetWorth] = useState(0);
   const [dailyChange, setDailyChange] = useState(0);
   const [activeTab, setActiveTab] = useState<"vault" | "analytics">("vault");
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -24,11 +25,9 @@ export default function ProfilePage() {
   }, [session]);
 
   const fetchVaultData = async (userId: string) => {
-    // 1. Get Profile
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId).single();
     if (prof) setProfile(prof);
 
-    // 2. Get Vault Items (Day 10 Logic: Valuation)
     const { data: items } = await supabase
       .from("items")
       .select("*")
@@ -37,20 +36,34 @@ export default function ProfilePage() {
 
     if (items) {
       setPosts(items);
-      // Valuation Engine: Summing item values (using condition_score as a multiplier for mock base price)
-      // In a real scenario, this would join with your Oracle price table
       const total = items.reduce((sum, item) => sum + (1200 * (item.condition_score || 1)), 0);
       setTotalNetWorth(total);
-      setDailyChange(total * 0.014); // Mocking a 1.4% daily gain
+      setDailyChange(total * 0.014);
+    }
+  };
+
+  // --- NEW: Seller Onboarding Logic ---
+  const handleStripeOnboarding = async () => {
+    setOnboardingLoading(true);
+    try {
+      const response = await fetch("/api/stripe/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session?.user?.id }),
+      });
+      const { url } = await response.json();
+      if (url) window.location.href = url;
+    } catch (err) {
+      console.error("Onboarding error:", err);
+    } finally {
+      setOnboardingLoading(false);
     }
   };
 
   return (
     <AuthWrapper>
       <main className="max-w-md mx-auto pb-24 bg-[#F9FAFB] min-h-screen">
-        {/* --- Phase 2: Vault Header --- */}
         <div className="bg-black text-white p-8 pt-12 rounded-b-[40px] shadow-2xl relative overflow-hidden">
-          {/* Background Decorative Element */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl" />
           
           <div className="flex justify-between items-start mb-6">
@@ -82,8 +95,37 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* --- Quick Actions --- */}
-        <div className="grid grid-cols-2 gap-4 px-4 -mt-6">
+        {/* --- NEW: Escrow / Payout Status Card --- */}
+        <div className="px-4 mt-4">
+          {!profile.stripe_connect_id ? (
+            <button 
+              onClick={handleStripeOnboarding}
+              disabled={onboardingLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-2xl flex items-center justify-between transition-all group"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  {onboardingLoading ? <Loader2 className="animate-spin" size={20} /> : <Banknote size={20} />}
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase opacity-80">Seller Action Required</p>
+                  <p className="font-bold text-sm">Setup Payouts to Sell Assets</p>
+                </div>
+              </div>
+              <Shield size={18} className="opacity-40 group-hover:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            <div className="bg-green-50 border border-green-100 p-4 rounded-2xl flex items-center space-x-3">
+              <div className="bg-green-500 text-white p-2 rounded-lg"><Shield size={20} /></div>
+              <div>
+                <p className="text-[10px] font-black text-green-600 uppercase">Merchant Account Active</p>
+                <p className="text-sm font-bold text-green-800">Verified for Escrow Payouts</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 px-4 mt-4">
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center space-x-3">
             <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><Package size={20} /></div>
             <div>
@@ -100,7 +142,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* --- Tabs --- */}
         <div className="flex p-4 gap-4">
           <button 
             onClick={() => setActiveTab("vault")}
@@ -116,7 +157,6 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* --- Tab Content --- */}
         <div className="px-4">
           <AnimatePresence mode="wait">
             {activeTab === "vault" ? (
