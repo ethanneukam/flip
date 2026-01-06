@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useRouter } from "next/router";
 import { Shield, TrendingUp, Package, PieChart, Settings, Banknote, Loader2 } from "lucide-react";
+// NEW: Import the Seller Dashboard
+import SellerDashboard from "../components/SellerDashboard";
 
 export default function ProfilePage() {
   const session = useSession();
@@ -15,7 +17,8 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [totalNetWorth, setTotalNetWorth] = useState(0);
   const [dailyChange, setDailyChange] = useState(0);
-  const [activeTab, setActiveTab] = useState<"vault" | "analytics">("vault");
+  // UPDATED: Added "sales" to the activeTab state
+  const [activeTab, setActiveTab] = useState<"vault" | "analytics" | "sales">("vault");
   const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   useEffect(() => {
@@ -42,7 +45,6 @@ export default function ProfilePage() {
     }
   };
 
-  // --- NEW: Seller Onboarding Logic ---
   const handleStripeOnboarding = async () => {
     setOnboardingLoading(true);
     try {
@@ -95,7 +97,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* --- NEW: Escrow / Payout Status Card --- */}
         <div className="px-4 mt-4">
           {!profile.stripe_connect_id ? (
             <button 
@@ -142,24 +143,31 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex p-4 gap-4">
+        {/* UPDATED: Tabs now include a "Sales" option */}
+        <div className="flex p-4 gap-2">
           <button 
             onClick={() => setActiveTab("vault")}
             className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === "vault" ? 'bg-black text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
           >
-            Vault Assets
+            Vault
+          </button>
+          <button 
+            onClick={() => setActiveTab("sales")}
+            className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === "sales" ? 'bg-black text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
+          >
+            Sales
           </button>
           <button 
             onClick={() => setActiveTab("analytics")}
             className={`flex-1 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === "analytics" ? 'bg-black text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}
           >
-            Analytics
+            Stats
           </button>
         </div>
 
         <div className="px-4">
           <AnimatePresence mode="wait">
-            {activeTab === "vault" ? (
+            {activeTab === "vault" && (
               <motion.div 
                 key="vault"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -183,7 +191,21 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </motion.div>
-            ) : (
+            )}
+
+            {/* NEW: Render the SellerDashboard when the Sales tab is active */}
+            {activeTab === "sales" && (
+              <motion.div
+                key="sales"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <SellerDashboard userId={session?.user?.id || ""} />
+              </motion.div>
+            )}
+
+            {activeTab === "analytics" && (
               <motion.div 
                 key="analytics"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
