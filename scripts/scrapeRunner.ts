@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
-import { chromium, Browser, BrowserContext } from "playwright";
+import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
@@ -24,6 +24,29 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+/**
+ * NEW: Stealth & Performance Optimization
+ * Blocks heavy assets to prevent timeouts and "Target Crashed" errors
+ * while allowing image URLs to be read from the HTML.
+ */
+async function applyStealthAndOptimization(page: Page) {
+  // 1. Block heavy resources (Images/CSS/Fonts) from downloading
+  // We can still read the 'src' or 'srcset' from the HTML without downloading the pixels
+  await page.route('**/*.{png,jpg,jpeg,gif,webp,svg,css,woff,woff2,ttf,eot,mp4,ad,ads,doubleclick,google-analytics}', (route) => {
+    return route.abort();
+  });
+
+  // 2. Randomize User Agent per page
+  const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
+  await page.setUserAgent(ua);
+
+  // 3. Set extra headers to look like a real browser
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  });
+}
 
 const wait = (min = 1000, max = 3000) =>
   new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
@@ -53,24 +76,22 @@ async function getItemsToScrape(searchKeyword?: string) {
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
   const page = await context.newPage();
   
-  // Set a standard timeout for all actions within the page
+  // Apply the new "Low Data" stealth mode
+  await applyStealthAndOptimization(page);
+
   page.setDefaultTimeout(30000); 
 
   try {
     console.log(`    🔍 [${scraper.source}] Searching: "${keyword}"`);
     
-    // Improved Wait Strategy: Race the scraper against a hard timeout
+    // Improved Wait Strategy: DomContentLoaded is faster than 'networkidle'
     const result = await Promise.race([
       scraper.scrape(page, keyword),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 40000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Hard Timeout")), 45000))
     ]) as any;
 
     if (result && result.price) {
       console.log(`    ✅ [${scraper.source}] Found: $${result.price}. Syncing to DB...`);
-
-      /** * FIX: We remove 'created_at' from the insert object. 
-       * This allows Supabase to use the DB default and bypasses the "schema cache" error.
-       */
 
       // 1. LOG TO MARKET_DATA
       const { error: mErr } = await supabase.from("market_data").insert([{
@@ -130,15 +151,14 @@ export async function main(searchKeyword?: string) {
     headless: true,
     args: [
       '--no-sandbox', 
-      '--disable-dev-shm-usage',
-      '--disable-blink-features=AutomationControlled' // Helps bypass basic bot detection
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage', // Critical fix for "Target Crashed" errors
+      '--disable-blink-features=AutomationControlled'
     ] 
   });
 
-  // Randomized viewport to look more human
   const context = await browser.newContext({ 
-    userAgent: new UserAgent({ deviceCategory: 'desktop' }).toString(),
-    viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) }
+    viewport: { width: 1280, height: 720 }
   });
 
   for (const item of items) {
@@ -152,8 +172,8 @@ export async function main(searchKeyword?: string) {
         sum += price;
         count++;
       }
-      // Human-like pause between different store lookups
-      await wait(3000, 6000); 
+      // Pause slightly between scrapers
+      await wait(2000, 4000); 
     }
 
     if (count > 0) {
