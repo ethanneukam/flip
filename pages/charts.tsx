@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import MarketChart from "@/components/oracle/MarketChart";
 import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera } from "lucide-react";
 import BottomNav from '../components/BottomNav';
+import OrderBook from '@/components/oracle/OrderBook';
 
 export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
@@ -252,7 +253,9 @@ const handleBuyAction = async () => {
                   </div>
                 </div>
               </div>
-
+<div className="lg:col-span-1 h-[500px]">
+   <OrderBook ticker={ticker} />
+</div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-widest font-black">Confidence_Score</p>
                 <div className="flex items-center space-x-2">
