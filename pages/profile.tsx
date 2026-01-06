@@ -109,8 +109,13 @@ const handleStripeOnboarding = async () => {
 
         <div className="px-4 mt-4">
           {!profile.stripe_connect_id ? (
-            <button 
-              onClick={handleStripeOnboarding}
+            <button onClick={() => {
+    if (session) {
+      handleStripeOnboarding();
+    } else {
+      alert("Session loading... please wait a moment.");
+    }
+  }}
               disabled={onboardingLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-2xl flex items-center justify-between transition-all group"
             >
