@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { ArrowDown, ArrowUp, ShoppingCart, Tag, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/router';
+import AddressModal from '../../components/AddressModal'; // Ensure this path is correct
 
 interface Order {
   id: string;
@@ -17,6 +18,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
   const [asks, setAsks] = useState<Order[]>([]); // Sell Orders (Red)
   const [userOrders, setUserOrders] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   // --- NEW: State for Quick-Entry Form ---
   const [showForm, setShowForm] = useState<{type: 'buy' | 'sell', active: boolean}>({type: 'buy', active: false});
@@ -74,47 +76,69 @@ export default function OrderBook({ ticker }: { ticker: string }) {
     if (data) setUserOrders(data.map(o => o.id));
   };
 
-  // --- NEW: Submit Order Logic ---
-const submitOrder = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return alert("Please login");
+  // Verifies address before allowing any P2P action
+  const checkAddressAndProceed = async (type: 'buy' | 'sell', order?: Order) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("Please login");
 
-  // IF SELLING: Verify ownership first
-  if (showForm.type === 'sell') {
-    const { data: ownership, error: ownerError } = await supabase
-      .from('items')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('ticker', ticker) // Ensure your items table has a ticker column
-      .limit(1);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('address_line1')
+      .eq('id', user.id)
+      .single();
 
-    if (ownerError || !ownership || ownership.length === 0) {
-      alert("Verification Failed: This asset is not in your Secure Vault.");
+    if (!profile?.address_line1) {
+      setIsAddressModalOpen(true);
       return;
     }
-  }
 
-  // Proceed with listing if verification passes
-  const { error } = await supabase.from('market_orders').insert({
-    ticker: ticker,
-    order_type: showForm.type,
-    price: parseFloat(orderPrice),
-    quantity: parseInt(orderQty),
-    user_id: user.id,
-    status: 'open'
-  });
+    if (type === 'buy' && order) {
+      handleBuy(order);
+    } else if (type === 'sell') {
+      setShowForm({ type: 'sell', active: true });
+    } else {
+        setShowForm({ type: 'buy', active: true });
+    }
+  };
 
-  if (error) alert(error.message);
-  else {
-    setShowForm({ ...showForm, active: false });
-    fetchBook();
-  }
-};
+  // --- NEW: Submit Order Logic ---
+  const submitOrder = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("Please login");
 
-  /**
-   * STRIPE INTEGRATION: handleBuy
-   * Triggers the real-money checkout session
-   */
+    // IF SELLING: Verify ownership first
+    if (showForm.type === 'sell') {
+      const { data: ownership, error: ownerError } = await supabase
+        .from('items')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('ticker', ticker)
+        .limit(1);
+
+      if (ownerError || !ownership || ownership.length === 0) {
+        alert("Verification Failed: This asset is not in your Secure Vault.");
+        return;
+      }
+    }
+
+    // Proceed with listing if verification passes
+    const { error } = await supabase.from('market_orders').insert({
+      ticker: ticker,
+      order_type: showForm.type,
+      price: parseFloat(orderPrice),
+      quantity: parseInt(orderQty),
+      user_id: user.id,
+      status: 'open'
+    });
+
+    if (error) alert(error.message);
+    else {
+      setShowForm({ ...showForm, active: false });
+      setOrderPrice('');
+      fetchBook();
+    }
+  };
+
   const handleBuy = async (order: Order) => {
     setIsProcessing(true);
     try {
@@ -230,7 +254,7 @@ const submitOrder = async () => {
             <span className="text-gray-500 z-10 relative">{ask.quantity}</span>
             <button 
               disabled={isProcessing}
-              onClick={(e) => { e.stopPropagation(); handleBuy(ask); }}
+              onClick={(e) => { e.stopPropagation(); checkAddressAndProceed('buy', ask); }}
               className="opacity-0 group-hover:opacity-100 absolute right-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-lg text-[9px] z-20 font-black transition-all shadow-xl disabled:opacity-50"
             >
               {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'BUY NOW'}
@@ -256,16 +280,16 @@ const submitOrder = async () => {
             <div className="absolute right-0 top-0 bottom-0 bg-green-900/10 z-0 transition-all duration-500" style={{ width: `${Math.min(bid.quantity * 10, 100)}%` }} />
             <span className="text-green-400 font-bold z-10 relative">${bid.price.toLocaleString()}</span>
             <span className="text-gray-500 z-10 relative">{bid.quantity}</span>
-          <button 
-  disabled={isProcessing}
-  onClick={(e) => { 
-    e.stopPropagation(); 
-    handleBuy(bid); // Reusing handleBuy logic for instant execution
-  }}
-  className="opacity-0 group-hover:opacity-100 absolute right-2 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-lg text-[9px] z-20 font-black transition-all shadow-xl"
->
-  {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'SELL NOW'}
-</button>
+            <button 
+              disabled={isProcessing}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                checkAddressAndProceed('buy', bid); 
+              }}
+              className="opacity-0 group-hover:opacity-100 absolute right-2 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-lg text-[9px] z-20 font-black transition-all shadow-xl"
+            >
+              {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'FILL BID'}
+            </button>
           </div>
         ))}
       </div>
@@ -273,18 +297,25 @@ const submitOrder = async () => {
       {/* Action Buttons */}
       <div className="p-3 border-t border-white/10 grid grid-cols-2 gap-3 bg-white/5">
         <button 
-          onClick={() => setShowForm({ type: 'buy', active: true })}
+          onClick={() => checkAddressAndProceed('buy')}
           className="bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl hover:bg-green-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter"
         >
           <ShoppingCart size={14} /> Post Bid
         </button>
         <button 
-          onClick={() => setShowForm({ type: 'sell', active: true })}
+          onClick={() => checkAddressAndProceed('sell')}
           className="bg-red-500/10 border border-red-500/30 text-red-500 py-3 rounded-xl hover:bg-red-500 hover:text-white transition-all font-black flex items-center justify-center gap-2 uppercase tracking-tighter"
         >
           <Tag size={14} /> List Asset
         </button>
       </div>
+
+      {/* Address Modal Trigger */}
+      <AddressModal 
+        isOpen={isAddressModalOpen} 
+        onClose={() => setIsAddressModalOpen(false)} 
+        onSave={() => alert("Address saved! You can now proceed.")}
+      />
     </div>
   );
 }
