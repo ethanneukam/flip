@@ -45,22 +45,29 @@ export default function ProfilePage() {
     }
   };
 
-  const handleStripeOnboarding = async () => {
-    setOnboardingLoading(true);
-    try {
-      const response = await fetch("/api/stripe/onboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: session?.user?.id }),
-      });
-      const { url } = await response.json();
-      if (url) window.location.href = url;
-    } catch (err) {
-      console.error("Onboarding error:", err);
-    } finally {
-      setOnboardingLoading(false);
+const handleStripeOnboarding = async () => {
+  setOnboardingLoading(true);
+  try {
+    const response = await fetch("/api/stripe/onboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: session?.user?.id }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.url) {
+      window.location.href = data.url; // This sends them to Stripe
+    } else {
+      console.error("No URL returned from API", data);
+      alert("Failed to start onboarding. Check console.");
     }
-  };
+  } catch (err) {
+    console.error("Onboarding error:", err);
+  } finally {
+    setOnboardingLoading(false);
+  }
+};
 
   return (
     <AuthWrapper>
