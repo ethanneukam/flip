@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import { Search as SearchIcon, BarChart3, ArrowUpRight, Activity, Loader2, Plus, Check } from "lucide-react";
-import BottomNav from "@/components/layout/BottomNav";
+import BottomNav from "@/components/BottomNav";
 
 export default function SearchTerminal() {
   const router = useRouter();
