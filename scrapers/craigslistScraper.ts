@@ -1,4 +1,4 @@
-import { Scraper } from "../scrapers/types";
+import { Scraper } from "../scripts/scrapeRunner";
 
 const wait = (min = 500, max = 1500) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
@@ -8,45 +8,68 @@ export const craigslistScraper: Scraper = {
 
   scrape: async (page: any, keyword: string) => {
     try {
-      // 1. Navigate with randomized viewport/UA if possible via your manager
-      await page.goto(
-        `https://www.craigslist.org/search/sss?query=${encodeURIComponent(keyword)}`,
-        { waitUntil: "networkidle" }
-      );
-
-      await wait(1000, 2000);
-
-      // 2. Updated Selectors for the new Craigslist Layout
-      // The new layout uses 'div.cl-static-search-result' or 'li.cl-search-result'
-      const item = await page.$(".cl-search-result, .result-row"); 
-      if (!item) return null;
-
-      // 3. Extract Metadata
-      const title = await item.$eval(".titlestring, .result-title", (el: any) => el.innerText).catch(() => "Unknown Asset");
-      const url = await item.$eval("a", (el: any) => el.getAttribute("href")).catch(() => null);
+      // 1. Search Query
+      const searchUrl = `https://www.craigslist.org/search/sss?query=${encodeURIComponent(keyword)}`;
       
-      // Price on new CL is often inside 'span.priceinfo'
-      const priceText = await item.$eval(".priceinfo, .result-price", (el: any) => el.innerText).catch(() => null);
+      await page.goto(searchUrl, { 
+        waitUntil: "domcontentloaded", 
+        timeout: 30000 
+      });
+
+      // 2. Wait for the result containers
+      // Craigslist uses cl-search-result for modern and result-row for legacy
+      await page.waitForSelector(".cl-search-result, .result-row", { timeout: 10000 }).catch(() => null);
+
+      // 3. Select ALL result items
+      const items = await page.$$(".cl-search-result, .result-row");
       
-      // Image extraction (CL uses lazy loading, so we grab the 1st gallery image)
-      const imageUrl = await item.$eval("img", (el: any) => el.src).catch(() => null);
+      console.log(`    📊 [Craigslist] Found ${items.length} potential local listings.`);
 
-      if (!priceText || !url) return null;
+      const results: any[] = [];
 
-      const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
+      for (const item of items) {
+        try {
+          const data = await item.evaluate((el: any) => {
+            // Modern Selectors
+            const titleEl = el.querySelector(".titlestring, .result-title");
+            const priceEl = el.querySelector(".priceinfo, .result-price");
+            const linkEl = el.querySelector("a");
+            const imgEl = el.querySelector("img");
 
-      console.log(`✅ Craigslist: $${price} — ${title}`);
+            return {
+              title: titleEl ? titleEl.innerText.trim() : "Used Asset",
+              priceText: priceEl ? priceEl.innerText : null,
+              url: linkEl ? linkEl.getAttribute("href") : null,
+              imageUrl: imgEl ? imgEl.src : null
+            };
+          });
 
-      return {
-        price,
-        url,
-        condition: "Used", // Craigslist is almost exclusively used/secondary market
-        title,
-        image_url: imageUrl,
-        ticker: keyword
-      };
-    } catch (err) {
-      console.log("❌ Craigslist Scrape Error:", err);
+          // Validation: Craigslist has many "Price on Request" or $1 bait listings
+          if (data.priceText && data.url) {
+            const cleanPrice = parseFloat(data.priceText.replace(/[^0-9.]/g, ""));
+            
+            // Filter out obvious spam ($0, $1, $123456)
+            if (!isNaN(cleanPrice) && cleanPrice > 5 && cleanPrice < 1000000) {
+              results.push({
+                price: cleanPrice,
+                url: data.url,
+                condition: "Used",
+                title: data.title,
+                image_url: data.imageUrl,
+                ticker: keyword
+              });
+            }
+          }
+        } catch (itemErr) {
+          continue; 
+        }
+      }
+
+      console.log(`    ✅ [Craigslist] Extracted ${results.length} valid listings.`);
+      return results;
+
+    } catch (err: any) {
+      console.log("❌ Craigslist Scrape Error:", err.message);
       return null;
     }
   },
