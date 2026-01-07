@@ -1,10 +1,9 @@
 import UserAgent from "user-agents";
-import { Scraper } from "./types";
+import { Scraper } from "../scripts/scrapeRunner";
 
 const wait = (min = 500, max = 1500) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
 
-// Target is very aggressive with Akamai bot detection
 async function applyFingerprintSpoofing(page: any) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -22,62 +21,69 @@ export const targetScraper: Scraper = {
 
   scrape: async (page: any, keyword: string) => {
     try {
-      await page.setExtraHTTPHeaders({
-        "user-agent": new UserAgent().toString(),
-        "accept-language": "en-US,en;q=0.9",
-      });
-
       await applyFingerprintSpoofing(page);
 
       const searchUrl = `https://www.target.com/s?searchTerm=${encodeURIComponent(keyword)}`;
-      console.log("🔍 Navigating Target:", searchUrl);
+      console.log(`    🔍 [Target] Scanning search results for: "${keyword}"`);
 
-      // We use networkidle here because Target's price and inventory data 
-      // are loaded via secondary API calls after the initial page load.
       await page.goto(searchUrl, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded", // domcontentloaded + manual wait is safer for Akamai than networkidle
         timeout: 60000,
       });
 
-      await wait(2000, 3500);
+      // Target needs a moment for the Redux store to hydrate the price data
+      await wait(3000, 5000);
 
-      // Target uses 'data-test' attributes which are more stable than classes
-      const productCard = await page.$("[data-test='@web/site-top-of-funnel/ProductCardWrapper']");
+      // Scroll slightly to trigger lazy loading of the product grid
+      await page.mouse.wheel(0, 1000);
+      await wait(1000, 2000);
+
+      // Select ALL organic product cards
+      const productHandles = await page.$$("[data-test='@web/site-top-of-funnel/ProductCardWrapper']");
       
-      if (!productCard) {
-        console.log("⚠️ No Target product found.");
-        return null;
+      console.log(`    📊 [Target] Found ${productHandles.length} items in result grid.`);
+
+      const results: any[] = [];
+
+      for (const handle of productHandles) {
+        try {
+          const data = await handle.evaluate((el: any) => {
+            const titleEl = el.querySelector("[data-test='product-title']");
+            const priceEl = el.querySelector("[data-test='current-price']");
+            const imgEl = el.querySelector("picture img");
+
+            return {
+              title: titleEl ? titleEl.innerText.trim() : "Target Asset",
+              url: titleEl ? titleEl.getAttribute("href") : null,
+              priceText: priceEl ? priceEl.innerText : null,
+              imageUrl: imgEl ? imgEl.src : null
+            };
+          });
+
+          if (data.priceText && data.url) {
+            const cleanPrice = parseFloat(data.priceText.replace(/[^0-9.]/g, ""));
+            
+            if (!isNaN(cleanPrice) && cleanPrice > 0) {
+              results.push({
+                price: cleanPrice,
+                url: data.url.startsWith("http") ? data.url : `https://www.target.com${data.url}`,
+                condition: "New",
+                title: data.title,
+                image_url: data.imageUrl,
+                ticker: keyword
+              });
+            }
+          }
+        } catch (itemErr) {
+          continue;
+        }
       }
 
-      // --- METADATA EXTRACTION ---
-      const title = await productCard.$eval("[data-test='product-title']", (el: any) => el.textContent?.trim()).catch(() => "Unknown Asset");
-      const relativeUrl = await productCard.$eval("[data-test='product-title']", (el: any) => el.getAttribute("href")).catch(() => "");
-      const url = "https://www.target.com" + relativeUrl;
+      console.log(`    ✅ [Target] Extracted ${results.length} valid listings.`);
+      return results;
 
-      // Image extraction
-      const imageUrl = await productCard.$eval("picture img", (img: any) => img.src).catch(() => null);
-
-      // Price extraction - Target often has multiple price spans (original vs sale)
-      const priceText = await productCard.$eval("[data-test='current-price']", (el: any) => 
-        el.textContent?.replace(/[^0-9.]/g, "")
-      ).catch(() => null);
-
-      const price = parseFloat(priceText || "0");
-
-      if (price === 0) return null;
-
-      console.log(`✅ Target: $${price} — ${title}`);
-
-      return {
-        price,
-        url,
-        condition: "New",
-        title,
-        image_url: imageUrl,
-        ticker: keyword
-      };
-    } catch (err) {
-      console.log("❌ Target Scrape Error:", err);
+    } catch (err: any) {
+      console.error("❌ Target Scrape Error:", err.message);
       return null;
     }
   },
