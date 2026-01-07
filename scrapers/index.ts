@@ -1,17 +1,24 @@
 import { amazonScraper } from "./amazonScraper";
 import { ebayScraper } from "./ebayScraper";
-import { facebookScraper } from "./facebookScraper";
-import { walmartScraper } from "./walmartScraper";
-import { targetScraper } from "./targetScraper";
 import { bestbuyScraper } from "./bestbuyScraper";
-
+import { craigslistScraper } from "./craigslistScraper";
+import { etsyScraper } from "./etsyScraper";
+import { facebookScraper } from "./facebookScraper";
+import { offerupScraper } from "./offerupScraper";
+import { stockxScraper } from "./stockxScraper";
+import { targetScraper } from "./targetScraper";
+import { walmartScraper } from "./walmartScraper";
 export * from "./types";
 
 export const allScrapers = [
   amazonScraper,
   ebayScraper,
-  facebookScraper,
-  walmartScraper,
-  targetScraper,
   bestbuyScraper,
+  craigslistScraper,
+  etsyScraper,
+  facebookScraper,
+  offerupScraper,
+  stockxScraper,
+  targetScraper,
+  walmartScraper
 ];
