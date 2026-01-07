@@ -61,7 +61,7 @@ const wait = (min = 1500, max = 4000) =>
   new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
 
 /**
- * runScraper now handles an ARRAY of ScraperResults
+ * runScraper handles an ARRAY of ScraperResults
  */
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
   const page = await context.newPage();
@@ -73,7 +73,6 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     console.log(`    🔍 [${scraper.source}] Initializing: "${keyword}"`);
     await wait(500, 1500);
 
-    // EXPECTING ARRAY
     const results = await Promise.race([
       scraper.scrape(page, keyword),
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 45000))
@@ -110,7 +109,6 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         ]);
       }
 
-      // Return the average for this specific scraper to help calculate the global average
       return validPrices.reduce((a, b) => a + b, 0) / validPrices.length;
     }
     return null;
@@ -133,23 +131,40 @@ export async function main(searchKeyword?: string) {
 
   const context = await browser.newContext();
 
-  for (const item of items) {
-    console.log(`\n--- Market Scan: ${item.keyword} ---`);
-    let sourceAverages: number[] = [];
+  // --- BATCH PROCESSING LOGIC ---
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    
+    console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)`);
 
-    for (const scraper of allScrapers) {
-      const avgPriceFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
-      if (avgPriceFromSource) sourceAverages.push(avgPriceFromSource);
-      await wait(3000, 6000); 
+    for (const item of batch) {
+      console.log(`\n--- Market Scan: ${item.keyword} ---`);
+      let sourceAverages: number[] = [];
+
+      for (const scraper of allScrapers) {
+        const avgPriceFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
+        if (avgPriceFromSource) sourceAverages.push(avgPriceFromSource);
+        
+        // Short delay between different stores for the same item
+        await wait(2000, 5000); 
+      }
+
+      if (sourceAverages.length > 0) {
+        const globalAvgPrice = sourceAverages.reduce((a, b) => a + b, 0) / sourceAverages.length;
+        console.log(`✨ FINAL MARKET PRICE: $${globalAvgPrice.toFixed(2)}`);
+        
+        await supabase.from("items").update({ 
+          flip_price: globalAvgPrice, 
+          last_updated: new Date().toISOString() 
+        }).eq("id", item.item_id);
+      }
     }
 
-    if (sourceAverages.length > 0) {
-      const globalAvgPrice = sourceAverages.reduce((a, b) => a + b, 0) / sourceAverages.length;
-      console.log(`✨ FINAL MARKET PRICE: $${globalAvgPrice.toFixed(2)}`);
-      await supabase.from("items").update({ 
-        flip_price: globalAvgPrice, 
-        last_updated: new Date().toISOString() 
-      }).eq("id", item.item_id);
+    // Long delay between batches to avoid IP flagging
+    if (i + BATCH_SIZE < items.length) {
+      console.log(`\n⏳ Cooling down between batches...`);
+      await wait(15000, 30000); 
     }
   }
 
@@ -159,10 +174,18 @@ export async function main(searchKeyword?: string) {
 
 async function getItemsToScrape(searchKeyword?: string) {
   if (searchKeyword) {
-    const { data: item } = await supabase.from("items").upsert({ title: searchKeyword }, { onConflict: 'title' }).select().single();
+    const { data: item } = await supabase.from("items")
+      .upsert({ title: searchKeyword }, { onConflict: 'title' })
+      .select().single();
     return item ? [{ item_id: item.id, keyword: item.title }] : [];
   }
-  const { data } = await supabase.from("items").select("id, title");
+  
+  // Pull all items from Supabase, prioritizing those not updated recently
+  const { data } = await supabase
+    .from("items")
+    .select("id, title")
+    .order('last_updated', { ascending: true });
+    
   return data?.map((item: any) => ({ item_id: item.id, keyword: item.title })) || [];
 }
 
