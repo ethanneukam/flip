@@ -1,4 +1,4 @@
-import { Scraper } from "./types";
+import { Scraper } from "../scripts/scrapeRunner";
 
 const wait = (min = 1000, max = 3000) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
@@ -6,7 +6,6 @@ const wait = (min = 1000, max = 3000) =>
 async function applyFingerprintSpoofing(page: any) {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    // StockX specifically checks for automation flags in the canvas
     const getParameter = WebGLRenderingContext.prototype.getParameter;
     WebGLRenderingContext.prototype.getParameter = function (param: number) {
       if (param === 37445) return "NVIDIA Corporation";
@@ -22,60 +21,64 @@ export const stockxScraper: Scraper = {
     try {
       await applyFingerprintSpoofing(page);
 
-      // StockX often blocks if you go straight to search. 
-      // Sometimes a quick "thinking" delay on the home page helps.
       const searchUrl = `https://stockx.com/search?s=${encodeURIComponent(keyword)}`;
-      console.log("🔍 StockX search:", searchUrl);
+      console.log(`    🔍 [StockX] Scanning market search: "${keyword}"`);
 
+      // Using 'commit' or 'domcontentloaded' to beat Cloudflare's slower script checks
       await page.goto(searchUrl, { 
-        waitUntil: "networkidle", 
+        waitUntil: "domcontentloaded", 
         timeout: 60000 
       });
 
-      // If a captcha appears, this wait gives you a chance to solve it manually or let a solver run
-      await wait(3000, 5000);
+      // Essential wait for DataDome/Cloudflare to settle
+      await wait(4000, 6000);
 
-      // Stable selector using data-testid instead of random CSS classes
-      const item = await page.$("[data-testid='product-tile'] a");
-      if (!item) {
-        console.log("⚠️ StockX: Product tile not found.");
-        return null;
+      // Select ALL product tiles
+      const productHandles = await page.$$("[data-testid='product-tile']");
+      
+      console.log(`    📊 [StockX] Found ${productHandles.length} items in the grid.`);
+
+      const results: any[] = [];
+
+      for (const handle of productHandles) {
+        try {
+          const data = await handle.evaluate((el: any) => {
+            const linkEl = el.querySelector("a");
+            const titleEl = el.querySelector("p"); // Title is usually the first P tag
+            const imgEl = el.querySelector("img");
+            // Price on grid is usually "Lowest Ask"
+            const priceEl = el.querySelector("[data-testid='price-text'], .p-1"); 
+
+            return {
+              title: titleEl ? titleEl.innerText.trim() : "StockX Item",
+              priceText: priceEl ? priceEl.innerText : null,
+              url: linkEl ? linkEl.getAttribute("href") : null,
+              imageUrl: imgEl ? imgEl.src : null
+            };
+          });
+
+          if (data.priceText && data.url) {
+            const cleanPrice = parseFloat(data.priceText.replace(/[^0-9.]/g, ""));
+            
+            if (!isNaN(cleanPrice) && cleanPrice > 0) {
+              results.push({
+                price: cleanPrice,
+                url: data.url.startsWith("http") ? data.url : `https://stockx.com${data.url}`,
+                condition: "New (Verified)",
+                title: data.title,
+                image_url: data.imageUrl,
+                ticker: keyword
+              });
+            }
+          }
+        } catch (e) { continue; }
       }
 
-      // --- METADATA EXTRACTION ---
-      const title = await item.$eval("p", (el: any) => el.textContent?.trim()).catch(() => "Unknown Asset");
-      const imageUrl = await item.$eval("img", (img: any) => img.src).catch(() => null);
-      
-      const href = await item.getAttribute("href");
-      const productURL = href.startsWith("http") ? href : `https://stockx.com${href}`;
+      console.log(`    ✅ [StockX] Extracted ${results.length} market prices.`);
+      return results;
 
-      // Navigation for detailed price (StockX price varies by size, so we grab 'Last Sale')
-      await page.goto(productURL, { waitUntil: "domcontentloaded" });
-      await wait(2000, 3500);
-
-      // 'market-summary-last-sale' is the most accurate "Flip Price" indicator on StockX
-      const priceText = await page.$eval("[data-testid='market-summary-last-sale']", (el: any) => el.innerText)
-        .catch(async () => {
-          // Fallback to the ask price if last sale isn't visible
-          return await page.$eval(".latest-ask-price", (el: any) => el.innerText).catch(() => null);
-        });
-
-      if (!priceText) return null;
-
-      const price = parseFloat(priceText.replace(/[^0-9.]/g, ""));
-
-      console.log(`✅ StockX: $${price} — ${title}`);
-
-      return {
-        price,
-        url: productURL,
-        condition: "New (Verified)",
-        title,
-        image_url: imageUrl,
-        ticker: keyword
-      };
-    } catch (err) {
-      console.error("❌ StockX Scrape Error:", err);
+    } catch (err: any) {
+      console.error("❌ StockX Scrape Error:", err.message);
       return null;
     }
   },
