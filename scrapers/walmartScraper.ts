@@ -1,13 +1,13 @@
 import UserAgent from "user-agents";
-import { Scraper } from "./types";
+import { Scraper } from "../scripts/scrapeRunner";
 
 const wait = (min = 500, max = 1500) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
 
 async function humanScroll(page: any) {
-  for (let i = 0; i < 2; i++) {
-    await page.mouse.wheel(0, Math.random() * 600 + 200);
-    await wait(300, 800);
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.wheel(0, Math.random() * 800 + 400);
+    await wait(400, 900);
   }
 }
 
@@ -16,7 +16,7 @@ export const walmartScraper: Scraper = {
 
   scrape: async (page: any, keyword: string) => {
     try {
-      const ua = new UserAgent().toString();
+      const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
 
       await page.setExtraHTTPHeaders({
         "user-agent": ua,
@@ -25,38 +25,67 @@ export const walmartScraper: Scraper = {
       });
 
       const searchUrl = `https://www.walmart.com/search?q=${encodeURIComponent(keyword)}`;
-      console.log("🔍 Walmart Search:", searchUrl);
+      console.log(`    🔍 [Walmart] Scanning search results for: "${keyword}"`);
 
       await page.goto(searchUrl, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
-      await wait(2000, 4000);
+      // Walmart often shows a "Verify you are human" press-and-hold button here.
+      // This wait allows scripts to settle.
+      await wait(3000, 5000);
       await humanScroll(page);
 
-      const product = await page.$("[data-testid='list-view'], [data-item-id]");
+      // Select ALL organic product containers
+      // Walmart usually uses [data-testid='variant-tile'] or [data-item-id]
+      const productHandles = await page.$$("[data-item-id]");
+      
+      console.log(`    📊 [Walmart] Found ${productHandles.length} potential items.`);
 
-      if (!product) {
-        console.log("⚠️ No Walmart product found.");
-        return null;
+      const results: any[] = [];
+
+      for (const handle of productHandles) {
+        try {
+          const data = await handle.evaluate((el: any) => {
+            const titleEl = el.querySelector("span[itemprop='name']") || el.querySelector("[data-automation='product-title']");
+            const priceEl = el.querySelector("[data-automation='product-price']");
+            const imgEl = el.querySelector("img");
+            const linkEl = el.querySelector("a");
+
+            return {
+              title: titleEl ? titleEl.innerText.trim() : "Walmart Asset",
+              url: linkEl ? linkEl.getAttribute("href") : null,
+              priceText: priceEl ? priceEl.innerText : null,
+              imageUrl: imgEl ? imgEl.src : null
+            };
+          });
+
+          if (data.priceText && data.url) {
+            // Walmart priceText can be "$12.99" or "Now $12.99"
+            const cleanPrice = parseFloat(data.priceText.replace(/[^0-9.]/g, ""));
+            
+            if (!isNaN(cleanPrice) && cleanPrice > 0) {
+              results.push({
+                price: cleanPrice,
+                url: data.url.startsWith("http") ? data.url : `https://www.walmart.com${data.url}`,
+                condition: "New",
+                title: data.title,
+                image_url: data.imageUrl,
+                ticker: keyword
+              });
+            }
+          }
+        } catch (itemErr) {
+          continue;
+        }
       }
 
-      const title = await product.$eval("span[itemprop='name'], [data-automation='product-title']", (el: any) => el.textContent?.trim()).catch(() => "Unknown Asset");
-      const relativeUrl = await product.$eval("a", (el: any) => el.getAttribute("href"));
-      const url = relativeUrl.startsWith("http") ? relativeUrl : "https://www.walmart.com" + relativeUrl;
-      const imageUrl = await product.$eval("img", (img: any) => img.src).catch(() => null);
+      console.log(`    ✅ [Walmart] Extracted ${results.length} valid listings.`);
+      return results;
 
-      const priceText = await product.$eval("[data-automation='product-price'] .w_iUH7, [data-automation='product-price']", (el: any) => 
-        el.textContent?.replace(/[^0-9.]/g, "")
-      ).catch(() => null);
-
-      if (!priceText) return null;
-      const price = parseFloat(priceText);
-
-      return { price, url, condition: "New", title, image_url: imageUrl, ticker: keyword };
-    } catch (err) {
-      console.error("❌ Walmart Scrape Error:", err);
+    } catch (err: any) {
+      console.error("❌ Walmart Scrape Error:", err.message);
       return null;
     }
   },
