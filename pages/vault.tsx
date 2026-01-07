@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import BottomNav from '../components/layout/BottomNav';
+import BottomNav from '../components/BottomNav';
 import NetWorthCard from '../components/vault/NetWorthCard';
 import { VaultService } from '../lib/vault-service';
 import { calculatePortfolio } from '../lib/valuation';
