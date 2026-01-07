@@ -1,11 +1,11 @@
-import { Scraper } from "./types";
+import { Scraper } from "../scripts/scrapeRunner";
 
 const wait = (min = 500, max = 1500) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
 
-// OfferUp is very sensitive to headless detection
 async function applyFingerprintSpoofing(page: any) {
   await page.addInitScript(() => {
+    // Hidden standard: hiding the fact that this is a bot
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     const getParameter = WebGLRenderingContext.prototype.getParameter;
     WebGLRenderingContext.prototype.getParameter = function (param: number) {
@@ -24,59 +24,67 @@ export const offerupScraper: Scraper = {
       await applyFingerprintSpoofing(page);
       
       const searchUrl = `https://offerup.com/search/?q=${encodeURIComponent(keyword)}`;
-      console.log("🔍 OfferUp search:", searchUrl);
+      console.log(`    🔍 [OfferUp] Scanning marketplace: "${keyword}"`);
 
       await page.goto(searchUrl, { 
-        waitUntil: "networkidle", 
+        waitUntil: "domcontentloaded", 
         timeout: 50000 
       });
 
-      await wait(2000, 4000);
+      // OfferUp is slow to render its "infinite grid"
+      await wait(3000, 5000);
 
-      // OfferUp uses 'db-item-tile' or generic links for items
-      const item = await page.$("a[href*='/item/detail/']");
-      if (!item) {
-        console.log("⚠️ OfferUp: No product found");
-        return null;
-      }
-
-      // --- METADATA EXTRACTION ---
-      // We grab title and image from the 'alt' and 'src' of the listing image
-      const title = await item.$eval("img", (img: any) => img.alt).catch(() => "Unknown Asset");
-      const imageUrl = await item.$eval("img", (img: any) => img.src).catch(() => null);
+      // Select ALL listing tiles
+      const itemHandles = await page.$$("a[href*='/item/detail/']");
       
-      const relUrl = await item.getAttribute("href");
-      const fullUrl = relUrl.startsWith("http") ? relUrl : `https://offerup.com${relUrl}`;
+      console.log(`    📊 [OfferUp] Found ${itemHandles.length} potential local listings.`);
 
-      // Extract price from the aria-label or text content of the tile
-      const priceText = await item.$eval("span, div", (el: any) => {
-        // Look specifically for strings containing '$'
-        return el.textContent.includes('$') ? el.textContent : null;
-      }).catch(() => null);
+      const results: any[] = [];
 
-      if (!priceText) {
-        // Fallback: if we can't find price on tile, we must navigate (riskier)
-        await page.goto(fullUrl, { waitUntil: "domcontentloaded" });
-        await wait(1000, 2000);
-        const detailPrice = await page.$eval("span[class*='Price'], h1 + span", (el: any) => el.innerText).catch(() => null);
-        if (!detailPrice) return null;
-        var finalPrice = parseFloat(detailPrice.replace(/[^0-9.]/g, ""));
-      } else {
-        var finalPrice = parseFloat(priceText.replace(/[^0-9.]/g, ""));
+      for (const handle of itemHandles) {
+        try {
+          const data = await handle.evaluate((el: any) => {
+            const imgEl = el.querySelector("img");
+            // OfferUp titles are usually in the alt text of the image or a nearby div
+            const title = imgEl ? imgEl.getAttribute("alt") : "Used Asset";
+            const imageUrl = imgEl ? imgEl.getAttribute("src") : null;
+            const url = el.getAttribute("href");
+
+            // Price extraction: OfferUp often hides price in a span inside the tile
+            // We search for the first element containing a "$"
+            const priceEl = Array.from(el.querySelectorAll('span, div'))
+              .find((node: any) => node.innerText.includes('$'));
+
+            return {
+              title,
+              imageUrl,
+              url,
+              priceText: priceEl ? (priceEl as HTMLElement).innerText : null
+            };
+          });
+
+          if (data.priceText && data.url) {
+            const cleanPrice = parseFloat(data.priceText.replace(/[^0-9.]/g, ""));
+            
+            if (!isNaN(cleanPrice) && cleanPrice > 0) {
+              results.push({
+                price: cleanPrice,
+                url: data.url.startsWith("http") ? data.url : `https://offerup.com${data.url}`,
+                condition: "Used",
+                title: data.title,
+                image_url: data.imageUrl,
+                ticker: keyword
+              });
+            }
+          }
+        } catch (e) { continue; }
       }
 
-      console.log(`✅ OfferUp: $${finalPrice} — ${title}`);
+      console.log(`    ✅ [OfferUp] Extracted ${results.length} valid listings.`);
+      return results;
 
-      return {
-        price: finalPrice,
-        url: fullUrl,
-        condition: "Used",
-        title: title,
-        image_url: imageUrl,
-        ticker: keyword
-      };
-    } catch (err) {
-      console.error("❌ OfferUp Scrape Error:", err);
+    } catch (err: any) {
+      console.error("❌ OfferUp Scrape Error:", err.message);
       return null;
     }
   },
