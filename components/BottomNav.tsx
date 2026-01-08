@@ -7,7 +7,6 @@ import {
   Search, 
   Lock 
 } from 'lucide-react';
-import { PIVOT_CONFIG } from '../../lib/pivot';
 
 export default function BottomNav() {
   const router = useRouter();
@@ -32,7 +31,7 @@ export default function BottomNav() {
             strokeWidth={isActive('/feed') ? 2.5 : 2}
           />
           <span className="text-[9px] font-black uppercase tracking-tighter">
-            {PIVOT_CONFIG.semantics.feed}
+            Pulse
           </span>
         </Link>
 
@@ -44,7 +43,7 @@ export default function BottomNav() {
             strokeWidth={isActive('/charts') ? 2.5 : 2}
           />
           <span className="text-[9px] font-black uppercase tracking-tighter">
-            {PIVOT_CONFIG.semantics.charts}
+            Oracle
           </span>
         </Link>
 
@@ -63,7 +62,7 @@ export default function BottomNav() {
             strokeWidth={isActive('/search') ? 2.5 : 2}
           />
           <span className="text-[9px] font-black uppercase tracking-tighter">
-            {PIVOT_CONFIG.semantics.search}
+            Lookup
           </span>
         </Link>
 
@@ -75,7 +74,7 @@ export default function BottomNav() {
             strokeWidth={isActive('/vault') ? 2.5 : 2}
           />
           <span className="text-[9px] font-black uppercase tracking-tighter">
-            {PIVOT_CONFIG.semantics.inventory}
+            Vault
           </span>
         </Link>
 
