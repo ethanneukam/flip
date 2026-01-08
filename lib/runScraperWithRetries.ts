@@ -1,44 +1,33 @@
-import { Scraper } from "../scrapers";
-import pino from "pino";
+import { Page } from "playwright";
+import { Scraper, ScraperResult } from "../scripts/scrapeRunner";
 
-const log = pino({ name: "scrape-runner" });
-
+/**
+ * Retries a scraper if it fails or times out.
+ * Updated to handle ScraperResult[]
+ */
 export async function runScraperWithRetries(
   scraper: Scraper,
-  page: any,
+  page: Page,
   keyword: string,
-  maxRetries = 3
-) {
-  let attempt = 0;
-
-  while (attempt < maxRetries) {
-    attempt++;
-
+  retries = 2
+): Promise<ScraperResult[] | null> {
+  for (let i = 0; i < retries; i++) {
     try {
-    const result = await runScraperWithRetries(scraper, page, keyword, 2);
-
-
-      if (!result) throw new Error("no-result");
-
-      log.info(
-        `${scraper.source} succeeded on attempt ${attempt}: $${result.price}`
-      );
-
-      return result;
-    } catch (err: any) {
-      log.warn(
-        `${scraper.source} failed attempt ${attempt}: ${err?.message || err}`
-      );
-
-      if (attempt >= maxRetries) {
-        log.error(`${scraper.source} permanently failed.`);
-        return null;
+      // We now expect an array from every scraper
+      const results = await scraper.scrape(page, keyword);
+      
+      if (results && results.length > 0) {
+        return results;
       }
-
-      // small retry delay
-      await new Promise(res => setTimeout(res, 1200 + Math.random() * 2000));
+      
+      console.log(`⚠️ [${scraper.source}] No results on attempt ${i + 1}`);
+    } catch (err: any) {
+      console.error(`❌ [${scraper.source}] Attempt ${i + 1} failed: ${err.message}`);
+      if (i === retries - 1) return null;
     }
+    
+    // Wait before retrying
+    await new Promise(res => setTimeout(res, 2000));
   }
-
   return null;
 }
