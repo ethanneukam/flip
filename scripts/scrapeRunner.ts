@@ -31,7 +31,14 @@ const supabase = createClient(
  */
 async function applyStealthAndOptimization(page: Page) {
   const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
-  await page.setUserAgent(ua);
+  
+  // FIXED: Removed page.setUserAgent(ua) as it's not a Page method.
+  // Instead, we include 'user-agent' in the ExtraHTTPHeaders.
+  await page.setExtraHTTPHeaders({
+    'user-agent': ua,
+    'referer': 'https://www.google.com/',
+    'accept-language': 'en-US,en;q=0.9',
+  });
 
   await page.route('**/*', (route) => {
     const url = route.request().url();
@@ -49,11 +56,6 @@ async function applyStealthAndOptimization(page: Page) {
       return route.abort();
     }
     route.continue();
-  });
-
-  await page.setExtraHTTPHeaders({
-    'referer': 'https://www.google.com/',
-    'accept-language': 'en-US,en;q=0.9',
   });
 }
 
