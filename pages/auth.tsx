@@ -43,16 +43,24 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-   {/* Left Side: Brand/Value Prop (The Landing Part) */}
-<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black">
-  <div>
-    {/* LOGO FIX: Increased height and added negative margin to align with the text border */}
-    <div className="mb-10 -ml-1"> 
-      <img 
-        src="/logo.png" 
-        alt="FLIP Logo" 
-        className="h-20 md:h-32 w-auto object-contain brightness-0 invert"
-      />
+{/* Left Side: Brand/Value Prop (The Landing Part) */}
+<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black min-h-screen">
+  
+  {/* TOP SECTION: Logo filling the corner */}
+  <div className="flex-grow flex items-start justify-start">
+    <img 
+      src="/logo.png" 
+      alt="FLIP Logo" 
+      className="h-32 md:h-56 lg:h-64 w-auto object-contain brightness-0 invert opacity-90 -ml-2"
+    />
+  </div>
+
+  {/* BOTTOM SECTION: Text moved right above features */}
+  <div className="mt-auto space-y-10">
+    <div>
+      <p className="text-gray-400 text-xl md:text-3xl font-medium max-w-md leading-tight border-l-4 border-blue-500 pl-6">
+        The financial terminal for your <span className="text-white font-bold tracking-tight">physical net worth.</span>
+      </p>
     </div>
     
     <p className="text-gray-400 text-lg md:text-2xl font-medium max-w-md leading-tight border-l-2 border-blue-500 pl-6">
