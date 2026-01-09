@@ -26,6 +26,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Helper function for robust price calculation
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  
+  const sorted = [...values].sort((a, b) => a - b);
+  
+  let validPrices = sorted;
+  if (sorted.length > 5) {
+    const removeCount = Math.floor(sorted.length * 0.1);
+    validPrices = sorted.slice(removeCount, sorted.length - removeCount);
+  }
+
+  const mid = Math.floor(validPrices.length / 2);
+  return validPrices.length % 2 !== 0
+    ? validPrices[mid]
+    : (validPrices[mid - 1] + validPrices[mid]) / 2;
+}
+
 /**
  * Enhanced Stealth: Prevents detection by rotating fingerprints
  */
@@ -109,14 +127,12 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         ]);
       }
 
-      return validPrices.length > 0 
-        ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length 
-        : null;
+      return validPrices; // Return the full array of prices for median calculation
     }
-    return null;
+    return [];
   } catch (err: any) {
     console.error(`    ❌ [${scraper.source}] Error: ${err.message}`);
-    return null;
+    return [];
   } finally {
     await page.close();
   }
@@ -145,22 +161,39 @@ export async function main(searchKeyword?: string) {
 
     for (const item of batch) {
       console.log(`\n--- Market Scan: ${item.keyword} ---`);
-      let sourceAverages: number[] = [];
+      
+      let allPrices: number[] = [];
 
       for (const scraper of allScrapers) {
-        const avgPriceFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
-        if (avgPriceFromSource) sourceAverages.push(avgPriceFromSource);
+        const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
+        if (pricesFromSource.length > 0) {
+          allPrices = [...allPrices, ...pricesFromSource];
+        }
         await wait(2000, 4000); 
       }
 
-      if (sourceAverages.length > 0) {
-        const globalAvgPrice = sourceAverages.reduce((a, b) => a + b, 0) / sourceAverages.length;
-        console.log(`✨ FINAL MARKET PRICE: $${globalAvgPrice.toFixed(2)}`);
+      if (allPrices.length > 0) {
+        // Use Median instead of Average to prevent outlier bugs
+        const marketPrice = calculateMedian(allPrices);
+        console.log(`✨ FINAL MARKET PRICE: $${marketPrice.toFixed(2)} (${allPrices.length} data points)`);
         
+        // 1. Update the Item Price
         await supabase.from("items").update({ 
-          flip_price: globalAvgPrice, 
+          flip_price: marketPrice, 
           last_updated: new Date().toISOString() 
         }).eq("id", item.item_id);
+
+        // 2. TRIGGER PULSE (Feed Event)
+        await supabase.from("feed_events").insert([{
+          item_id: item.item_id,
+          event_type: 'PRICE_UPDATE',
+          message: `Oracle updated ${item.keyword} to $${marketPrice.toFixed(2)}`,
+          metadata: { price: marketPrice, sources: allScrapers.length, data_points: allPrices.length }
+        }]);
+
+        console.log(`💾 Saved to database and Pulse updated.`);
+      } else {
+        console.log("⚠️ No valid prices found. Skipping update.");
       }
     }
 
@@ -185,7 +218,6 @@ async function getItemsToScrape(searchKeyword?: string) {
     return created ? [{ item_id: created.id, keyword: created.title }] : [];
   }
   
-  // Removed .order('last_updated') because the column doesn't exist
   const { data, error } = await supabase
     .from("items")
     .select("id, title")
@@ -202,72 +234,13 @@ async function getItemsToScrape(searchKeyword?: string) {
   }
 
   console.log(`✅ Found ${data.length} items. Starting scan...`);
-  console.table(data); // This will show up in your GitHub Action logs
     
   return data.map((item: any) => ({ 
     item_id: item.id, 
     keyword: item.title 
   }));
 }
-// Add this helper function at the top of scrapeRunner.ts
-function calculateMedian(values: number[]): number {
-  if (values.length === 0) return 0;
-  
-  // 1. Sort the prices
-  const sorted = values.sort((a, b) => a - b);
-  
-  // 2. Remove extreme outliers (top 10% and bottom 10%) if we have enough data
-  let validPrices = sorted;
-  if (sorted.length > 5) {
-    const removeCount = Math.floor(sorted.length * 0.1);
-    validPrices = sorted.slice(removeCount, sorted.length - removeCount);
-  }
 
-  // 3. Find the middle value
-  const mid = Math.floor(validPrices.length / 2);
-  return validPrices.length % 2 !== 0
-    ? validPrices[mid]
-    : (validPrices[mid - 1] + validPrices[mid]) / 2;
-}
-
-// ... inside your main loop, REPLACE the old price calculation with this:
-
-    // --- AGGREGATE DATA ---
-    let allPrices: number[] = [];
-    
-    // Combine all found prices into one array
-    Object.values(results).forEach((r: any) => {
-      if (r && r.prices && r.prices.length > 0) {
-        allPrices = [...allPrices, ...r.prices];
-      }
-    });
-
-    // Filter out "zero" or "negative" prices
-    allPrices = allPrices.filter(p => p > 0);
-
-    console.log(`📊 Found ${allPrices.length} total valid prices across all sources.`);
-
-    let marketPrice = 0;
-    if (allPrices.length > 0) {
-      // Use Median instead of Average to kill the $15 Sextillion bug
-      marketPrice = calculateMedian(allPrices);
-      console.log(`✨ FINAL MEDIAN PRICE: $${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
-      
-      // Update Supabase
-      const { error: updateError } = await supabase
-        .from("items")
-        .update({ 
-          flip_price: marketPrice,
-          last_updated: new Date().toISOString()
-        })
-        .eq("id", item.item_id);
-
-      if (updateError) console.error(`❌ Failed to update Supabase: ${updateError.message}`);
-      else console.log(`💾 Saved $${marketPrice.toFixed(2)} to database.`);
-    } else {
-      console.log("⚠️ No valid prices found. Skipping database update.");
-    }
-// Ensure the process handles the promise and exits correctly
 main(process.argv[2])
   .then(() => {
     console.log("✅ Process finished successfully");
