@@ -43,9 +43,7 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-{/* Left Side: Brand/Value Prop */}
-<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-600/30 via-black to-black min-h-screen relative overflow-hidden">
-  
+
   {/* TOP SECTION: The Logo Hero */}
   <div className="relative z-10 flex flex-col items-center md:items-start justify-center pt-12 md:pt-0">
     <div className="w-full max-w-[280px] md:max-w-[450px] lg:max-w-[550px] transition-all duration-500">
