@@ -32,8 +32,6 @@ const supabase = createClient(
 async function applyStealthAndOptimization(page: Page) {
   const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
   
-  // FIXED: Removed page.setUserAgent(ua) as it's not a Page method.
-  // Instead, we include 'user-agent' in the ExtraHTTPHeaders.
   await page.setExtraHTTPHeaders({
     'user-agent': ua,
     'referer': 'https://www.google.com/',
@@ -69,15 +67,15 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
   const page = await context.newPage();
   await applyStealthAndOptimization(page);
 
-  page.setDefaultTimeout(25000); 
+  page.setDefaultTimeout(30000); 
 
   try {
     console.log(`    🔍 [${scraper.source}] Initializing: "${keyword}"`);
-    await wait(500, 1500);
+    await wait(1000, 2000);
 
     const results = await Promise.race([
       scraper.scrape(page, keyword),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 45000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 50000))
     ]) as ScraperResult[] | null;
 
     if (results && results.length > 0) {
@@ -86,7 +84,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       let validPrices: number[] = [];
 
       for (const result of results) {
-        if (!result.price) continue;
+        if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
 
         const payload = {
@@ -99,7 +97,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
           image_url: result.image_url || null
         };
 
-        // Insert every found item into market_data and price_logs
+        // Insert into market_data and price_logs
         await Promise.all([
           supabase.from("market_data").insert([payload]),
           supabase.from("price_logs").insert([{ 
@@ -111,7 +109,9 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         ]);
       }
 
-      return validPrices.reduce((a, b) => a + b, 0) / validPrices.length;
+      return validPrices.length > 0 
+        ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length 
+        : null;
     }
     return null;
   } catch (err: any) {
@@ -123,21 +123,24 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 }
 
 export async function main(searchKeyword?: string) {
+  console.log("🚀 Starting Market Oracle...");
   const items = await getItemsToScrape(searchKeyword);
-  if (items.length === 0) return;
+  
+  if (items.length === 0) {
+    console.log("⚠️ No items found to scrape. Check your 'items' table in Supabase.");
+    return;
+  }
 
   const browser = await chromium.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] 
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
   });
 
   const context = await browser.newContext();
 
-  // --- BATCH PROCESSING LOGIC ---
   const BATCH_SIZE = 5;
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
-    
     console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)`);
 
     for (const item of batch) {
@@ -147,9 +150,7 @@ export async function main(searchKeyword?: string) {
       for (const scraper of allScrapers) {
         const avgPriceFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
         if (avgPriceFromSource) sourceAverages.push(avgPriceFromSource);
-        
-        // Short delay between different stores for the same item
-        await wait(2000, 5000); 
+        await wait(2000, 4000); 
       }
 
       if (sourceAverages.length > 0) {
@@ -163,10 +164,9 @@ export async function main(searchKeyword?: string) {
       }
     }
 
-    // Long delay between batches to avoid IP flagging
     if (i + BATCH_SIZE < items.length) {
       console.log(`\n⏳ Cooling down between batches...`);
-      await wait(15000, 30000); 
+      await wait(10000, 20000); 
     }
   }
 
@@ -175,23 +175,31 @@ export async function main(searchKeyword?: string) {
 }
 
 async function getItemsToScrape(searchKeyword?: string) {
-  if (searchKeyword) {
-    const { data: item } = await supabase.from("items")
-      .upsert({ title: searchKeyword }, { onConflict: 'title' })
-      .select().single();
-    return item ? [{ item_id: item.id, keyword: item.title }] : [];
+  if (searchKeyword && searchKeyword !== "undefined") {
+    // Attempt to find existing or create new
+    const { data: existing } = await supabase.from("items").select("id, title").eq("title", searchKeyword).single();
+    if (existing) return [{ item_id: existing.id, keyword: existing.title }];
+
+    const { data: created } = await supabase.from("items").insert({ title: searchKeyword }).select().single();
+    return created ? [{ item_id: created.id, keyword: created.title }] : [];
   }
   
-  // Pull all items from Supabase, prioritizing those not updated recently
   const { data } = await supabase
     .from("items")
     .select("id, title")
-    .order('last_updated', { ascending: true });
+    .order('last_updated', { ascending: true })
+    .limit(20); // Safety limit for automated runs
     
   return data?.map((item: any) => ({ item_id: item.id, keyword: item.title })) || [];
 }
 
-main(process.argv[2]).then(() => process.exit(0)).catch((err) => {
-    console.error(err);
+// Ensure the process handles the promise and exits correctly
+main(process.argv[2])
+  .then(() => {
+    console.log("✅ Process finished successfully");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("Critical Error:", err);
     process.exit(1);
-});
+  });
