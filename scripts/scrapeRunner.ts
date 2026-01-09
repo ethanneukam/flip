@@ -175,8 +175,9 @@ export async function main(searchKeyword?: string) {
 }
 
 async function getItemsToScrape(searchKeyword?: string) {
+  console.log("📡 Connecting to Supabase 'items' table...");
+
   if (searchKeyword && searchKeyword !== "undefined") {
-    // Attempt to find existing or create new
     const { data: existing } = await supabase.from("items").select("id, title").eq("title", searchKeyword).single();
     if (existing) return [{ item_id: existing.id, keyword: existing.title }];
 
@@ -184,13 +185,29 @@ async function getItemsToScrape(searchKeyword?: string) {
     return created ? [{ item_id: created.id, keyword: created.title }] : [];
   }
   
-  const { data } = await supabase
+  // Removed .order('last_updated') because the column doesn't exist
+  const { data, error } = await supabase
     .from("items")
     .select("id, title")
-    .order('last_updated', { ascending: true })
-    .limit(20); // Safety limit for automated runs
+    .limit(50);
     
-  return data?.map((item: any) => ({ item_id: item.id, keyword: item.title })) || [];
+  if (error) {
+    console.error("❌ Supabase Error:", error.message);
+    return [];
+  }
+
+  if (!data || data.length === 0) {
+    console.log("❓ Supabase returned 0 rows. Double check your 'items' table data.");
+    return [];
+  }
+
+  console.log(`✅ Found ${data.length} items. Starting scan...`);
+  console.table(data); // This will show up in your GitHub Action logs
+    
+  return data.map((item: any) => ({ 
+    item_id: item.id, 
+    keyword: item.title 
+  }));
 }
 
 // Ensure the process handles the promise and exits correctly
