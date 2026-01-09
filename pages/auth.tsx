@@ -43,16 +43,20 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-      {/* Left Side: Brand/Value Prop (The Landing Part) */}
-      <div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black">
-        <div>
-          <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter mb-4">
-            FLIP<span className="text-blue-500">.</span>
-          </h1>
-          <p className="text-gray-400 text-lg md:text-xl font-medium max-w-sm leading-tight">
-            The financial terminal for your physical net worth.
-          </p>
-        </div>
+   {/* Left Side: Brand/Value Prop (The Landing Part) */}
+<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black">
+  <div>
+    <div className="mb-6">
+      <img 
+        src="/logo.png" 
+        alt="FLIP Logo" 
+        className="h-12 md:h-16 w-auto object-contain brightness-0 invert"
+      />
+    </div>
+    <p className="text-gray-400 text-lg md:text-xl font-medium max-w-sm leading-tight border-l-2 border-blue-500 pl-4">
+      The financial terminal for your <span className="text-white font-bold">physical net worth.</span>
+    </p>
+  </div>
 
         <div className="space-y-8 my-12 md:my-0">
           <div className="flex items-start space-x-4">
