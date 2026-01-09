@@ -43,37 +43,40 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-{/* Left Side: Brand/Value Prop (The Landing Part) */}
-<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black min-h-screen">
+{/* Left Side: Brand/Value Prop */}
+<div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-600/30 via-black to-black min-h-screen relative overflow-hidden">
   
-  {/* TOP SECTION: Logo filling the corner */}
-  <div className="flex-grow flex items-start justify-start">
-    <img 
-      src="/logo.png" 
-      alt="FLIP Logo" 
-      className="h-32 md:h-56 lg:h-64 w-auto object-contain brightness-0 invert opacity-90 -ml-2"
-    />
+  {/* TOP SECTION: The Logo Hero */}
+  <div className="relative z-10 flex flex-col items-center md:items-start justify-center pt-12 md:pt-0">
+    <div className="w-full max-w-[280px] md:max-w-[450px] lg:max-w-[550px] transition-all duration-500">
+      <img 
+        src="/logo.png" 
+        alt="FLIP Logo" 
+        className="w-full h-auto object-contain brightness-0 invert opacity-100 drop-shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+      />
+    </div>
   </div>
 
-  {/* BOTTOM SECTION: Text moved right above features */}
-  <div className="mt-auto space-y-10">
-    <div>
-      <p className="text-gray-400 text-xl md:text-3xl font-medium max-w-md leading-tight border-l-4 border-blue-500 pl-6">
-        The financial terminal for your <span className="text-white font-bold tracking-tight">physical net worth.</span>
+  {/* BOTTOM SECTION: Text and Features */}
+  <div className="mt-auto pt-16 relative z-10">
+    <div className="mb-12">
+      <p className="text-gray-400 text-2xl md:text-4xl font-black tracking-tight leading-[1.1] border-l-4 border-blue-500 pl-6 max-w-xl">
+        The financial terminal for your <br />
+        <span className="text-white uppercase italic tracking-tighter">physical net worth.</span>
       </p>
     </div>
-    
 
-        <div className="space-y-8 my-12 md:my-0">
-          <div className="flex items-start space-x-4">
-            <div className="mt-1 w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-              <Zap size={20} className="text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm font-black uppercase tracking-widest text-white">Instant Valuation</p>
-              <p className="text-xs text-gray-500 font-medium mt-1">Scan assets to unlock real-time market pricing via Oracle.</p>
-            </div>
-          </div>
+    {/* Feature List (Instant Evaluation) */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-w-2xl">
+      <div className="flex items-start space-x-4 group">
+        <div className="mt-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/30 transition-all">
+          <Zap className="text-blue-500" size={24} />
+        </div>
+        <div>
+          <h4 className="text-white font-black uppercase tracking-[0.2em] text-[10px] mb-1">Instant Valuation</h4>
+          <p className="text-gray-500 text-xs leading-relaxed">Real-time market pricing via Oracle v3 global data stream.</p>
+        </div>
+      </div>
 
           <div className="flex items-start space-x-4">
             <div className="mt-1 w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
