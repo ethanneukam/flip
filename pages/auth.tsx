@@ -43,25 +43,26 @@ export default function AuthPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
-
-  {/* LOGO AREA: Absolute positioned on desktop to prevent breaking the flow */}
+      
+  {/* LOGO AREA: Massive and dominant in the top corner */}
   <div className="relative md:absolute md:top-12 md:left-12 z-10 w-full flex justify-center md:justify-start">
-    <div className="w-[80%] max-w-[300px] md:max-w-none md:w-[500px] lg:w-[650px] transition-all duration-500">
+    <div className="w-[85%] max-w-[320px] md:max-w-none md:w-[550px] lg:w-[700px] transition-all duration-500">
       <img 
         src="/logo.png" 
         alt="FLIP Logo" 
-        className="w-full h-auto object-contain brightness-0 invert drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]"
+        className="w-full h-auto object-contain brightness-0 invert drop-shadow-[0_0_50px_rgba(59,130,246,0.35)]"
       />
     </div>
   </div>
 
-  {/* SPACER: Keeps content from hiding behind the absolute logo on mobile */}
-  <div className="h-[25vh] md:hidden"></div>
+  {/* SPACER: Prevents mobile overlap since the logo is absolute on desktop */}
+  <div className="h-[30vh] md:hidden"></div>
 
-
-
-    {/* Feature List (Instant Evaluation) */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10 max-w-3xl border-t border-white/5 pt-10">
+  {/* BOTTOM CONTENT: Only the Feature List remains */}
+  <div className="mt-auto relative z-20">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-10 max-w-5xl border-t border-white/10 pt-12 bg-black/20 backdrop-blur-sm p-6 rounded-2xl">
+      
+      {/* Instant Valuation */}
       <div className="flex items-start space-x-5 group">
         <div className="mt-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/40 group-hover:border-blue-500/50 transition-all duration-300">
           <Zap className="text-blue-400" size={28} />
@@ -72,27 +73,35 @@ export default function AuthPage() {
         </div>
       </div>
 
-          <div className="flex items-start space-x-4">
-            <div className="mt-1 w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-              <Shield size={20} className="text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm font-black uppercase tracking-widest text-white">Vault Security</p>
-              <p className="text-xs text-gray-500 font-medium mt-1">Military-grade tracking for your high-value inventory.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start space-x-4">
-            <div className="mt-1 w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-              <BarChart3 size={20} className="text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm font-black uppercase tracking-widest text-white">Market Oracle</p>
-              <p className="text-xs text-gray-500 font-medium mt-1">Live volatility alerts and global price indices.</p>
-            </div>
-          </div>
+      {/* Vault Security */}
+      <div className="flex items-start space-x-5 group">
+        <div className="mt-1 p-3 rounded-xl bg-green-500/10 border border-green-500/20 group-hover:bg-green-500/40 group-hover:border-green-500/50 transition-all duration-300">
+          <Shield size={24} className="text-green-400" />
         </div>
+        <div>
+          <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2 shadow-green-500/20 shadow-sm">Vault Security</h4>
+          <p className="text-gray-500 text-sm leading-relaxed font-medium">Military-grade tracking for high-value inventory.</p>
+        </div>
+      </div>
 
+      {/* Market Oracle */}
+      <div className="flex items-start space-x-5 group">
+        <div className="mt-1 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 group-hover:bg-purple-500/40 group-hover:border-purple-500/50 transition-all duration-300">
+          <BarChart3 size={24} className="text-purple-400" />
+        </div>
+        <div>
+          <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2 shadow-purple-500/20 shadow-sm">Market Oracle</h4>
+          <p className="text-gray-500 text-sm leading-relaxed font-medium">Live volatility alerts and global price indices.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {/* BACKGROUND GRID: Added extra opacity to fill the void where the text was */}
+  <div className="absolute inset-0 z-0 opacity-[0.05] pointer-events-none" 
+       style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
+</div>
         <div className="hidden md:block">
           <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.3em]">
             System Status: Connected // Oracle v4.2
