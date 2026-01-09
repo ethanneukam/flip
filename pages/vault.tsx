@@ -165,7 +165,7 @@ export default function VaultPage() {
                       <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">SKU: {asset.sku || 'PENDING'}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-[12px] font-black text-white italic">${(asset.price || 0).toLocaleString()}</div>
+                      <div className="text-[12px] font-black text-white italic"> ${((asset as any).price || (asset as any).current_value || 0).toLocaleString()}</div>
                       <div className="text-[8px] text-green-500 font-bold uppercase mt-1">Live_Oracle</div>
                     </div>
                   </div>
