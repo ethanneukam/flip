@@ -26,6 +26,23 @@ export default function PulseFeed() {
     };
     fetchFeed();
   }, []);
+// 2. Realtime Subscription (The "Live" Pulse)
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'feed_events' },
+        (payload) => {
+          // Add the new event to the top of the list
+          setEvents((prev) => [payload.new, ...prev].slice(0, 20));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-black pb-32">
@@ -63,36 +80,42 @@ export default function PulseFeed() {
                 </div>
               </div>
 
-              {/* Content Card */}
-              <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/10 hover:border-white/20 transition-colors">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-[10px] font-black text-blue-500 uppercase">
-                        AGENT: @{event.profiles?.username || 'Anonymous'}
-                      </p>
-                      {/* Current Price Display */}
-                      {event.metadata?.price && (
-                        <div className="flex items-center text-green-400 font-mono text-xs font-bold bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20">
-                          <ArrowUpRight size={10} className="mr-0.5" />
-                          ${Number(event.metadata.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="text-sm font-bold leading-tight text-white">{event.message || event.title}</h3>
-                    <p className="text-[11px] text-white/50 mt-1">{event.description || `Activity detected in ${event.metadata?.ticker || 'Market'}`}</p>
+           {/* Integrated Content Card */}
+              <div className="bg-white/[0.03] rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300">
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">
+                      AGENT: @{event.profiles?.username || 'Anonymous'}
+                    </p>
+                    {event.metadata?.price && (
+                      <div className="flex items-center text-green-400 font-mono text-[10px] font-bold bg-green-400/10 px-2 py-0.5 rounded border border-green-400/20">
+                        <ArrowUpRight size={10} className="mr-0.5" />
+                        ${Number(event.metadata.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </div>
+                    )}
                   </div>
+                  
+                  <h3 className="text-sm font-bold leading-tight text-white mb-1">
+                    {event.message || event.title}
+                  </h3>
+                  <p className="text-[11px] text-white/40 leading-relaxed italic">
+                    {event.description || `Data stream active for ticker: ${event.metadata?.ticker || 'N/A'}`}
+                  </p>
                 </div>
 
-                {/* Performance Chart if Ticker exists */}
+                {/* Integrated Performance Chart */}
                 {event.metadata?.ticker && (
-                  <div className="mt-4 pt-4 border-t border-white/5">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-[9px] font-black text-white/20 uppercase tracking-widest flex items-center">
-                        <Activity size={10} className="mr-1" /> Market Performance
+                  <div className="border-t border-white/5 bg-black/40">
+                    <div className="px-4 pt-3 flex items-center justify-between">
+                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center">
+                        <Activity size={8} className="mr-1" /> Market_Telemetry
+                      </span>
+                      <span className="text-[8px] font-mono text-white/20 uppercase">
+                        {event.metadata.ticker} // STAT_ID: {event.metadata.item_id?.slice(0,8)}
                       </span>
                     </div>
-                    <div className="h-24 w-full opacity-60 grayscale hover:grayscale-0 transition-all">
+                    {/* Fixed Height Container to prevent overlap */}
+                    <div className="h-28 w-full p-2 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
                       <MarketChart itemId={event.metadata.item_id} ticker={event.metadata.ticker} />
                     </div>
                   </div>
@@ -103,7 +126,7 @@ export default function PulseFeed() {
         ) : (
           <div className="p-20 text-center">
              <p className="text-xs font-bold text-white/20 uppercase tracking-widest">No Pulse Detected</p>
-             <p className="text-[10px] text-white/10 mt-2 italic font-mono">IDLE_STATE_ACTIVE</p>
+             <p className="text-[10px] text-white/10 mt-2 italic font-mono uppercase tracking-tighter">System_Idle_Waiting_For_Oracle</p>
           </div>
         )}
       </main>
