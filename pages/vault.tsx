@@ -75,7 +75,7 @@ export default function VaultPage() {
   const handleSetupPayouts = async () => {
     setIsProcessing(true);
     try {
-      const res = await fetch('/api/onboarding', { 
+      const res = await fetch('/api/stripe/onboard', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: profile.id })
