@@ -46,14 +46,16 @@ export default function AuthPage() {
    {/* Left Side: Brand/Value Prop (The Landing Part) */}
 <div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black">
   <div>
-    <div className="mb-6">
+    {/* LOGO FIX: Increased height and added negative margin to align with the text border */}
+    <div className="mb-10 -ml-1"> 
       <img 
         src="/logo.png" 
         alt="FLIP Logo" 
-        className="h-12 md:h-16 w-auto object-contain brightness-0 invert"
+        className="h-20 md:h-32 w-auto object-contain brightness-0 invert"
       />
     </div>
-    <p className="text-gray-400 text-lg md:text-xl font-medium max-w-sm leading-tight border-l-2 border-blue-500 pl-4">
+    
+    <p className="text-gray-400 text-lg md:text-2xl font-medium max-w-md leading-tight border-l-2 border-blue-500 pl-6">
       The financial terminal for your <span className="text-white font-bold">physical net worth.</span>
     </p>
   </div>
