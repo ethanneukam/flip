@@ -58,14 +58,7 @@ export default function AuthPage() {
   {/* SPACER: Keeps content from hiding behind the absolute logo on mobile */}
   <div className="h-[25vh] md:hidden"></div>
 
-  {/* BOTTOM CONTENT: Text and Features */}
-  <div className="mt-auto relative z-20">
-    <div className="mb-10">
-      <p className="text-gray-400 text-2xl md:text-5xl font-black tracking-tighter leading-[0.9] border-l-4 border-blue-500 pl-6 max-w-2xl uppercase italic">
-        The financial terminal <br />
-        <span className="text-white">for your physical net worth.</span>
-      </p>
-    </div>
+
 
     {/* Feature List (Instant Evaluation) */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10 max-w-3xl border-t border-white/5 pt-10">
