@@ -41,74 +41,71 @@ export default function AuthPage() {
     }
   };
 return (
-  <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
+  <main className="min-h-screen bg-black text-white flex flex-col md:flex-row overflow-hidden">
     
     {/* LEFT SIDE: Brand & Features */}
-    <div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-600/30 via-black to-black min-h-screen relative overflow-hidden">
+    <div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black min-h-screen relative">
       
-      {/* LOGO AREA: Massive and dominant in the top corner */}
+      {/* LOGO AREA: Massive and dominant */}
       <div className="relative md:absolute md:top-12 md:left-12 z-10 w-full flex justify-center md:justify-start">
-        <div className="w-[85%] max-w-[320px] md:max-w-none md:w-[550px] lg:w-[700px] transition-all duration-500">
+        <div className="w-[85%] max-w-[320px] md:max-w-none md:w-[600px] lg:w-[750px] transition-all duration-500">
           <img 
             src="/logo.png" 
             alt="FLIP Logo" 
-            className="w-full h-auto object-contain brightness-0 invert drop-shadow-[0_0_50px_rgba(59,130,246,0.35)]"
+            className="w-full h-auto object-contain brightness-0 invert drop-shadow-[0_0_60px_rgba(59,130,246,0.3)]"
           />
         </div>
       </div>
 
-      {/* SPACER: Prevents mobile overlap since the logo is absolute on desktop */}
-      <div className="h-[30vh] md:hidden"></div>
+      {/* SPACER: Prevents mobile overlap */}
+      <div className="h-[35vh] md:hidden"></div>
 
-      {/* BOTTOM CONTENT: Feature List */}
+      {/* BOTTOM CONTENT: Feature List (Clean / No Grid / No Lines) */}
       <div className="mt-auto relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-x-12 gap-y-10 max-w-5xl border-t border-white/10 pt-12">
+        <div className="flex flex-col space-y-12 max-w-2xl pb-10">
           
           {/* Instant Valuation */}
-          <div className="flex items-start space-x-5 group">
-            <div className="mt-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/40 group-hover:border-blue-500/50 transition-all duration-300">
-              <Zap className="text-blue-400" size={28} />
+          <div className="flex items-start space-x-6 group">
+            <div className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/10 group-hover:border-blue-500/50 transition-all duration-300">
+              <Zap className="text-blue-400" size={24} />
             </div>
-            <div>
-              <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2">Instant Valuation</h4>
+            <div className="space-y-1">
+              <h4 className="text-white font-black uppercase tracking-[0.3em] text-[10px]">Instant Valuation</h4>
               <p className="text-gray-500 text-sm leading-relaxed font-medium">Real-time market pricing via Oracle v3 global data stream.</p>
             </div>
           </div>
 
           {/* Vault Security */}
-          <div className="flex items-start space-x-5 group">
-            <div className="mt-1 p-3 rounded-xl bg-green-500/10 border border-green-500/20 group-hover:bg-green-500/40 group-hover:border-green-500/50 transition-all duration-300">
+          <div className="flex items-start space-x-6 group">
+            <div className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/10 group-hover:border-green-500/50 transition-all duration-300">
               <Shield size={24} className="text-green-400" />
             </div>
-            <div>
-              <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2">Vault Security</h4>
+            <div className="space-y-1">
+              <h4 className="text-white font-black uppercase tracking-[0.3em] text-[10px]">Vault Security</h4>
               <p className="text-gray-500 text-sm leading-relaxed font-medium">Military-grade tracking for high-value inventory.</p>
             </div>
           </div>
 
           {/* Market Oracle */}
-          <div className="flex items-start space-x-5 group">
-            <div className="mt-1 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 group-hover:bg-purple-500/40 group-hover:border-purple-500/50 transition-all duration-300">
+          <div className="flex items-start space-x-6 group">
+            <div className="mt-1 p-3 rounded-xl bg-white/[0.03] border border-white/10 group-hover:border-purple-500/50 transition-all duration-300">
               <BarChart3 size={24} className="text-purple-400" />
             </div>
-            <div>
-              <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2">Market Oracle</h4>
+            <div className="space-y-1">
+              <h4 className="text-white font-black uppercase tracking-[0.3em] text-[10px]">Market Oracle</h4>
               <p className="text-gray-500 text-sm leading-relaxed font-medium">Live volatility alerts and global price indices.</p>
             </div>
           </div>
         </div>
 
         {/* System Status Label */}
-        <div className="hidden md:block mt-12">
-          <p className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.3em] font-mono">
-            System Status: <span className="text-green-500">Connected</span> // Oracle v4.2
+        <div className="hidden md:block pt-8 border-t border-white/5">
+          <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.4em] font-mono flex items-center">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2 animate-pulse" />
+            Node_Status: Online // Protocol_v4.2
           </p>
         </div>
       </div>
-
-      {/* BACKGROUND GRID */}
-      <div className="absolute inset-0 z-0 opacity-[0.05] pointer-events-none" 
-           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
     </div>
 
       {/* Right Side: Auth Form */}
