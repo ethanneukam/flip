@@ -1,5 +1,5 @@
 import { Page } from "playwright";
-import { Scraper } from "../scrapeRunner"; 
+import { Scraper } from "../scripts/scrapeRunner"; 
 
 export const ebayScraper: Scraper = {
   source: "eBay",
