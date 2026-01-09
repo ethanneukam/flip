@@ -46,9 +46,9 @@ return (
     {/* LEFT SIDE: Brand & Features */}
     <div className="flex-1 flex flex-col justify-between p-8 md:p-16 bg-[radial-gradient(circle_at_top_left,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black min-h-screen relative">
       
-      {/* LOGO AREA: Massive and dominant */}
-      <div className="relative md:absolute md:top-12 md:left-12 z-10 w-full flex justify-center md:justify-start">
-        <div className="w-[85%] max-w-[320px] md:max-w-none md:w-[600px] lg:w-[750px] transition-all duration-500">
+      {/* LOGO AREA: Massive & Centered on Mobile | Shifted Up on Desktop */}
+      <div className="relative md:absolute md:-top-4 md:left-8 z-10 w-full flex justify-center md:justify-start pt-2 md:pt-0">
+        <div className="w-[95%] max-w-[400px] md:max-w-none md:w-[650px] lg:w-[850px] transition-all duration-500">
           <img 
             src="/logo.png" 
             alt="FLIP Logo" 
@@ -57,10 +57,10 @@ return (
         </div>
       </div>
 
-      {/* SPACER: Prevents mobile overlap */}
+      {/* SPACER: Keeps features from being covered by the logo on mobile */}
       <div className="h-[35vh] md:hidden"></div>
 
-      {/* BOTTOM CONTENT: Feature List (Clean / No Grid / No Lines) */}
+      {/* BOTTOM CONTENT: Feature List */}
       <div className="mt-auto relative z-20">
         <div className="flex flex-col space-y-12 max-w-2xl pb-10">
           
@@ -107,7 +107,7 @@ return (
         </div>
       </div>
     </div>
-
+    
       {/* Right Side: Auth Form */}
       <div className="flex-1 flex items-center justify-center p-6 bg-white text-black rounded-t-[40px] md:rounded-t-none md:rounded-l-[40px]">
         <div className="w-full max-w-sm space-y-8">
