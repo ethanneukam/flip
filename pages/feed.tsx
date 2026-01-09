@@ -80,81 +80,68 @@ export default function PulseFeed() {
                   {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-{/* Integrated Content Card */}
-<article key={event.id} className="p-4 md:p-6">
-  <div className="bg-[#0A0A0A] rounded-2xl overflow-hidden border border-white/10 hover:border-blue-500/30 transition-all duration-500 shadow-2xl">
-    
-    {/* Card Header Content */}
-    <div className="p-5 md:p-7">
-      <div className="flex justify-between items-start mb-4">
-        <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] bg-blue-500/5 px-2 py-1 rounded">
-          STREAM_ORIGIN: @{event.profiles?.username || 'Anonymous'}
-        </p>
-        
-        {event.metadata?.price && (
-          <div className="flex flex-col items-end">
-            <div className="flex items-center text-green-400 font-mono text-sm font-bold bg-green-400/10 px-3 py-1 rounded-full border border-green-400/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]">
-              <ArrowUpRight size={14} className="mr-1" />
-              ${Number(event.metadata.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-            <span className="text-[8px] text-white/20 mt-1 uppercase font-black">Current_Market_Value</span>
-          </div>
-        )}
-      </div>
-      
-      {/* Title with Typewriter feel */}
-      <h3 className="text-lg md:text-xl font-black leading-tight text-white mb-2 tracking-tight">
-        {event.message || event.title}
-      </h3>
-      
-      <p className="text-sm text-white/50 leading-relaxed font-medium max-w-2xl border-l border-white/10 pl-4 italic">
-        {event.description || `ORACLE_DATA: Analytics synchronized for ${event.metadata?.ticker || 'Global Market'}`}
-      </p>
-    </div>
+{/* Massive Content Card */}
+              <div className="bg-white/[0.02] backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10 group-hover:border-blue-500/50 transition-all duration-500 shadow-2xl">
+                
+                {/* Header Section */}
+                <div className="p-6 md:p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                        AGENT: @{event.profiles?.username || 'Anonymous'}
+                      </p>
+                      <h3 className="text-xl md:text-2xl font-black text-white leading-none tracking-tighter">
+                        {event.message || event.title}
+                      </h3>
+                    </div>
 
-    {/* EXPANDED PERFORMANCE CHART SECTION */}
-    {event.metadata?.ticker && (
-      <div className="border-t border-white/5 bg-black/60">
-        <div className="px-6 py-4 flex items-center justify-between bg-white/[0.02]">
-          <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em] flex items-center">
-            <Activity size={12} className="mr-2 text-blue-500" /> 
-            LIVE_TELEMETRY // {event.metadata.ticker}
-          </span>
-          <span className="text-[9px] font-mono text-blue-500/50 animate-pulse">
-            CONNECTED_TO_ORACLE_V3
-          </span>
-        </div>
+                    {event.metadata?.price && (
+                      <div className="text-right">
+                        <div className="flex items-center text-green-400 font-mono text-lg font-bold bg-green-400/10 px-4 py-1 rounded-lg border border-green-400/20 shadow-[0_0_20px_rgba(34,197,94,0.15)]">
+                          <ArrowUpRight size={18} className="mr-1" />
+                          ${Number(event.metadata.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                        <span className="text-[9px] text-white/20 uppercase font-black block mt-1 tracking-tighter">Live_Market_Rate</span>
+                      </div>
+                    )}
+                  </div>
 
-        {/* INCREASED HEIGHT: From h-28 to h-64 for high visibility */}
-        <div className="h-64 md:h-80 w-full p-4 relative">
-          {/* Subtle background grid just for the chart area */}
-          <div className="absolute inset-0 opacity-10 pointer-events-none" 
-               style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-          
-          <div className="relative h-full w-full transition-all duration-700">
-            <MarketChart itemId={event.metadata.item_id} ticker={event.metadata.ticker} />
-          </div>
-        </div>
+                  <p className="text-sm md:text-base text-white/50 leading-relaxed font-medium max-w-2xl border-l-2 border-white/10 pl-6 italic">
+                    {event.description || `ORACLE_DATA: Analytics synchronized for ${event.metadata?.ticker || 'Global Market'}`}
+                  </p>
+                </div>
 
-        {/* Chart Footer Stats */}
-        <div className="px-6 py-3 border-t border-white/5 flex gap-6">
-           <div className="flex flex-col">
-             <span className="text-[8px] text-white/20 uppercase font-black">Frequency</span>
-             <span className="text-[10px] text-white/60 font-mono text-xs">Real-Time</span>
-           </div>
-           <div className="flex flex-col">
-             <span className="text-[8px] text-white/20 uppercase font-black">Data_Integrity</span>
-             <span className="text-[10px] text-green-500/60 font-mono text-xs">Verified</span>
-           </div>
-        </div>
-      </div>
-    )}
-  </div>
-</article>
+                {/* EXPANDED PERFORMANCE CHART */}
+                {event.metadata?.ticker && (
+                  <div className="border-t border-white/5 bg-black/40">
+                    <div className="px-6 py-4 flex items-center justify-between bg-white/[0.01]">
+                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center">
+                        <Activity size={14} className="mr-2 text-blue-500" /> 
+                        TELEMETRY: {event.metadata.ticker}
+                      </span>
+                      <div className="flex space-x-4 text-[9px] font-mono text-white/20">
+                        <span>DATA_STREAMS: 4</span>
+                        <span>STABILITY: 99.8%</span>
+                      </div>
+                    </div>
+
+                    {/* Chart Container - Massive Visibility */}
+                    <div className="h-72 md:h-96 w-full p-6 relative">
+                      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                      
+                      <div className="relative h-full w-full">
+                        <MarketChart itemId={event.metadata.item_id} ticker={event.metadata.ticker} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </article>
           ))
         ) : (
-          <div className="p-20 text-center">
-             <p className="text-xs font-bold text-white/20 uppercase tracking-widest">No Pulse Detected</p>
+          <div className="p-20 text-center border border-dashed border-white/10 rounded-3xl">
+             <p className="text-xs font-bold text-white/20 uppercase tracking-[1em]">Scanning Atmosphere...</p>
           </div>
         )}
       </main>
