@@ -44,35 +44,38 @@ export default function AuthPage() {
   return (
     <main className="min-h-screen bg-black text-white flex flex-col md:flex-row">
 
-  {/* TOP SECTION: The Logo Hero */}
-  <div className="relative z-10 flex flex-col items-center md:items-start justify-center pt-12 md:pt-0">
-    <div className="w-full max-w-[280px] md:max-w-[450px] lg:max-w-[550px] transition-all duration-500">
+  {/* LOGO AREA: Absolute positioned on desktop to prevent breaking the flow */}
+  <div className="relative md:absolute md:top-12 md:left-12 z-10 w-full flex justify-center md:justify-start">
+    <div className="w-[80%] max-w-[300px] md:max-w-none md:w-[500px] lg:w-[650px] transition-all duration-500">
       <img 
         src="/logo.png" 
         alt="FLIP Logo" 
-        className="w-full h-auto object-contain brightness-0 invert opacity-100 drop-shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+        className="w-full h-auto object-contain brightness-0 invert drop-shadow-[0_0_40px_rgba(59,130,246,0.3)]"
       />
     </div>
   </div>
 
-  {/* BOTTOM SECTION: Text and Features */}
-  <div className="mt-auto pt-16 relative z-10">
-    <div className="mb-12">
-      <p className="text-gray-400 text-2xl md:text-4xl font-black tracking-tight leading-[1.1] border-l-4 border-blue-500 pl-6 max-w-xl">
-        The financial terminal for your <br />
-        <span className="text-white uppercase italic tracking-tighter">physical net worth.</span>
+  {/* SPACER: Keeps content from hiding behind the absolute logo on mobile */}
+  <div className="h-[25vh] md:hidden"></div>
+
+  {/* BOTTOM CONTENT: Text and Features */}
+  <div className="mt-auto relative z-20">
+    <div className="mb-10">
+      <p className="text-gray-400 text-2xl md:text-5xl font-black tracking-tighter leading-[0.9] border-l-4 border-blue-500 pl-6 max-w-2xl uppercase italic">
+        The financial terminal <br />
+        <span className="text-white">for your physical net worth.</span>
       </p>
     </div>
 
     {/* Feature List (Instant Evaluation) */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-w-2xl">
-      <div className="flex items-start space-x-4 group">
-        <div className="mt-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/30 transition-all">
-          <Zap className="text-blue-500" size={24} />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10 max-w-3xl border-t border-white/5 pt-10">
+      <div className="flex items-start space-x-5 group">
+        <div className="mt-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/40 group-hover:border-blue-500/50 transition-all duration-300">
+          <Zap className="text-blue-400" size={28} />
         </div>
         <div>
-          <h4 className="text-white font-black uppercase tracking-[0.2em] text-[10px] mb-1">Instant Valuation</h4>
-          <p className="text-gray-500 text-xs leading-relaxed">Real-time market pricing via Oracle v3 global data stream.</p>
+          <h4 className="text-white font-black uppercase tracking-[0.25em] text-[11px] mb-2 shadow-blue-500/20 shadow-sm">Instant Valuation</h4>
+          <p className="text-gray-500 text-sm leading-relaxed font-medium">Real-time market pricing via Oracle v3 global data stream.</p>
         </div>
       </div>
 
