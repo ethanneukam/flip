@@ -194,40 +194,54 @@ const handleBuyAction = async () => {
           </div>
         </div>
 
-        {/* RIGHT: MAIN CONTENT AREA */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {/* Price Chart */}
-            <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
-              <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-                <div>
-                  <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
-                    {data?.name || (loading ? "LOADING ASSET..." : "TICKER_NOT_FOUND")}
-                  </h2>
-                  <p className="text-gray-500 text-xs font-mono">{ticker}</p>
-                </div>
-                <div className="text-left md:text-right">
-                  <p className="text-3xl font-black text-green-500">
-                    ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </p>
-                  <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
-                    <Activity size={10} className="animate-pulse" />
-                    +LIVE_UPDATE
-                  </div>
-                </div>
-              </div>
-              
-              <div className="h-64 md:h-80 w-full">
-                <MarketChart itemId={data?.id} ticker={ticker} />
-              </div>
-            </div>
-            <button 
-  onClick={handleBuyAction}
-  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-tighter rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
->
-  <ArrowUpRight size={18} />
-  Acquire Asset
-</button>
+      {/* RIGHT: MAIN CONTENT AREA */}
+<div className="flex-1 p-4 overflow-y-auto">
+  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    {/* Price Chart */}
+    <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
+      <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+        <div>
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+            {loading ? (
+              "LOADING ASSET..."
+            ) : data?.name ? (
+              data.name
+            ) : (
+              <span className="text-red-500">{ticker ? `${ticker}_NOT_FOUND` : "TICKER_NOT_FOUND"}</span>
+            )}
+          </h2>
+          <p className="text-gray-500 text-xs font-mono">{ticker}</p>
+        </div>
+        <div className="text-left md:text-right">
+          <p className="text-3xl font-black text-green-500">
+            ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
+            <Activity size={10} className="animate-pulse" />
+            +LIVE_UPDATE
+          </div>
+        </div>
+      </div>
+      
+      {/* Chart container - original height preserved */}
+      <div className="h-64 md:h-80 w-full">
+        <MarketChart itemId={data?.id} ticker={ticker} />
+      </div>
+    </div>
+
+    {/* Sidebar Action */}
+    <div className="lg:col-span-1">
+      <button 
+        onClick={handleBuyAction}
+        disabled={!data}
+        className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-tighter rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+      >
+        <ArrowUpRight size={18} />
+        Acquire Asset
+      </button>
+    </div>
+  </div>
+</div>
             {/* Intelligence Sidebar */}
             <div className="lg:col-span-1 space-y-4">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
