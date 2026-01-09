@@ -10,6 +10,7 @@ export default function PulseFeed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 1. Initial Fetch of the feed
     const fetchFeed = async () => {
       const { data, error } = await supabase
         .from("feed_events")
@@ -24,16 +25,16 @@ export default function PulseFeed() {
       if (data) setEvents(data);
       setLoading(false);
     };
+
     fetchFeed();
-  }, []);
-// 2. Realtime Subscription (The "Live" Pulse)
+
+    // 2. Realtime Subscription
     const channel = supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'feed_events' },
         (payload) => {
-          // Add the new event to the top of the list
           setEvents((prev) => [payload.new, ...prev].slice(0, 20));
         }
       )
@@ -63,24 +64,24 @@ export default function PulseFeed() {
           </div>
         ) : events.length > 0 ? (
           events.map((event) => (
-            <article key={event.id} className="p-4 space-y-3">
-              {/* Event Header */}
-              <div className="flex items-center justify-between">
+            <article key={event.id} className="p-4">
+              {/* Event Metadata */}
+              <div className="flex items-center justify-between mb-2 px-1">
                 <div className="flex items-center space-x-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${event.event_type === 'VAULT_ADD' ? 'bg-blue-600' : 'bg-white/10'}`}>
-                    {event.event_type === 'VAULT_ADD' ? <ShieldCheck size={12} className="text-white" /> : <Zap size={12} className="text-yellow-400" />}
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${event.event_type === 'VAULT_ADD' ? 'bg-blue-600' : 'bg-white/10'}`}>
+                    {event.event_type === 'VAULT_ADD' ? <ShieldCheck size={10} className="text-white" /> : <Zap size={10} className="text-yellow-400" />}
                   </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-white">
-                    {event.event_type === 'VAULT_ADD' ? 'Vault Entry' : 'Oracle Alert'}
+                  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/60">
+                    {event.event_type === 'VAULT_ADD' ? 'Vault_Entry' : 'Oracle_Alert'}
                   </span>
                 </div>
-                <div className="flex items-center text-[10px] font-bold text-white/30 uppercase">
-                  <Clock size={10} className="mr-1" />
+                <div className="flex items-center text-[9px] font-bold text-white/30 uppercase tracking-tighter font-mono">
+                  <Clock size={8} className="mr-1" />
                   {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
 
-           {/* Integrated Content Card */}
+              {/* Integrated Content Card */}
               <div className="bg-white/[0.03] rounded-xl overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-300">
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -103,18 +104,14 @@ export default function PulseFeed() {
                   </p>
                 </div>
 
-                {/* Integrated Performance Chart */}
+                {/* Performance Chart inside Card */}
                 {event.metadata?.ticker && (
                   <div className="border-t border-white/5 bg-black/40">
                     <div className="px-4 pt-3 flex items-center justify-between">
                       <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em] flex items-center">
                         <Activity size={8} className="mr-1" /> Market_Telemetry
                       </span>
-                      <span className="text-[8px] font-mono text-white/20 uppercase">
-                        {event.metadata.ticker} // STAT_ID: {event.metadata.item_id?.slice(0,8)}
-                      </span>
                     </div>
-                    {/* Fixed Height Container to prevent overlap */}
                     <div className="h-28 w-full p-2 opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-all duration-500">
                       <MarketChart itemId={event.metadata.item_id} ticker={event.metadata.ticker} />
                     </div>
@@ -126,7 +123,6 @@ export default function PulseFeed() {
         ) : (
           <div className="p-20 text-center">
              <p className="text-xs font-bold text-white/20 uppercase tracking-widest">No Pulse Detected</p>
-             <p className="text-[10px] text-white/10 mt-2 italic font-mono uppercase tracking-tighter">System_Idle_Waiting_For_Oracle</p>
           </div>
         )}
       </main>
