@@ -25,7 +25,64 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+// Add this helper function at the top of scrapeRunner.ts
+function calculateMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  
+  // 1. Sort the prices
+  const sorted = values.sort((a, b) => a - b);
+  
+  // 2. Remove extreme outliers (top 10% and bottom 10%) if we have enough data
+  let validPrices = sorted;
+  if (sorted.length > 5) {
+    const removeCount = Math.floor(sorted.length * 0.1);
+    validPrices = sorted.slice(removeCount, sorted.length - removeCount);
+  }
 
+  // 3. Find the middle value
+  const mid = Math.floor(validPrices.length / 2);
+  return validPrices.length % 2 !== 0
+    ? validPrices[mid]
+    : (validPrices[mid - 1] + validPrices[mid]) / 2;
+}
+
+// ... inside your main loop, REPLACE the old price calculation with this:
+
+    // --- AGGREGATE DATA ---
+    let allPrices: number[] = [];
+    
+    // Combine all found prices into one array
+    Object.values(results).forEach((r: any) => {
+      if (r && r.prices && r.prices.length > 0) {
+        allPrices = [...allPrices, ...r.prices];
+      }
+    });
+
+    // Filter out "zero" or "negative" prices
+    allPrices = allPrices.filter(p => p > 0);
+
+    console.log(`📊 Found ${allPrices.length} total valid prices across all sources.`);
+
+    let marketPrice = 0;
+    if (allPrices.length > 0) {
+      // Use Median instead of Average to kill the $15 Sextillion bug
+      marketPrice = calculateMedian(allPrices);
+      console.log(`✨ FINAL MEDIAN PRICE: $${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
+      
+      // Update Supabase
+      const { error: updateError } = await supabase
+        .from("items")
+        .update({ 
+          flip_price: marketPrice,
+          last_updated: new Date().toISOString()
+        })
+        .eq("id", item.item_id);
+
+      if (updateError) console.error(`❌ Failed to update Supabase: ${updateError.message}`);
+      else console.log(`💾 Saved $${marketPrice.toFixed(2)} to database.`);
+    } else {
+      console.log("⚠️ No valid prices found. Skipping database update.");
+    }
 /**
  * Enhanced Stealth: Prevents detection by rotating fingerprints
  */
