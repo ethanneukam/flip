@@ -63,10 +63,6 @@ export default function AuthPage() {
       </p>
     </div>
     
-    <p className="text-gray-400 text-lg md:text-2xl font-medium max-w-md leading-tight border-l-2 border-blue-500 pl-6">
-      The financial terminal for your <span className="text-white font-bold">physical net worth.</span>
-    </p>
-  </div>
 
         <div className="space-y-8 my-12 md:my-0">
           <div className="flex items-start space-x-4">
