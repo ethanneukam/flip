@@ -72,7 +72,7 @@ const channel = supabase
   return () => {
     supabase.removeChannel(channel);
   };
-}, []);
+}, [ticker]);
 
 const fetchTickerData = async () => {
     setLoading(true);
