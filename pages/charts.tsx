@@ -115,197 +115,191 @@ const handleBuyAction = async () => {
   const shippingCost = 15.00;
   const netProfit = marketPrice - estimatedFees - shippingCost;
 
-  return (
-    <main className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-mono pb-24">
-      {/* Top Header */}
-      <div className="flex justify-between items-center border-b border-white/10 p-4 bg-[#0A0A0A] sticky top-0 z-10">
-        <div>
-          <h1 className="text-blue-500 font-black text-xs uppercase tracking-widest">Oracle Terminal v1.1</h1>
-          <p className="text-[10px] text-gray-500 uppercase">Broker_Layout // {new Date().toLocaleTimeString()}</p>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          {/* Camera Scan Button */}
-          <label className="cursor-pointer p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/50 transition-all flex items-center justify-center">
-            {isScanning ? (
-              <Loader2 size={14} className="animate-spin text-blue-500" />
-            ) : (
-              <Camera size={14} className="text-gray-400" />
-            )}
-            <input 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              className="hidden" 
-              onChange={handleCameraScan} 
-              disabled={isScanning}
-            />
-          </label>
-
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
-            <input 
-              className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48 transition-all"
-              placeholder="FILTER TICKERS..."
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        
-        {/* Visual Sync Overlay (Shows only when AI is working) */}
-        {isScanning && (
-          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-             <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
-             <p className="font-bold uppercase tracking-[0.3em] text-sm text-blue-500">Visual_Sync_Active</p>
-             <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">Identifying Asset & Pulling Market Nodes</p>
-          </div>
-        )}
-
-        {/* LEFT: MARKET WATCHLIST MENU */}
-        <div className="w-64 border-r border-white/10 bg-black/40 hidden md:flex flex-col h-[calc(100vh-140px)]">
-          <div className="p-3 border-b border-white/5 bg-white/5">
-            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Market_Watchlist</p>
-          </div>
-          <div className="overflow-y-auto flex-1 custom-scrollbar">
-            {menuLoading ? (
-              <div className="p-4 animate-pulse text-[10px] text-gray-600">SYNCING_TICKERS...</div>
-            ) : (
-              marketItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setTicker(item.ticker || item.title)}
-                  className={`w-full p-3 border-b border-white/[0.02] flex flex-col text-left transition-all hover:bg-white/5 ${
-                    ticker === (item.ticker || item.title) ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : ''
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] font-bold text-white uppercase">{item.ticker || "N/A"}</span>
-                    <span className="text-[9px] text-green-500 font-bold">${(item.flip_price || 0).toLocaleString()}</span>
-                  </div>
-                  <span className="text-[8px] text-gray-500 truncate uppercase">{item.title}</span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-      {/* RIGHT: MAIN CONTENT AREA */}
-<div className="flex-1 p-4 overflow-y-auto">
-  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-    {/* Price Chart */}
-    <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
-      <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
-            {loading ? (
-              "LOADING ASSET..."
-            ) : data?.name ? (
-              data.name
-            ) : (
-              <span className="text-red-500">{ticker ? `${ticker}_NOT_FOUND` : "TICKER_NOT_FOUND"}</span>
-            )}
-          </h2>
-          <p className="text-gray-500 text-xs font-mono">{ticker}</p>
-        </div>
-        <div className="text-left md:text-right">
-          <p className="text-3xl font-black text-green-500">
-            ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </p>
-          <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
-            <Activity size={10} className="animate-pulse" />
-            +LIVE_UPDATE
-          </div>
-        </div>
+return (
+  <main className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-mono pb-24">
+    {/* Top Header */}
+    <div className="flex justify-between items-center border-b border-white/10 p-4 bg-[#0A0A0A] sticky top-0 z-10">
+      <div>
+        <h1 className="text-blue-500 font-black text-xs uppercase tracking-widest">Oracle Terminal v1.1</h1>
+        <p className="text-[10px] text-gray-500 uppercase">Broker_Layout // {new Date().toLocaleTimeString()}</p>
       </div>
       
-      {/* Chart container - original height preserved */}
-      <div className="h-64 md:h-80 w-full">
-        <MarketChart itemId={data?.id} ticker={ticker} />
+      <div className="flex items-center space-x-2">
+        <label className="cursor-pointer p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/50 transition-all flex items-center justify-center">
+          {isScanning ? (
+            <Loader2 size={14} className="animate-spin text-blue-500" />
+          ) : (
+            <Camera size={14} className="text-gray-400" />
+          )}
+          <input 
+            type="file" 
+            accept="image/*" 
+            capture="environment" 
+            className="hidden" 
+            onChange={handleCameraScan} 
+            disabled={isScanning}
+          />
+        </label>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
+          <input 
+            className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48 transition-all"
+            placeholder="FILTER TICKERS..."
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+          />
+        </div>
       </div>
     </div>
 
-    {/* Sidebar Action */}
-    <div className="lg:col-span-1">
-      <button 
-        onClick={handleBuyAction}
-        disabled={!data}
-        className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-tighter rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-      >
-        <ArrowUpRight size={18} />
-        Acquire Asset
-      </button>
-    </div>
-  </div>
-</div>
-            {/* Intelligence Sidebar */}
-            <div className="lg:col-span-1 space-y-4">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Profit_Analysis</p>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-mono">Market_Price</span>
-                    <span className="font-bold">${marketPrice.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-red-400">
-                    <span className="font-mono">Est_Fees</span>
-                    <span className="font-bold">-${estimatedFees.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-red-400">
-                    <span className="font-mono">Logistics</span>
-                    <span className="font-bold">-${shippingCost.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 flex justify-between items-end">
-                    <span className="text-[10px] font-black uppercase text-blue-500">Net_Profit</span>
-                    <span className="text-xl font-black text-white">
-                      ${netProfit > 0 ? netProfit.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0.00"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-<div className="lg:col-span-1 h-[500px]">
-   <OrderBook ticker={ticker} />
-</div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-widest font-black">Confidence_Score</p>
-                <div className="flex items-center space-x-2">
-                  <ShieldCheck className="text-blue-500" size={18} />
-                  <span className="text-xl font-black">{Math.round((data?.confidence || 0.85) * 100)}%</span>
-                </div>
-                <div className="w-full bg-white/10 h-1.5 rounded-full mt-3 overflow-hidden">
-                   <div className="bg-blue-600 h-full transition-all" style={{ width: `${(data?.confidence || 0.85) * 100}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
+    {/* Main Content Area */}
+    <div className="flex flex-1 overflow-hidden relative">
+      
+      {/* Visual Sync Overlay */}
+      {isScanning && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+           <Loader2 className="w-12 h-12 animate-spin text-blue-500 mb-4" />
+           <p className="font-bold uppercase tracking-[0.3em] text-sm text-blue-500">Visual_Sync_Active</p>
+           <p className="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-widest">Identifying Asset & Pulling Market Nodes</p>
+        </div>
+      )}
 
-          {/* Active Data Ingestion */}
-          <div className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-            <h3 className="text-[10px] font-black text-gray-500 uppercase mb-3 tracking-widest">Market_Ingestion_Nodes</h3>
-            <div className="flex flex-wrap gap-4 font-mono">
-              <div className="flex items-center space-x-2 text-[9px] bg-white/5 px-3 py-1.5 rounded-full border border-white/10 text-white/60">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                <span>INDEX_MAIN</span>
-              </div>
-              <div className="flex items-center space-x-2 text-[9px] bg-white/5 px-3 py-1.5 rounded-full border border-white/10 text-white/60">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                <span>VAULT_PROTO_v1</span>
-              </div>
-            </div>
-          </div>
+      {/* LEFT: MARKET WATCHLIST MENU */}
+      <div className="w-64 border-r border-white/10 bg-black/40 hidden md:flex flex-col h-[calc(100vh-140px)]">
+        <div className="p-3 border-b border-white/5 bg-white/5">
+          <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Market_Watchlist</p>
+        </div>
+        <div className="overflow-y-auto flex-1 custom-scrollbar">
+          {menuLoading ? (
+            <div className="p-4 animate-pulse text-[10px] text-gray-600">SYNCING_TICKERS...</div>
+          ) : (
+            marketItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setTicker(item.ticker || item.title)}
+                className={`w-full p-3 border-b border-white/[0.02] flex flex-col text-left transition-all hover:bg-white/5 ${
+                  ticker === (item.ticker || item.title) ? 'bg-blue-600/10 border-l-2 border-l-blue-500' : ''
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-bold text-white uppercase">{item.ticker || "N/A"}</span>
+                  <span className="text-[9px] text-green-500 font-bold">${(item.flip_price || 0).toLocaleString()}</span>
+                </div>
+                <span className="text-[8px] text-gray-500 truncate uppercase">{item.title}</span>
+              </button>
+            ))
+          )}
         </div>
       </div>
 
-      <BottomNav />
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-      `}</style>
-    </main>
-  );
-}
+      {/* RIGHT: MAIN CONTENT AREA */}
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          
+          {/* MIDDLE: Price Chart Section (Spans 3 columns) */}
+          <div className="lg:col-span-3 space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
+              <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+                <div>
+                  <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+                    {loading ? "LOADING ASSET..." : (data?.name || (ticker ? `${ticker}_NOT_FOUND` : "SELECT_TICKER"))}
+                  </h2>
+                  <p className="text-gray-500 text-xs font-mono">{ticker}</p>
+                </div>
+                <div className="text-left md:text-right">
+                  <p className="text-3xl font-black text-green-500">
+                    ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
+                  <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
+                    <Activity size={10} className="animate-pulse" />
+                    +LIVE_UPDATE
+                  </div>
+                </div>
+              </div>
+              
+              <div className="h-64 md:h-80 w-full">
+                <MarketChart itemId={data?.id} ticker={ticker} />
+              </div>
+            </div>
+
+            {/* Ingestion Nodes (Under Chart) */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <h3 className="text-[10px] font-black text-gray-500 uppercase mb-3 tracking-widest">Market_Ingestion_Nodes</h3>
+              <div className="flex flex-wrap gap-4 font-mono">
+                <div className="flex items-center space-x-2 text-[9px] bg-white/5 px-3 py-1.5 rounded-full border border-white/10 text-white/60">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span>INDEX_MAIN</span>
+                </div>
+                <div className="flex items-center space-x-2 text-[9px] bg-white/5 px-3 py-1.5 rounded-full border border-white/10 text-white/60">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                  <span>VAULT_PROTO_v1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* FAR RIGHT: Intelligence & Actions (Spans 1 column) */}
+          <div className="lg:col-span-1 space-y-4">
+            <button 
+              onClick={handleBuyAction}
+              disabled={!data}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-tighter rounded-xl shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <ArrowUpRight size={18} />
+              Acquire Asset
+            </button>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Profit_Analysis</p>
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500 font-mono">Market_Price</span>
+                  <span className="font-bold">${marketPrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs text-red-400">
+                  <span className="font-mono">Est_Fees</span>
+                  <span className="font-bold">-${estimatedFees.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-red-400">
+                  <span className="font-mono">Logistics</span>
+                  <span className="font-bold">-${shippingCost.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-white/10 pt-3 flex justify-between items-end">
+                  <span className="text-[10px] font-black uppercase text-blue-500">Net_Profit</span>
+                  <span className="text-xl font-black text-white">
+                    ${netProfit > 0 ? netProfit.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0.00"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-[400px]">
+              <OrderBook ticker={ticker} />
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-widest font-black">Confidence_Score</p>
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="text-blue-500" size={18} />
+                <span className="text-xl font-black">{Math.round((data?.confidence || 0.85) * 100)}%</span>
+              </div>
+              <div className="w-full bg-white/10 h-1.5 rounded-full mt-3 overflow-hidden">
+                 <div className="bg-blue-600 h-full transition-all" style={{ width: `${(data?.confidence || 0.85) * 100}%` }} />
+              </div>
+            </div>
+          </div>
+
+        </div> {/* End Grid */}
+      </div> {/* End Main Content Area */}
+    </div> {/* End Flex Wrapper */}
+
+    <BottomNav />
+    
+    <style jsx>{`
+      .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    `}</style>
+  </main>
+);
