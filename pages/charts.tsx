@@ -31,7 +31,29 @@ export default function OracleTerminal() {
     };
     fetchMenu();
   }, []);
+const channel = supabase
+    .channel('realtime-feed')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT', // Only care about new events
+        schema: 'public',
+        table: 'feed_events' 
+      },
+      (payload) => {
+        // 2. Add the new event to the top of your state list
+        setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
+        
+        // 3. Optional: Trigger a sound effect here
+        // new Audio('/sounds/beep.mp3').play().catch(() => {});
+      }
+    )
+    .subscribe();
 
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
   const fetchTickerData = async () => {
     setLoading(true);
     const { data: marketData } = await supabase
