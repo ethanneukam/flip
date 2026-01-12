@@ -73,16 +73,35 @@ const channel = supabase
     supabase.removeChannel(channel);
   };
 }, []);
-  const fetchTickerData = async () => {
+
+const fetchTickerData = async () => {
     setLoading(true);
-    const { data: marketData } = await supabase
-      .from("market_data")
-      .select("*")
-      .eq("ticker", ticker)
-      .single();
-    
-    if (marketData) setData(marketData);
-    setLoading(false);
+    try {
+      // 1. Get the item details from 'items' table using the ticker string
+      const { data: itemData, error: itemError } = await supabase
+        .from("items")
+        .select("*")
+        .eq("ticker", ticker)
+        .single();
+
+      if (itemError || !itemData) {
+        console.error("Asset not found");
+        setData(null);
+        return;
+      }
+
+      // 2. Set the main data (this feeds your headers and IDs)
+      setData(itemData);
+
+      // 3. Since market_data is linked via item_id, 
+      // your MarketChart component should handle the history fetch 
+      // using the itemData.id we just found.
+      
+    } catch (err) {
+      console.error("Critical Oracle Error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 const handleBuyAction = async () => {
   setLoading(true);
