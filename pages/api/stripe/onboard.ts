@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, stripe_connect_id, email')
       .eq('id', userId)
       .single();
 
@@ -30,14 +30,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let stripeId = profile.stripe_connect_id;
 
-    // 1. Create Connect Account if it doesn't exist
     if (!stripeId) {
       const account = await stripe.accounts.create({
         type: 'express',
+        email: profile.email, // Passing email makes onboarding faster
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
+        business_type: 'individual',
         metadata: { supabase_id: userId }
       });
       
@@ -45,18 +46,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await supabase.from('profiles').update({ stripe_connect_id: stripeId }).eq('id', userId);
     }
 
-    // 2. Create the Onboarding Link
-    // Note: We use /vault as the return URL since we are merging Profile into Vault
     const link = await stripe.accountLinks.create({
       account: stripeId,
-      refresh_url: `${SITE_URL}/vault`,
+      refresh_url: `${SITE_URL}/vault`, // Goes back to our custom loading page
       return_url: `${SITE_URL}/vault`,
       type: 'account_onboarding',
     });
 
-    res.status(200).json({ url: link.url });
+    return res.status(200).json({ url: link.url });
   } catch (err: any) {
-    console.error("Stripe Onboarding Error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("Stripe API Error:", err.message);
+    return res.status(500).json({ error: err.message });
   }
 }
