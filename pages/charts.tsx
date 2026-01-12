@@ -10,7 +10,7 @@ export default function OracleTerminal() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false); // For AI Scan state
-  
+  const [events, setEvents] = useState<any[]>([]);
   // Ticker Menu State
   const [marketItems, setMarketItems] = useState<any[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
