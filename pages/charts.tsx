@@ -15,10 +15,29 @@ export default function OracleTerminal() {
   const [marketItems, setMarketItems] = useState<any[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
 
-  useEffect(() => {
+useEffect(() => {
     fetchTickerData();
-  }, [ticker]);
 
+    // Set up Realtime Feed Listener
+    const channel = supabase
+      .channel('realtime-feed')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'feed_events' 
+        },
+        (payload) => {
+          setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ticker]);
   // Fetch all available tickers for the menu
   useEffect(() => {
     const fetchMenu = async () => {
