@@ -15,30 +15,7 @@ export default function OracleTerminal() {
   const [marketItems, setMarketItems] = useState<any[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
 
-useEffect(() => {
-    fetchTickerData();
-
-    // Set up Realtime Feed Listener
-    const channel = supabase
-      .channel('realtime-feed')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'feed_events' 
-        },
-        (payload) => {
-          setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [ticker]);
-  // Fetch all available tickers for the menu
+// 1. Fetch Menu (Runs once)
   useEffect(() => {
     const fetchMenu = async () => {
       const { data: items } = await supabase
@@ -50,34 +27,31 @@ useEffect(() => {
     };
     fetchMenu();
   }, []);
-const channel = supabase
-    .channel('realtime-feed')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT', // Only care about new events
-        schema: 'public',
-        table: 'feed_events' 
-      },
-      (payload) => {
-        // 2. Add the new event to the top of your state list
-        setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
-        
-        // 3. Optional: Trigger a sound effect here
-        // new Audio('/sounds/beep.mp3').play().catch(() => {});
-      }
-    )
-    .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [ticker]);
+  // 2. Fetch Data & Set up Realtime (Runs when ticker changes)
+  useEffect(() => {
+    fetchTickerData();
 
-const fetchTickerData = async () => {
+    const channel = supabase
+      .channel('realtime-feed')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'feed_events' },
+        (payload) => {
+          setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ticker]);
+
+  // 3. Helper Functions
+  const fetchTickerData = async () => {
     setLoading(true);
     try {
-      // 1. Get the item details from 'items' table using the ticker string
       const { data: itemData, error: itemError } = await supabase
         .from("items")
         .select("*")
@@ -85,50 +59,36 @@ const fetchTickerData = async () => {
         .single();
 
       if (itemError || !itemData) {
-        console.error("Asset not found");
         setData(null);
         return;
       }
-
-      // 2. Set the main data (this feeds your headers and IDs)
       setData(itemData);
-
-      // 3. Since market_data is linked via item_id, 
-      // your MarketChart component should handle the history fetch 
-      // using the itemData.id we just found.
-      
     } catch (err) {
       console.error("Critical Oracle Error:", err);
     } finally {
       setLoading(false);
     }
   };
-const handleBuyAction = async () => {
-  setLoading(true);
-  
-  // 1. Search Supabase for any user who has listed this ticker for sale
-  const { data: listing } = await supabase
-    .from('user_assets')
-    .select('*, profiles(username)')
-    .eq('sku', ticker)
-    .eq('is_for_sale', true)
-    .limit(1)
-    .single();
 
-  if (listing) {
-    // INTERNAL BUY: Proceed to checkout from another user
-    const confirmBuy = confirm(`Buy this ${ticker} from user @${listing.profiles.username} for $${listing.current_value}?`);
-    if (confirmBuy) {
-      alert("Processing Peer-to-Peer Transaction...");
-      // Logic for moving asset between users goes here
+  const handleBuyAction = async () => {
+    if (!data) return;
+    setLoading(true);
+    const { data: listing } = await supabase
+      .from('user_assets')
+      .select('*, profiles(username)')
+      .eq('sku', ticker)
+      .eq('is_for_sale', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (listing) {
+      const confirmBuy = confirm(`Buy this ${ticker} from @${listing.profiles?.username} for $${listing.current_value}?`);
+      if (confirmBuy) alert("Processing P2P Transaction...");
+    } else {
+      window.open(`https://www.amazon.com/s?k=${ticker}`, '_blank');
     }
-  } else {
-    // EXTERNAL BUY: Redirect to affiliate
-    const affiliateUrl = `https://www.amazon.com/s?k=${ticker}&tag=your-tag-20`;
-    window.open(affiliateUrl, '_blank');
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
   const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
