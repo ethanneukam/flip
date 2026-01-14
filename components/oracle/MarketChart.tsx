@@ -8,51 +8,49 @@ const supabase = createClient(
 );
 
 interface MarketChartProps {
-  itemId: string; 
+  itemId: string; // This corresponds to items.id
   ticker?: string;
   data?: {
-    source_url?: string; // Standardized to source_url
+    url?: string;
     source?: string;
   };
 }
 
 export default function MarketChart({ itemId, ticker, data }: MarketChartProps) {
   const [chartData, setChartData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!itemId) return; // Prevent fetching if ID is null
+    if (!itemId) return;
 
+    // 1. Fetch History from 'market_data' (The correct table)
     const fetchPriceHistory = async () => {
-      setLoading(true);
-      // Query the CORRECT table: market_data
-      const { data: logs, error } = await supabase
-        .from('market_data') 
+      const { data: history } = await supabase
+        .from('market_data')
         .select('price, created_at')
         .eq('item_id', itemId)
         .order('created_at', { ascending: true })
-        .limit(50);
+        .limit(100);
 
-      if (logs && logs.length > 0) {
-        const formatted = logs.map(log => ({
+      if (history && history.length > 0) {
+        const formatted = history.map(log => ({
           name: new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           value: log.price,
           fullDate: new Date(log.created_at).toLocaleString()
         }));
         setChartData(formatted);
       } else {
-        // Fallback if no history exists yet (show flat line at current price?)
-        setChartData([]);
+        // Fallback: If no history, show current live price as a flat line
+        // You can fetch this from 'items' if needed, or leave empty
       }
-      setLoading(false);
     };
 
     fetchPriceHistory();
 
-    // Realtime Listener on market_data
+    // 2. Realtime Listener on 'market_data'
     const channel = supabase
-      .channel(`market-update-${itemId}`)
-      .on('postgres_changes', 
+      .channel(`market-updates-${itemId}`)
+      .on(
+        'postgres_changes', 
         { 
           event: 'INSERT', 
           schema: 'public', 
@@ -75,17 +73,17 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
     };
   }, [itemId]);
 
-  // Calculate change
+  // Percentage Change Logic
   const getChange = () => {
     if (chartData.length < 2) return { val: '0.0%', up: true };
     const first = chartData[0].value;
     const last = chartData[chartData.length - 1].value;
-    // Avoid division by zero
+    // Prevent divide by zero
     if (first === 0) return { val: '0.0%', up: true };
     
     const diff = ((last - first) / first) * 100;
     return { 
-      val: `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`, 
+      val: `${diff > 0 ? '+' : ''}${diff.toFixed(2)}%`, 
       up: diff >= 0 
     };
   };
@@ -95,14 +93,14 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
 
   return (
     <div className="flex flex-col h-full w-full bg-black/20 p-4 rounded-2xl border border-white/5">
-      <div className="h-full w-full flex flex-col">
+      <div className="h-full w-full">
         <div className="flex items-center justify-between mb-4">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-              {ticker || 'ASSET'} PRICE TREND
+              {ticker || 'ASSET'} PRICE ACTION
             </span>
             <span className="text-xl font-bold text-white">
-              ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {currentPrice > 0 ? `$${currentPrice.toLocaleString()}` : 'LOADING...'}
             </span>
           </div>
           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${change.up ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'}`}>
@@ -110,7 +108,7 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
           </span>
         </div>
         
-        <div className="flex-1 min-h-0 w-full">
+        <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -121,11 +119,10 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
               <XAxis dataKey="name" hide />
-              <YAxis hide domain={['dataMin - 10', 'dataMax + 10']} />
+              <YAxis hide domain={['auto', 'auto']} />
               <Tooltip 
-                contentStyle={{ backgroundColor: '#0A0A0A', border: '1px solid #333', borderRadius: '8px' }}
-                itemStyle={{ color: '#fff', fontSize: '12px' }}
-                labelStyle={{ display: 'none' }}
+                contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '8px', fontSize: '10px' }}
+                itemStyle={{ color: '#fff' }}
                 formatter={(value: number) => [`$${value.toLocaleString()}`, 'Price']}
               />
               <Area 
@@ -133,7 +130,9 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
                 dataKey="value" 
                 stroke={change.up ? "#22c55e" : "#ef4444"} 
                 strokeWidth={2} 
+                fillOpacity={1} 
                 fill="url(#colorValue)" 
+                animationDuration={1000}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -141,11 +140,10 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
       </div>
 
       <button 
-        onClick={() => data?.source_url && window.open(data.source_url, '_blank')}
-        disabled={!data?.source_url}
-        className="w-full mt-4 py-3 bg-white/5 hover:bg-white/10 disabled:opacity-50 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white"
+        onClick={() => data?.url && window.open(data.url, '_blank')}
+        className="w-full mt-4 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all text-gray-400"
       >
-        {data?.source_url ? `View on ${data.source || 'Market'}` : 'No Source Link'}
+        View Source {data?.source ? `[${data.source}]` : ''}
       </button>
     </div>
   );
