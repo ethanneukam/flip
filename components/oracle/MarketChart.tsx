@@ -28,7 +28,7 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
     const fetchPriceHistory = async () => {
       setLoading(true);
       const { data: logs, error } = await supabase
-        .from('market_data')
+        .from('price_logs')
         .select('price, created_at')
         .eq('item_id', itemId)
         .order('created_at', { ascending: true })
@@ -48,11 +48,11 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
     fetchPriceHistory();
 
     // 2. Realtime Update: Listen for new price logs for THIS item
-    const channel = supabase
-      .channel(`price-changes-${itemId}`)
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'market_data', filter: `item_id=eq.${itemId}` }, 
-        (payload) => {
+  const channel = supabase
+  .channel(`price-changes-${itemId}`)
+  .on('postgres_changes', 
+    { event: 'INSERT', schema: 'public', table: 'price_logs', filter: `item_id=eq.${itemId}` }, 
+    (payload) => {
           const newPoint = {
             name: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             value: payload.new.price,
@@ -91,9 +91,11 @@ export default function MarketChart({ itemId, ticker, data }: MarketChartProps) 
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
               {ticker || 'MARKET'} PRICE TREND
             </span>
-            <span className="text-xl font-bold text-white">
-              {chartData.length > 0 ? `$${chartData[chartData.length - 1].value.toLocaleString()}` : '---'}
-            </span>
+          <span className="text-xl font-bold text-white">
+  {chartData.length > 0 
+    ? `$${chartData[chartData.length - 1].value.toLocaleString()}` 
+    : `$${data?.flip_price?.toLocaleString() || '---'}`} 
+</span>
           </div>
           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${change.up ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'}`}>
             {change.val}
