@@ -14,6 +14,7 @@ interface MarketChartProps {
   data?: {
     url?: string;
     source?: string;
+    flip_price?: number;
   };
 }
 
