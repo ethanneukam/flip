@@ -115,17 +115,15 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
           image_url: result.image_url || null
         };
 
-        // Insert into market_data and price_logs
-        await Promise.all([
-          supabase.from("market_data").insert([payload]),
-          supabase.from("price_logs").insert([{ 
-            item_id, 
-            price: result.price, 
-            source: scraper.source, 
-            url: result.url 
-          }])
-        ]);
-      }
+// 1. Log purely to price_logs
+const { error: logError } = await supabase.from("price_logs").insert([{ 
+  item_id, 
+  price: result.price, 
+  source: scraper.source, 
+  url: result.url 
+}]);
+
+if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
 
       return validPrices; // Return the full array of prices for median calculation
     }
