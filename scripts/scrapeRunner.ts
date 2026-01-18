@@ -239,12 +239,15 @@ async function getItemsToScrape(searchKeyword?: string) {
   }));
 }
 
-main(process.argv[2])
-  .then(() => {
-    console.log("✅ Process finished successfully");
-    process.exit(0);
-  })
-  .catch((err) => {
-    console.error("Critical Error:", err);
-    process.exit(1);
-  });
+// Replace the main(...) call at the bottom with this:
+if (require.main === module) {
+  main(process.argv[2])
+    .then(() => {
+      console.log("✅ Process finished successfully");
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("Critical Error:", err);
+      process.exit(1);
+    });
+}
