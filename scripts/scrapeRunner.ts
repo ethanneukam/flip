@@ -105,27 +105,18 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
 
-        const payload = {
-          item_id,
-          source: scraper.source,
-          price: result.price,
-          url: result.url,
-          condition: result.condition || "New",
-          title: result.title || null,
-          image_url: result.image_url || null
-        };
+        // 1. Log purely to price_logs
+        const { error: logError } = await supabase.from("price_logs").insert([{ 
+          item_id, 
+          price: result.price, 
+          source: scraper.source, 
+          url: result.url 
+        }]);
 
-// 1. Log purely to price_logs
-const { error: logError } = await supabase.from("price_logs").insert([{ 
-  item_id, 
-  price: result.price, 
-  source: scraper.source, 
-  url: result.url 
-}]);
+        if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
+      } // <--- THIS WAS THE MISSING BRACE IN YOUR CODE
 
-if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
-
-      return validPrices; // Return the full array of prices for median calculation
+      return validPrices; 
     }
     return [];
   } catch (err: any) {
@@ -171,17 +162,14 @@ export async function main(searchKeyword?: string) {
       }
 
       if (allPrices.length > 0) {
-        // Use Median instead of Average to prevent outlier bugs
         const marketPrice = calculateMedian(allPrices);
         console.log(`✨ FINAL MARKET PRICE: $${marketPrice.toFixed(2)} (${allPrices.length} data points)`);
         
-        // 1. Update the Item Price
         await supabase.from("items").update({ 
           flip_price: marketPrice, 
           last_updated: new Date().toISOString() 
         }).eq("id", item.item_id);
 
-        // 2. TRIGGER PULSE (Feed Event)
         await supabase.from("feed_events").insert([{
           item_id: item.item_id,
           event_type: 'PRICE_UPDATE',
@@ -216,10 +204,7 @@ async function getItemsToScrape(searchKeyword?: string) {
     return created ? [{ item_id: created.id, keyword: created.title }] : [];
   }
   
-  const { data, error } = await supabase
-    .from("items")
-    .select("id, title")
-    .limit(50);
+  const { data, error } = await supabase.from("items").select("id, title").limit(50);
     
   if (error) {
     console.error("❌ Supabase Error:", error.message);
@@ -232,14 +217,10 @@ async function getItemsToScrape(searchKeyword?: string) {
   }
 
   console.log(`✅ Found ${data.length} items. Starting scan...`);
-    
-  return data.map((item: any) => ({ 
-    item_id: item.id, 
-    keyword: item.title 
-  }));
+  return data.map((item: any) => ({ item_id: item.id, keyword: item.title }));
 }
 
-// Replace the main(...) call at the bottom with this:
+// Correct check for running directly in Node vs being imported
 if (require.main === module) {
   main(process.argv[2])
     .then(() => {
