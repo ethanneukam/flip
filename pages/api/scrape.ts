@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { main as runScraper } from '/scripts/scrapeRunner';
+import { main as runScraper } from '../../scripts/scrapeRunner';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
