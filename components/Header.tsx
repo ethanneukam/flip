@@ -130,7 +130,7 @@ export default function Header() {
                 </Link>
 
                 <Link
-                  href="/watchlist"
+                  href="/charts"
                   className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition hover:text-white"
                   onClick={() => setDropdownOpen(false)}
                 >
