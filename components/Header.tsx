@@ -1,13 +1,14 @@
-// components/layout/Header.tsx
+// components/Header.tsx
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { NotificationBell } from "./NotificationBell";
 import { useRouter } from "next/router";
-import { Settings, User, LogOut, Activity } from "lucide-react";
+import { Settings, User, LogOut, Activity, Crown, Zap } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
+  const [tier, setTier] = useState<string>("FREE");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -16,6 +17,16 @@ export default function Header() {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      
+      if (user) {
+        // Fetch user tier from profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tier')
+          .eq('id', user.id)
+          .single();
+        if (profile?.tier) setTier(profile.tier.toUpperCase());
+      }
     };
     fetchUser();
 
@@ -46,7 +57,6 @@ export default function Header() {
 
   return (
     <header className="w-full bg-[#0B0E11] border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-[#0B0E11]/90">
-      {/* Updated Logo Section */}
       <Link href="/">
         <div className="flex items-center cursor-pointer group space-x-2">
           <img 
@@ -59,14 +69,23 @@ export default function Header() {
         </div>
       </Link>
 
-      <div className="flex items-center space-x-4">
-        {/* Status Indicator (Broker Style) */}
+      <div className="flex items-center space-x-3 sm:space-x-6">
+        {/* NEW: UPGRADE ACTION (Visible if Free/Base) */}
+        {user && tier !== "BUSINESS" && (
+          <button 
+            onClick={() => router.push('/pricing')}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg group hover:border-amber-500/40 transition-all"
+          >
+            <Crown size={14} className="text-amber-500 animate-pulse" />
+            <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter hidden sm:inline">Upgrade</span>
+          </button>
+        )}
+
         <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
           <span className="text-[9px] font-mono text-white/60 uppercase">Market_Open</span>
         </div>
 
-        {/* Notifications */}
         <div className="hover:bg-white/5 p-2 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-white/10">
           <NotificationBell
             className="text-white"
@@ -74,36 +93,49 @@ export default function Header() {
           />
         </div>
 
-        {/* User Actions */}
         {user ? (
           <div ref={dropdownRef} className="relative">
             <button 
               onClick={() => setDropdownOpen((prev) => !prev)}
               className="flex items-center focus:outline-none"
             >
-              <div className="w-10 h-10 rounded-xl p-0.5 bg-gradient-to-tr from-blue-600 to-indigo-900 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all">
+              <div className="w-10 h-10 rounded-xl p-0.5 bg-gradient-to-tr from-blue-600 to-indigo-900 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all relative">
                 <img
                   src={user.user_metadata?.avatar_url || defaultAvatar}
                   alt="Profile"
                   className="w-full h-full rounded-[10px] border border-black/20 object-cover"
                 />
+                {/* Tier Indicator Dot */}
+                <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#0B0E11] ${tier === 'FREE' ? 'bg-gray-500' : 'bg-amber-500'}`}></div>
               </div>
             </button>
 
             {dropdownOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#161A1E] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-slideDown">
-                <div className="px-4 py-3 border-b border-white/5 mb-1">
-                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">Authenticated Operator</p>
-                  <p className="text-xs font-mono truncate text-white/90">{user.email}</p>
+                <div className="px-4 py-3 border-b border-white/5 mb-1 flex justify-between items-start">
+                  <div>
+                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">Authenticated Operator</p>
+                    <p className="text-xs font-mono truncate text-white/90">{user.email}</p>
+                  </div>
+                  <span className="text-[8px] font-bold px-1.5 py-0.5 bg-white/5 rounded border border-white/10 text-white/40">{tier}</span>
                 </div>
 
                 <Link
-                  href={`/vault?user_id=${user.id}`}
+                  href={`/vault`}
                   className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition hover:text-white"
                   onClick={() => setDropdownOpen(false)}
                 >
                   <User size={16} className="text-blue-500" />
                   <span>Vault Assets</span>
+                </Link>
+
+                <Link
+                  href="/watchlist"
+                  className="flex items-center space-x-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition hover:text-white"
+                  onClick={() => setDropdownOpen(false)}
+                >
+                  <Zap size={16} className="text-amber-500" />
+                  <span>Pinned Watchlist</span>
                 </Link>
 
                 <Link
