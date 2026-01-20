@@ -217,27 +217,27 @@ return (
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           
-          {/* MIDDLE: Price Chart Section (Spans 3 columns) */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
-              <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-                <div>
-                  <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
-                    {loading ? "LOADING ASSET..." : (data?.name || (ticker ? `${ticker}_NOT_FOUND` : "SELECT_TICKER"))}
-                  </h2>
-                  <p className="text-gray-500 text-xs font-mono">{ticker}</p>
-                </div>
-                <div className="text-left md:text-right">
-                  <p className="text-3xl font-black text-green-500">
-                    ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </p>
-                  <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
-                    <Activity size={10} className="animate-pulse" />
-                    +LIVE_UPDATE
-                  </div>
-                </div>
-              </div>
-              
+        {/* MIDDLE: Price Chart Section */}
+<div className="lg:col-span-3 space-y-4">
+  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
+    <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+      <div>
+        <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+          {loading ? "LOADING ASSET..." : (data?.name || (ticker ? `${ticker}_NOT_FOUND` : "SELECT_TICKER"))}
+        </h2>
+        <p className="text-gray-500 text-xs font-mono">{ticker}</p>
+      </div>
+      <div className="text-left md:text-right">
+        {/* We use data.flip_price from the database fetch here */}
+        <p className="text-3xl font-black text-green-500">
+          ${data?.flip_price ? data.flip_price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+        </p>
+        <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
+          <Activity size={10} className="animate-pulse" />
+          +LIVE_UPDATE
+        </div>
+      </div>
+    </div>
               <div className="h-64 md:h-80 w-full">
                 <MarketChart itemId={data?.id} ticker={ticker} />
               </div>
