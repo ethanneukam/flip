@@ -9,41 +9,44 @@ export default function PulseFeed() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // 1. Initial Fetch of the feed
-    const fetchFeed = async () => {
-      const { data, error } = await supabase
-        .from("feed_events")
-        .select(`
-          *,
-          profiles:user_id (username, avatar_url)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(20);
+useEffect(() => {
+  const fetchFeed = async () => {
+    const { data, error } = await supabase
+      .from("feed_events")
+      .select(`*, profiles:user_id (username, avatar_url)`)
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-      if (error) console.error("Pulse Error:", error.message);
-      if (data) setEvents(data);
-      setLoading(false);
-    };
+    if (data) setEvents(data);
+    setLoading(false);
+  };
 
-    fetchFeed();
+  fetchFeed();
 
-    // 2. Realtime Subscription
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'feed_events' },
-        (payload) => {
-          setEvents((prev) => [payload.new, ...prev].slice(0, 20));
+  // Fix: Listen to ALL events and manually refresh or prepend
+  const channel = supabase
+    .channel('pulse-live')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'feed_events' },
+      async (payload) => {
+        // Since realtime payloads don't include Joined tables (profiles), 
+        // we do a quick fetch for the specific new row
+        const { data: newRow } = await supabase
+          .from("feed_events")
+          .select(`*, profiles:user_id (username, avatar_url)`)
+          .eq('id', payload.new.id)
+          .single();
+        
+        if (newRow) {
+          setEvents((prev) => [newRow, ...prev].slice(0, 20));
         }
-      )
-      .subscribe();
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  return () => { supabase.removeChannel(channel); };
+}, []);
 
   return (
     <div className="min-h-screen bg-black pb-32">
