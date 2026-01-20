@@ -170,11 +170,15 @@ export async function main(searchKeyword?: string) {
           last_updated: new Date().toISOString() 
         }).eq("id", item.item_id);
 
-        await supabase.from("feed_events").insert([{
-          item_id: item.item_id,
-          event_type: 'PRICE_UPDATE',
-          message: `Oracle updated ${item.keyword} to $${marketPrice.toFixed(2)}`,
-          metadata: { price: marketPrice, sources: allScrapers.length, data_points: allPrices.length }
+await supabase.from("feed_events").insert([{
+  item_id: item.item_id,
+  event_type: 'PRICE_UPDATE',
+  message: `Oracle updated ${item.keyword} to $${marketPrice.toFixed(2)}`,
+  metadata: { 
+    price: marketPrice, 
+    ticker: item.ticker || item.keyword, // ENSURE TICKER IS PASSED HERE
+    item_id: item.item_id 
+  }
         }]);
 
         console.log(`💾 Saved to database and Pulse updated.`);
