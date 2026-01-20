@@ -62,52 +62,59 @@ export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string,
         {loading ? (
           <div className="p-8 text-center text-white/20 font-mono text-[10px]">SYNCING_ORACLE...</div>
         ) : (
-          items.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => onSelect(item.id, item.ticker || item.title)}
-              className={`w-full p-4 border-b border-white/[0.03] flex items-center justify-between transition-all cursor-pointer group hover:bg-white/[0.02] ${
-                activeId === item.id ? 'bg-blue-600/10 border-r-2 border-r-blue-500' : ''
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                {/* Fixed Zap Button - Separated from the row click */}
-                <div 
-                  onClick={(e) => togglePin(e, item.id)}
-                  className="relative z-30 p-2 -ml-2 hover:bg-white/5 rounded-full transition-all group/pin"
-                >
-                  <Zap 
-                    size={14} 
-                    className={`${
-                      watchlist.includes(item.id) 
-                        ? 'text-amber-500 fill-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' 
-                        : 'text-white/10 group-hover/pin:text-white/40'
-                    }`}
-                  />
-                </div>
-                
-                <div className="text-left">
-                  <p className={`text-xs font-bold uppercase tracking-tight ${
+          items.map((item) => {
+            const isPinned = watchlist.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                onClick={() => onSelect(item.id, item.ticker || item.title)}
+                className={`w-full p-4 border-b border-white/[0.03] flex items-center justify-between transition-all cursor-pointer group hover:bg-white/[0.02] relative ${
+                  activeId === item.id ? 'bg-blue-600/10 border-r-2 border-r-blue-500' : ''
+                }`}
+              >
+                <div className="text-left overflow-hidden">
+                  <p className={`text-xs font-bold uppercase tracking-tight truncate ${
                     activeId === item.id ? 'text-blue-400' : 'text-white/90'
                   }`}>
                     {item.ticker || item.title.substring(0, 5).toUpperCase()}
                   </p>
-                  <p className="text-[9px] text-white/30 truncate w-24 uppercase italic font-medium leading-none mt-0.5">
+                  <p className="text-[9px] text-white/30 truncate w-32 uppercase italic font-medium leading-none mt-0.5">
                     {item.title}
                   </p>
                 </div>
-              </div>
-              
-              <div className="text-right">
-                <p className="text-[11px] font-mono font-bold text-green-400">
-                  ${item.flip_price?.toLocaleString() || '0.00'}
-                </p>
-                <div className="flex items-center justify-end text-[8px] text-white/20 font-black mt-0.5 uppercase tracking-tighter">
-                   Live <ChevronRight size={8} className="ml-1" />
+                
+                <div className="flex items-center gap-2">
+                  <div className="text-right transition-all group-hover:translate-x-[-24px]">
+                    <p className="text-[11px] font-mono font-bold text-green-400">
+                      ${item.flip_price?.toLocaleString() || '0.00'}
+                    </p>
+                    <div className="flex items-center justify-end text-[8px] text-white/20 font-black mt-0.5 uppercase tracking-tighter">
+                       Live <ChevronRight size={8} className="ml-1" />
+                    </div>
+                  </div>
+
+                  {/* Pin icon that appears on hover on the right */}
+                  <div 
+                    onClick={(e) => togglePin(e, item.id)}
+                    className={`absolute right-4 transition-all duration-200 p-1.5 rounded-md hover:bg-white/10 ${
+                      isPinned 
+                        ? 'opacity-100 translate-x-0' 
+                        : 'opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'
+                    }`}
+                  >
+                    <Zap 
+                      size={14} 
+                      className={`${
+                        isPinned 
+                          ? 'text-amber-500 fill-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' 
+                          : 'text-white/40 hover:text-white'
+                      }`}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
