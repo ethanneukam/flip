@@ -1,4 +1,3 @@
-// components/MarketWatchMenu.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Activity, ChevronRight, Zap } from "lucide-react";
@@ -67,25 +66,25 @@ export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string,
             <div
               key={item.id}
               onClick={() => onSelect(item.id, item.ticker || item.title)}
-              className={`w-full p-4 border-b border-white/[0.03] flex items-center justify-between transition-all cursor-pointer hover:bg-white/[0.02] ${
+              className={`w-full p-4 border-b border-white/[0.03] flex items-center justify-between transition-all cursor-pointer group hover:bg-white/[0.02] ${
                 activeId === item.id ? 'bg-blue-600/10 border-r-2 border-r-blue-500' : ''
               }`}
             >
               <div className="flex items-center gap-3">
-                {/* Fixed Zap Button */}
-                <button 
+                {/* Fixed Zap Button - Separated from the row click */}
+                <div 
                   onClick={(e) => togglePin(e, item.id)}
-                  className="z-20 p-1 hover:bg-white/5 rounded-md transition-colors"
+                  className="relative z-30 p-2 -ml-2 hover:bg-white/5 rounded-full transition-all group/pin"
                 >
                   <Zap 
                     size={14} 
                     className={`${
                       watchlist.includes(item.id) 
-                        ? 'text-amber-500 fill-amber-500' 
-                        : 'text-white/10 hover:text-white/30'
+                        ? 'text-amber-500 fill-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]' 
+                        : 'text-white/10 group-hover/pin:text-white/40'
                     }`}
                   />
-                </button>
+                </div>
                 
                 <div className="text-left">
                   <p className={`text-xs font-bold uppercase tracking-tight ${
@@ -93,7 +92,7 @@ export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string,
                   }`}>
                     {item.ticker || item.title.substring(0, 5).toUpperCase()}
                   </p>
-                  <p className="text-[9px] text-white/30 truncate w-24 uppercase italic font-medium">
+                  <p className="text-[9px] text-white/30 truncate w-24 uppercase italic font-medium leading-none mt-0.5">
                     {item.title}
                   </p>
                 </div>
