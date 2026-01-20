@@ -161,25 +161,33 @@ export async function main(searchKeyword?: string) {
         await wait(2000, 4000); 
       }
 
-      if (allPrices.length > 0) {
-        const marketPrice = calculateMedian(allPrices);
-        console.log(`✨ FINAL MARKET PRICE: $${marketPrice.toFixed(2)} (${allPrices.length} data points)`);
+     if (allPrices.length > 0) {
+        // RENAME TO flip_price FOR CONSISTENCY
+        const flip_price = calculateMedian(allPrices);
+        console.log(`✨ FINAL MARKET PRICE: $${flip_price.toFixed(2)} (${allPrices.length} data points)`);
         
+        // 1. Update the items table
         await supabase.from("items").update({ 
-          flip_price: marketPrice, 
+          flip_price: flip_price, 
           last_updated: new Date().toISOString() 
         }).eq("id", item.item_id);
 
-await supabase.from("feed_events").insert([{
-  item_id: item.item_id,
-  event_type: 'PRICE_UPDATE',
-  message: `Oracle updated ${item.keyword} to $${marketPrice.toFixed(2)}`,
-  metadata: { 
-    price: marketPrice, 
-    ticker: item.ticker || item.keyword, // ENSURE TICKER IS PASSED HERE
-    item_id: item.item_id 
-  }
+        // 2. Log to the Pulse Feed
+        await supabase.from("feed_events").insert([{
+          item_id: item.item_id,
+          event_type: 'PRICE_UPDATE',
+          message: `Oracle updated ${item.keyword} to $${flip_price.toFixed(2)}`,
+          metadata: { 
+            price: flip_price, // This is what Pulse uses for the $ amount
+            ticker: item.ticker || item.keyword,
+            item_id: item.item_id 
+          }
         }]);
+
+        console.log(`💾 Saved to database and Pulse updated.`);
+      } else {
+        console.log("⚠️ No valid prices found. Skipping update.");
+      }
 
         console.log(`💾 Saved to database and Pulse updated.`);
       } else {
