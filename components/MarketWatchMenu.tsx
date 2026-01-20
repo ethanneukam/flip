@@ -1,24 +1,63 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Activity, TrendingUp, ChevronRight } from "lucide-react";
+import { Activity, TrendingUp, ChevronRight, Zap } from "lucide-react";
 
 export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string, ticker: string) => void, activeId?: string }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchAllTickers = async () => {
-      // Fetching all tracked items to populate the list
-      const { data } = await supabase
+      // 1. Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // 2. Fetch all items
+      const { data: itemsData } = await supabase
         .from("items")
         .select("id, title, ticker, flip_price, last_updated")
         .order('title', { ascending: true });
       
-      if (data) setItems(data);
+      // 3. Fetch user's watchlist if logged in
+      if (user) {
+        const { data: watchData } = await supabase
+          .from("user_watchlist")
+          .select("item_id")
+          .eq("user_id", user.id);
+        
+        if (watchData) setWatchlist(watchData.map(w => w.item_id));
+      }
+
+      if (itemsData) setItems(itemsData);
       setLoading(false);
     };
     fetchAllTickers();
   }, []);
+
+  const togglePin = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation(); // Prevents the onSelect from triggering when clicking pin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const isPinned = watchlist.includes(itemId);
+
+    try {
+      const res = await fetch('/api/watchlist/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, itemId }),
+      });
+      const data = await res.json();
+
+      if (data.status === 'added') {
+        setWatchlist(prev => [...prev, itemId]);
+      } else {
+        setWatchlist(prev => prev.filter(id => id !== itemId));
+      }
+    } catch (error) {
+      console.error("Pin toggle failed", error);
+    }
+  };
 
   return (
     <div className="w-full md:w-80 bg-[#0B0E11] border-r border-white/10 flex flex-col h-full overflow-hidden">
@@ -41,15 +80,28 @@ export function MarketWatchMenu({ onSelect, activeId }: { onSelect: (id: string,
                 activeId === item.id ? 'bg-blue-600/10 border-r-2 border-r-blue-500' : ''
               }`}
             >
-              <div className="text-left">
-                <p className={`text-xs font-bold uppercase tracking-tight ${
-                  activeId === item.id ? 'text-blue-400' : 'text-white/90'
-                }`}>
-                  {item.ticker || item.title.substring(0, 5).toUpperCase()}
-                </p>
-                <p className="text-[9px] text-white/30 truncate w-32 uppercase italic font-medium">
-                  {item.title}
-                </p>
+              <div className="flex items-center gap-3 text-left">
+                {/* PIN ICON */}
+                <Zap 
+                  size={14} 
+                  onClick={(e) => togglePin(e, item.id)}
+                  className={`transition-colors cursor-pointer ${
+                    watchlist.includes(item.id) 
+                      ? 'text-amber-500 fill-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' 
+                      : 'text-white/10 hover:text-white/40'
+                  }`}
+                />
+                
+                <div>
+                  <p className={`text-xs font-bold uppercase tracking-tight ${
+                    activeId === item.id ? 'text-blue-400' : 'text-white/90'
+                  }`}>
+                    {item.ticker || item.title.substring(0, 5).toUpperCase()}
+                  </p>
+                  <p className="text-[9px] text-white/30 truncate w-24 uppercase italic font-medium">
+                    {item.title}
+                  </p>
+                </div>
               </div>
               
               <div className="text-right">
