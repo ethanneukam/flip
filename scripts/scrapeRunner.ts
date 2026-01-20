@@ -188,11 +188,6 @@ export async function main(searchKeyword?: string) {
       } else {
         console.log("⚠️ No valid prices found. Skipping update.");
       }
-
-        console.log(`💾 Saved to database and Pulse updated.`);
-      } else {
-        console.log("⚠️ No valid prices found. Skipping update.");
-      }
     }
 
     if (i + BATCH_SIZE < items.length) {
