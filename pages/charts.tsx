@@ -308,6 +308,7 @@ return (
               <OrderBook ticker={ticker} />
             </div>
 
+        {/* Confidence Score Block */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-[10px] text-gray-500 mb-2 uppercase tracking-widest font-black">Confidence_Score</p>
               <div className="flex items-center space-x-2">
@@ -318,13 +319,12 @@ return (
                  <div className="bg-blue-600 h-full transition-all" style={{ width: `${(data?.confidence || 0.85) * 100}%` }} />
               </div>
             </div>
-          </div>
-
+          </div> {/* End Column 1 */}
         </div> {/* End Grid */}
       </div> {/* End Main Content Area */}
     </div> {/* End Flex Wrapper */}
 
- <BottomNav />
+    <BottomNav />
     
     <style jsx>{`
       .custom-scrollbar::-webkit-scrollbar { width: 3px; }
@@ -332,17 +332,14 @@ return (
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     `}</style>
   </main>
-  
-  {/* MOVE MODAL HERE: Outside of Main, inside the fragment */}
+
+  {/* MODAL LAYER */}
   {isAlertModalOpen && data && (
     <PriceAlertModal 
-      item={{ 
-        id: data.id, 
-        title: data.title, 
-        ticker: ticker 
-      }} 
-     onClose={() => setIsAlertModalOpen(false)} 
-      />
-    )}
-  </> {/* <--- ADD THIS CLOSING FRAGMENT */}
-);
+      item={{ id: data.id, title: data.title, ticker: ticker }} 
+      onClose={() => setIsAlertModalOpen(false)} 
+    />
+  )}
+</>
+); // Closes the return
+} // Closes the function
