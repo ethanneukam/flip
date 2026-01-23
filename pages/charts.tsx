@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MarketChart from "@/components/oracle/MarketChart";
-import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera, Bell } from "lucide-react";
+import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera, Bell, Lock } from "lucide-react";
 import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path if needed
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
@@ -299,7 +299,7 @@ return (
     if (userTier === 'pro') {
       setIsAlertModalOpen(true);
     } else {
-      setIsUpgradeModalOpen(true); // <--- Triggers the new modal
+      setIsUpgradeModalOpen(true);
     }
   }}
   disabled={!data}
@@ -309,8 +309,17 @@ return (
       : 'bg-red-900/10 text-red-400/50'
   }`}
 >
-  {userTier === 'pro' ? <Bell size={16} /> : <Lock size={16} />}
-  {userTier === 'pro' ? "Set Price Alert" : "LOCKED (PRO)"}
+  {userTier === 'pro' ? (
+    <>
+      <Bell size={16} />
+      <span>Set Price Alert</span>
+    </>
+  ) : (
+    <>
+      <Lock size={16} />
+      <span>LOCKED (PRO)</span>
+    </>
+  )}
 </button>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Profit_Analysis</p>
