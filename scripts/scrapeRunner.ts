@@ -183,52 +183,38 @@ export async function main(searchKeyword?: string) {
             item_id: item.item_id 
           }
         }]);
+// --- ALERT CHECKING LOGIC (MOVED INSIDE LOOP) ---
+        const { data: alerts } = await supabase
+          .from("price_alerts")
+          .select("*")
+          .eq("item_id", item.item_id)
+          .eq("is_active", true);
 
-        console.log(`💾 Saved to database and Pulse updated.`);
-      } else {
-        console.log("⚠️ No valid prices found. Skipping update.");
+        if (alerts && alerts.length > 0) {
+          for (const alert of alerts) {
+            const isTriggered = 
+              (alert.condition === 'below' && flip_price <= alert.target_price) ||
+              (alert.condition === 'above' && flip_price >= alert.target_price);
+
+            if (isTriggered) {
+              console.log(`🎯 ALERT TRIGGERED for User ${alert.user_id}`);
+              await supabase.from("feed_events").insert([{
+                user_id: alert.user_id,
+                item_id: item.item_id,
+                event_type: 'PRICE_ALERT',
+                message: `🚨 ALERT: ${item.keyword} hit your target of $${alert.target_price}!`,
+                metadata: { price: flip_price, ticker: item.ticker || item.keyword, alert_id: alert.id }
+              }]);
+              await supabase.from("price_alerts").update({ is_active: false }).eq("id", alert.id);
+            }
+          }
+        }
+        console.log(`💾 Saved and Checked Alerts.`);
       }
     }
-
-    if (i + BATCH_SIZE < items.length) {
-      console.log(`\n⏳ Cooling down between batches...`);
-      await wait(10000, 20000); 
-    }
+    if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
   }
-// --- ALERT CHECKING LOGIC ---
-const { data: alerts } = await supabase
-  .from("price_alerts")
-  .select("*")
-  .eq("item_id", item.item_id)
-  .eq("is_active", true);
 
-if (alerts && alerts.length > 0) {
-  for (const alert of alerts) {
-    const isTriggered = 
-      (alert.condition === 'below' && flip_price <= alert.target_price) ||
-      (alert.condition === 'above' && flip_price >= alert.target_price);
-
-    if (isTriggered) {
-      console.log(`🎯 ALERT TRIGGERED for User ${alert.user_id}`);
-      
-      // 1. Create the Notification
-      await supabase.from("feed_events").insert([{
-        user_id: alert.user_id, // TARGET SPECIFIC USER
-        item_id: item.item_id,
-        event_type: 'PRICE_ALERT',
-        message: `🚨 ALERT: ${item.keyword} has hit your target of $${alert.target_price}!`,
-        metadata: { 
-          price: flip_price, 
-          ticker: item.ticker || item.keyword,
-          alert_id: alert.id 
-        }
-      }]);
-
-      // 2. Deactivate the alert so they don't get spammed (Optional)
-      await supabase.from("price_alerts").update({ is_active: false }).eq("id", alert.id);
-    }
-  }
-}
   await browser.close();
   console.log("\n🏁 Market Scan Complete.");
 }
