@@ -138,6 +138,7 @@ export default function OracleTerminal() {
   const netProfit = marketPrice - estimatedFees - shippingCost;
 
 return (
+  <> {/* <--- ADD THIS OPENING FRAGMENT */}
   <main className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-mono pb-24">
     {/* Top Header */}
     <div className="flex justify-between items-center border-b border-white/10 p-4 bg-[#0A0A0A] sticky top-0 z-10">
@@ -340,9 +341,8 @@ return (
         title: data.title, 
         ticker: ticker 
       }} 
-      onClose={() => setIsAlertModalOpen(false)} 
-    />
-  )}
-</> // Ensure you wrap the whole return in a fragment <> ... </> if you move it out
+     onClose={() => setIsAlertModalOpen(false)} 
+      />
+    )}
+  </> {/* <--- ADD THIS CLOSING FRAGMENT */}
 );
-}
