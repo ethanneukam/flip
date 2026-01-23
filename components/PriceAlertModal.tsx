@@ -1,16 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
-import { Bell, X, Target, Zap } from "lucide-react";
+import { Bell, X, Target } from "lucide-react";
 
 export function PriceAlertModal({ item, onClose }: { item: any, onClose: () => void }) {
   const [targetPrice, setTargetPrice] = useState("");
   const [condition, setCondition] = useState<"above" | "below">("below");
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // 1. Handle Mounting & Body Scroll Lock
+  useEffect(() => {
+    setMounted(true);
+    // Prevent scrolling the background while modal is open
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const saveAlert = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Auth Required");
+    if (!user) {
+        alert("Auth Required");
+        setLoading(false);
+        return;
+    }
 
     const { error } = await supabase.from("price_alerts").insert([{
       user_id: user.id,
@@ -28,9 +44,13 @@ export function PriceAlertModal({ item, onClose }: { item: any, onClose: () => v
     setLoading(false);
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-[#0B0E11] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+  // 2. The Modal Content (Same UI, wrapped in a variable)
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      {/* Click outside to close */}
+      <div className="absolute inset-0" onClick={onClose} />
+      
+      <div className="relative w-full max-w-sm bg-[#0B0E11] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
           <div className="flex items-center gap-2">
             <Bell size={14} className="text-blue-500" />
@@ -87,4 +107,8 @@ export function PriceAlertModal({ item, onClose }: { item: any, onClose: () => v
       </div>
     </div>
   );
+
+  // 3. Render via Portal (Forces it to document.body)
+  if (!mounted) return null;
+  return createPortal(modalContent, document.body);
 }
