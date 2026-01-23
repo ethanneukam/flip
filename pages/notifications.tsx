@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Head from "next/head";
-import { Bell, Clock, Trash2, ArrowLeft, RefreshCw, Terminal as TerminalIcon } from "lucide-react";
+import { Bell, Clock, ArrowLeft, RefreshCw, ChevronRight } from "lucide-react";
 import { useRouter } from "next/router";
 
 export default function Notifications() {
@@ -14,92 +14,61 @@ export default function Notifications() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return router.push("/auth");
 
-    // Fetch high-importance events or price updates
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("feed_events")
-      .select("*")
+      .select(`
+        *,
+        items (title, ticker)
+      `)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(40);
 
     if (data) setNotifications(data);
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  useEffect(() => { fetchNotifications(); }, []);
+
+  const handleNotificationClick = (item: any) => {
+    if (item?.ticker) {
+      // Navigates to the chart page with the specific ticker
+      router.push(`/chart?ticker=${item.ticker}`);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#0B0E11] text-white font-sans">
-      <Head><title>Terminal_Logs | Flip</title></Head>
-
-      {/* Header */}
-      <header className="border-b border-white/10 p-6 flex justify-between items-center bg-[#0B0E11]/80 backdrop-blur-md sticky top-0 z-50">
+    <div className="min-h-screen bg-black text-white font-sans pb-24">
+      <header className="border-b border-white/10 p-6 flex justify-between items-center bg-black/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-white/5 rounded-full text-white/40 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter">System_Logs</h1>
-            <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">Incoming Data Streams</p>
-          </div>
+          <button onClick={() => router.back()} className="p-2 hover:bg-white/5 rounded-full text-white/40"><ArrowLeft size={20} /></button>
+          <h1 className="text-xl font-black italic uppercase tracking-tighter">Terminal_Logs</h1>
         </div>
-        
-        <button 
-          onClick={fetchNotifications}
-          className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-blue-500 transition-all"
-        >
-          <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-        </button>
+        <button onClick={fetchNotifications} className="text-white/20 hover:text-blue-500"><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 md:p-8">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 opacity-20">
-            <TerminalIcon size={48} className="animate-pulse mb-4" />
-            <p className="font-mono text-xs uppercase tracking-[0.3em]">Decoding_Buffer...</p>
-          </div>
-        ) : notifications.length > 0 ? (
-          <div className="space-y-4">
-            {notifications.map((notif) => (
-              <div 
-                key={notif.id} 
-                className="group bg-white/[0.02] border border-white/5 hover:border-blue-500/30 p-4 rounded-xl transition-all"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${notif.event_type === 'PRICE_UPDATE' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">
-                      {notif.event_type}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-[10px] font-mono text-white/20">
-                    <Clock size={10} className="mr-1" />
-                    {new Date(notif.created_at).toLocaleString()}
-                  </div>
+      <main className="max-w-2xl mx-auto p-4 space-y-3">
+        {notifications.map((notif) => (
+          <div 
+            key={notif.id} 
+            onClick={() => handleNotificationClick(notif.items)}
+            className="group relative bg-[#0B0E11] border border-white/5 p-4 rounded-xl cursor-pointer hover:border-blue-500/50 transition-all active:scale-[0.98]"
+          >
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${notif.event_type === 'PRICE_UPDATE' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                  <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">{notif.items?.ticker || 'SYSTEM'}</p>
                 </div>
-                
-                <p className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
-                  {notif.message}
-                </p>
-
-                {notif.metadata?.price && (
-                  <div className="mt-3 inline-flex items-center gap-2 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-mono text-green-400">
-                    <span>VALUE_LOCKED:</span>
-                    <span className="font-bold">${notif.metadata.price.toLocaleString()}</span>
-                  </div>
-                )}
+                <p className="text-sm font-bold text-white/90">{notif.message}</p>
               </div>
-            ))}
+              <ChevronRight size={14} className="text-white/10 group-hover:text-blue-500 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-center justify-between opacity-30 group-hover:opacity-100 transition-opacity">
+               <span className="text-[9px] font-mono">{new Date(notif.created_at).toLocaleTimeString()}</span>
+               <span className="text-[9px] font-black uppercase text-blue-500">View Chart →</span>
+            </div>
           </div>
-        ) : (
-          <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
-            <p className="text-xs font-mono text-white/20 uppercase tracking-widest">No Recent Logs Found</p>
-          </div>
-        )}
+        ))}
       </main>
     </div>
   );
