@@ -5,7 +5,7 @@ import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Cam
 import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path if needed
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
-import { UpgradeModal } from "@/components/UpgradeModal";
+import { UpgradeModal } from "@/components/UpgradeModel";
 
 export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
