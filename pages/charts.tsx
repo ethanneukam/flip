@@ -323,19 +323,26 @@ return (
       </div> {/* End Main Content Area */}
     </div> {/* End Flex Wrapper */}
 
-    <BottomNav />
+ <BottomNav />
     
     <style jsx>{`
       .custom-scrollbar::-webkit-scrollbar { width: 3px; }
       .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     `}</style>
-    {isAlertModalOpen && data && (
-  <PriceAlertModal 
-    item={{ ...data, ticker }} 
-    onClose={() => setIsAlertModalOpen(false)} 
-  />
-)}
   </main>
+  
+  {/* MOVE MODAL HERE: Outside of Main, inside the fragment */}
+  {isAlertModalOpen && data && (
+    <PriceAlertModal 
+      item={{ 
+        id: data.id, 
+        title: data.title, 
+        ticker: ticker 
+      }} 
+      onClose={() => setIsAlertModalOpen(false)} 
+    />
+  )}
+</> // Ensure you wrap the whole return in a fragment <> ... </> if you move it out
 );
 }
