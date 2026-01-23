@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MarketChart from "@/components/oracle/MarketChart";
-import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera } from "lucide-react";
+import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera, Bell } from "lucide-react";
+import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path if needed
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
 
@@ -13,6 +14,7 @@ export default function OracleTerminal() {
   const [events, setEvents] = useState<any[]>([]);
   // Ticker Menu State
   const [marketItems, setMarketItems] = useState<any[]>([]);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [menuLoading, setMenuLoading] = useState(true);
 
 // 1. Fetch Menu (Runs once)
@@ -269,7 +271,14 @@ return (
               <ArrowUpRight size={18} />
               Acquire Asset
             </button>
-
+<button 
+  onClick={() => setIsAlertModalOpen(true)}
+  disabled={!data}
+  className="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 font-black uppercase tracking-tighter rounded-xl transition-all flex items-center justify-center gap-2"
+>
+  <Bell size={16} />
+  Set Price Alert
+</button>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Profit_Analysis</p>
               <div className="space-y-3">
