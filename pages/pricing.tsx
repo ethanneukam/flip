@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Check, Shield, Zap, Crown, Terminal, Lock, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/router";
-import BottomNav from "@/components/BottomNav"; // Ensure path is correct
+import BottomNav from "@/components/BottomNav"; 
 
 export default function Pricing() {
   const [user, setUser] = useState<any>(null);
@@ -98,7 +98,6 @@ export default function Pricing() {
         <PricingCard tier="business" level="LVL_03" title="Syndicate" price="250" color="text-red-500" icon={Terminal} features={["Unlimited Vault", "Direct API Key", "White-Glove Support", "Dedicated Scrape Nodes"]}/>
       </div>
 
-      {/* Compliance & Identity Footer */}
       <div className="max-w-7xl mx-auto mt-20 border-t border-white/10 pt-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 opacity-50 text-[10px] font-mono uppercase">
           <div className="space-y-4">
@@ -115,9 +114,9 @@ export default function Pricing() {
           </div>
           <div className="space-y-4">
             <p className="text-white font-black">Legal_Terms</p>
-            <p className="cursor-pointer hover:text-white">Privacy_Policy.pdf</p>
-            <p className="cursor-pointer hover:text-white">Terms_of_Service.log</p>
-            <p className="cursor-pointer hover:text-white">Refund_Logic.v1</p>
+            <p onClick={() => router.push('/legal/privacy')} className="cursor-pointer hover:text-white transition-colors underline decoration-white/20">Privacy_Policy.pdf</p>
+            <p onClick={() => router.push('/legal/terms')} className="cursor-pointer hover:text-white transition-colors underline decoration-white/20">Terms_of_Service.log</p>
+            <p onClick={() => router.push('/legal/refunds')} className="cursor-pointer hover:text-white transition-colors underline decoration-white/20">Refund_Logic.v1</p>
           </div>
           <div className="space-y-4">
             <p className="text-white font-black">System_Notes</p>
