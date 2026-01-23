@@ -16,19 +16,33 @@ export default function OracleTerminal() {
   const [marketItems, setMarketItems] = useState<any[]>([]);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [menuLoading, setMenuLoading] = useState(true);
+  const [userTier, setUserTier] = useState<"free" | "pro">("free");
+// 1. Fetch Menu & User Tier (Runs once)
+useEffect(() => {
+  const initTerminal = async () => {
+    // A. Fetch Menu
+    const { data: items } = await supabase
+      .from("items")
+      .select("id, title, ticker, flip_price")
+      .order('title', { ascending: true });
+    if (items) setMarketItems(items);
+    setMenuLoading(false);
 
-// 1. Fetch Menu (Runs once)
-  useEffect(() => {
-    const fetchMenu = async () => {
-      const { data: items } = await supabase
-        .from("items")
-        .select("id, title, ticker, flip_price")
-        .order('title', { ascending: true });
-      if (items) setMarketItems(items);
-      setMenuLoading(false);
-    };
-    fetchMenu();
-  }, []);
+    // B. Fetch User Tier
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) setUserTier(profile.subscription_tier as "free" | "pro");
+    }
+  };
+
+  initTerminal();
+}, []);
 
   // 2. Fetch Data & Set up Realtime (Runs when ticker changes)
   useEffect(() => {
@@ -93,6 +107,12 @@ export default function OracleTerminal() {
   };
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
   const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // --- LOCK CHECK ---
+  if (userTier !== 'pro') {
+    alert("🔒 RESTRICTED: Upgrade to Oracle Pro to use AI Vision Scanning.");
+    e.target.value = ''; // Reset file input
+    return;
+  }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -273,12 +293,22 @@ return (
               Acquire Asset
             </button>
 <button 
-  onClick={() => setIsAlertModalOpen(true)}
+  onClick={() => {
+    if (userTier === 'pro') {
+      setIsAlertModalOpen(true);
+    } else {
+      alert("🔒 RESTRICTED: Price Alerts are a Pro feature.");
+    }
+  }}
   disabled={!data}
-  className="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 font-black uppercase tracking-tighter rounded-xl transition-all flex items-center justify-center gap-2"
+  className={`w-full py-4 border border-white/10 font-black uppercase tracking-tighter rounded-xl transition-all flex items-center justify-center gap-2 ${
+    userTier === 'pro' 
+      ? 'bg-white/5 hover:bg-white/10 text-white/70' 
+      : 'bg-red-900/10 text-red-400/50 cursor-not-allowed'
+  }`}
 >
-  <Bell size={16} />
-  Set Price Alert
+  {userTier === 'pro' ? <Bell size={16} /> : <ShieldCheck size={16} />}
+  {userTier === 'pro' ? "Set Price Alert" : "LOCKED (PRO)"}
 </button>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Profit_Analysis</p>
