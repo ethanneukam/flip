@@ -5,6 +5,7 @@ import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Cam
 import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path if needed
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
@@ -16,33 +17,34 @@ export default function OracleTerminal() {
   const [marketItems, setMarketItems] = useState<any[]>([]);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [menuLoading, setMenuLoading] = useState(true);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [userTier, setUserTier] = useState<"free" | "pro">("free");
 // 1. Fetch Menu & User Tier (Runs once)
 useEffect(() => {
-  const initTerminal = async () => {
-    // A. Fetch Menu
-    const { data: items } = await supabase
-      .from("items")
-      .select("id, title, ticker, flip_price")
-      .order('title', { ascending: true });
-    if (items) setMarketItems(items);
-    setMenuLoading(false);
+    const initTerminal = async () => {
+      // Fetch Menu
+      const { data: items } = await supabase
+        .from("items")
+        .select("id, title, ticker, flip_price")
+        .order('title', { ascending: true });
+      if (items) setMarketItems(items);
+      setMenuLoading(false);
 
-    // B. Fetch User Tier
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_tier')
-        .eq('id', user.id)
-        .single();
-
-      if (profile) setUserTier(profile.subscription_tier as "free" | "pro");
-    }
-  };
-
-  initTerminal();
-}, []);
+      // Fetch User Tier
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('id', user.id)
+          .single();
+        
+        // Default to free if null
+        setUserTier(profile?.subscription_tier === 'pro' ? 'pro' : 'free');
+      }
+    };
+    initTerminal();
+  }, []);
 
   // 2. Fetch Data & Set up Realtime (Runs when ticker changes)
   useEffect(() => {
@@ -108,11 +110,11 @@ useEffect(() => {
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
   const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     // --- LOCK CHECK ---
-  if (userTier !== 'pro') {
-    alert("🔒 RESTRICTED: Upgrade to Oracle Pro to use AI Vision Scanning.");
-    e.target.value = ''; // Reset file input
-    return;
-  }
+if (userTier !== 'pro') {
+      setIsUpgradeModalOpen(true); // <--- Triggers the new modal
+      e.target.value = ''; // Reset file input
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -297,17 +299,17 @@ return (
     if (userTier === 'pro') {
       setIsAlertModalOpen(true);
     } else {
-      alert("🔒 RESTRICTED: Price Alerts are a Pro feature.");
+      setIsUpgradeModalOpen(true); // <--- Triggers the new modal
     }
   }}
   disabled={!data}
   className={`w-full py-4 border border-white/10 font-black uppercase tracking-tighter rounded-xl transition-all flex items-center justify-center gap-2 ${
     userTier === 'pro' 
       ? 'bg-white/5 hover:bg-white/10 text-white/70' 
-      : 'bg-red-900/10 text-red-400/50 cursor-not-allowed'
+      : 'bg-red-900/10 text-red-400/50'
   }`}
 >
-  {userTier === 'pro' ? <Bell size={16} /> : <ShieldCheck size={16} />}
+  {userTier === 'pro' ? <Bell size={16} /> : <Lock size={16} />}
   {userTier === 'pro' ? "Set Price Alert" : "LOCKED (PRO)"}
 </button>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
@@ -363,13 +365,18 @@ return (
     `}</style>
   </main>
 
-  {/* MODAL LAYER */}
+{/* PRICE ALERT MODAL */}
   {isAlertModalOpen && data && (
     <PriceAlertModal 
       item={{ id: data.id, title: data.title, ticker: ticker }} 
       onClose={() => setIsAlertModalOpen(false)} 
     />
   )}
+
+  {/* UPGRADE MODAL */}
+  {isUpgradeModalOpen && (
+    <UpgradeModal onClose={() => setIsUpgradeModalOpen(false)} />
+  )}
 </>
-); // Closes the return
-} // Closes the function
+);
+}
