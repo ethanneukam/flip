@@ -54,7 +54,22 @@ export default function Header() {
   };
 
   const defaultAvatar = "/default-avatar.png";
+useEffect(() => {
+  const channel = supabase
+    .channel('schema-db-changes')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'feed_events' },
+      (payload) => {
+        // Logic to show a popup or sound when a new notification arrives
+        console.log('New System Log:', payload.new.message);
+        // You could use a library like 'react-hot-toast' here
+      }
+    )
+    .subscribe();
 
+  return () => { supabase.removeChannel(channel); };
+}, []);
   return (
     <header className="w-full bg-[#0B0E11] border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-[#0B0E11]/90">
       <Link href="/">
