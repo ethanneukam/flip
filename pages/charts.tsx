@@ -142,41 +142,48 @@ const handleBuyAction = async () => {
   };
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
 const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  // LOCK: Market Maker (LVL_02) or Syndicate (LVL_03) only
-  const hasVisionAccess = userTier === 'market_maker' || userTier === 'syndicate';
-  
-  if (!hasVisionAccess) {
-    setIsUpgradeModalOpen(true);
-    e.target.value = ''; 
-    return;
-  }
+    // 1. LOCK CHECK: Market Maker (LVL_02) or Syndicate (LVL_03) only
+    const hasVisionAccess = userTier === 'market_maker' || userTier === 'syndicate';
+    
+    if (!hasVisionAccess) {
+      setIsUpgradeModalOpen(true);
+      e.target.value = ''; 
+      return;
+    }
+
+    // 2. FILE DEFINITION (Crucial fix)
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     setIsScanning(true);
 
     try {
       const reader = new FileReader();
+      // Now 'file' is defined and can be read
       reader.readAsDataURL(file);
+      
       reader.onload = async () => {
         const base64Image = (reader.result as string).split(',')[1];
 
-        // 1. Identify via AI
+        // 3. Identify via AI
         const aiRes = await fetch('/api/ai-scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64Image }),
         });
         
-        const { productName } = await aiRes.json();
+        const resData = await aiRes.json();
+        const productName = resData.productName;
         
         if (productName) {
-          // 2. Trigger Scraper to ensure market data exists for this specific find
+          // 4. Trigger Scraper to ensure market data exists
           await fetch('/api/scrape', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ keyword: productName }),
           });
 
-          // 3. Update the ticker (triggers fetchTickerData automatically)
+          // 5. Update the ticker (triggers fetchTickerData automatically)
           setTicker(productName.toUpperCase());
         }
         setIsScanning(false);
