@@ -418,9 +418,11 @@ return (
   )}
 
   {/* UPGRADE MODAL */}
-<UpgradeModal 
-      userTier={userTier} // <--- ADD THIS LINE
-      onClose={() => setIsUpgradeModalOpen(false)}
+  {isUpgradeModalOpen && (
+    <UpgradeModal 
+      userTier={userTier} 
+      onClose={() => setIsUpgradeModalOpen(false)} 
+    />
   )}
 </>
 );
