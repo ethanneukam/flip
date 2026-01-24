@@ -141,15 +141,15 @@ const handleBuyAction = async () => {
     setLoading(false);
   };
   // AI CAMERA SCAN + SCRAPE CHAIN (3b)
-  const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // --- LOCK CHECK ---
-if (userTier !== 'pro') {
-      setIsUpgradeModalOpen(true); // <--- Triggers the new modal
-      e.target.value = ''; // Reset file input
-      return;
-    }
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // LOCK: Market Maker (LVL_02) or Syndicate (LVL_03) only
+  const hasVisionAccess = userTier === 'market_maker' || userTier === 'syndicate';
+  
+  if (!hasVisionAccess) {
+    setIsUpgradeModalOpen(true);
+    e.target.value = ''; 
+    return;
+  }
 
     setIsScanning(true);
 
@@ -329,7 +329,8 @@ return (
             </button>
 <button 
   onClick={() => {
-    if (userTier === 'pro') {
+    // Only Market Maker and Syndicate get Real-Time Alerts
+    if (userTier === 'market_maker' || userTier === 'syndicate') {
       setIsAlertModalOpen(true);
     } else {
       setIsUpgradeModalOpen(true);
@@ -337,21 +338,15 @@ return (
   }}
   disabled={!data}
   className={`w-full py-4 border border-white/10 font-black uppercase tracking-tighter rounded-xl transition-all flex items-center justify-center gap-2 ${
-    userTier === 'pro' 
+    (userTier === 'market_maker' || userTier === 'syndicate')
       ? 'bg-white/5 hover:bg-white/10 text-white/70' 
       : 'bg-red-900/10 text-red-400/50'
   }`}
 >
-  {userTier === 'pro' ? (
-    <>
-      <Bell size={16} />
-      <span>Set Price Alert</span>
-    </>
+  {(userTier === 'market_maker' || userTier === 'syndicate') ? (
+    <><Bell size={16} /><span>Set Price Alert</span></>
   ) : (
-    <>
-      <Lock size={16} />
-      <span>LOCKED (PRO)</span>
-    </>
+    <><Lock size={16} /><span>LOCKED (PRO)</span></>
   )}
 </button>
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
