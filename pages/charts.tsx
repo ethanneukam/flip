@@ -19,6 +19,12 @@ export default function OracleTerminal() {
   const [menuLoading, setMenuLoading] = useState(true);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [userTier, setUserTier] = useState<"free" | "pro">("free");
+  const TIER_LIMITS = {
+  free: 25,
+  operative: 50,
+  market_maker: 500,
+  syndicate: Infinity,
+};
 // 1. Fetch Menu & User Tier (Runs once)
 useEffect(() => {
     const initTerminal = async () => {
@@ -47,24 +53,29 @@ useEffect(() => {
   }, []);
 
   // 2. Fetch Data & Set up Realtime (Runs when ticker changes)
-  useEffect(() => {
+useEffect(() => {
     fetchTickerData();
 
-    const channel = supabase
-      .channel('realtime-feed')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'feed_events' },
-        (payload) => {
-          setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
-        }
-      )
-      .subscribe();
+    // ONLY subscribe to realtime if user is Market Maker or Syndicate
+    let channel: any;
+    
+    if (userTier === 'market_maker' || userTier === 'syndicate') {
+      channel = supabase
+        .channel('realtime-feed')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'feed_events' },
+          (payload) => {
+            setEvents((prev) => [payload.new, ...prev].slice(0, 50)); 
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [ticker]);
+  }, [ticker, userTier]); // Add userTier as a dependency
 
   // 3. Helper Functions
   const fetchTickerData = async () => {
@@ -88,9 +99,27 @@ useEffect(() => {
     }
   };
 
-  const handleBuyAction = async () => {
+const handleBuyAction = async () => {
     if (!data) return;
     setLoading(true);
+
+    // 1. Check User's Current Vault Count
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("Auth Required");
+
+    const { count, error: countError } = await supabase
+      .from('user_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    // 2. Enforce Limits
+    const limit = TIER_LIMITS[userTier as keyof typeof TIER_LIMITS] || 25;
+    
+    if (count !== null && count >= limit) {
+      setIsUpgradeModalOpen(true);
+      setLoading(false);
+      return;
+    }
     const { data: listing } = await supabase
       .from('user_assets')
       .select('*, profiles(username)')
