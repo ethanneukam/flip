@@ -45,8 +45,12 @@ useEffect(() => {
           .eq('id', user.id)
           .single();
         
-        // Default to free if null
-        setUserTier(profile?.subscription_tier === 'pro' ? 'pro' : 'free');
+       // Logical Mapping: If DB says 'pro', map to 'market_maker'
+        const tier = profile?.subscription_tier;
+        if (tier === 'pro' || tier === 'market_maker') setUserTier('market_maker');
+        else if (tier === 'operative') setUserTier('operative');
+        else if (tier === 'syndicate') setUserTier('syndicate');
+        else setUserTier('free');
       }
     };
     initTerminal();
