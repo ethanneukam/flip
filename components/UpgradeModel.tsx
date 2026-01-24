@@ -3,10 +3,15 @@ import { createPortal } from "react-dom";
 import { X, Lock, Zap } from "lucide-react";
 import { useRouter } from "next/router";
 
-export function UpgradeModal({ onClose }: { onClose: () => void }) {
+export function UpgradeModal({ 
+  userTier, 
+  onClose 
+}: { 
+  userTier: string, 
+  onClose: () => void 
+}) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
     setMounted(true);
     document.body.style.overflow = 'hidden'; // Lock scroll
