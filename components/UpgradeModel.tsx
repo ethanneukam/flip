@@ -42,12 +42,17 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
             <Lock size={32} className="text-red-500" />
           </div>
           
-          <div>
-            <h2 className="text-xl font-black italic text-white mb-2 uppercase">Tier 2 Required</h2>
-            <p className="text-xs text-gray-400 font-mono leading-relaxed">
-              Advanced Oracle features like <span className="text-white">AI Vision Scanning</span> and <span className="text-white">Price Alerts</span> are reserved for Pro Terminal users.
-            </p>
-          </div>
+        <div>
+    <h2 className="text-xl font-black italic text-white mb-2 uppercase">Upgrade Required</h2>
+    <p className="text-[10px] text-gray-400 font-mono leading-relaxed mb-4">
+      CURRENT TIER: <span className="text-red-500">{userTier.toUpperCase()}</span>
+    </p>
+    <ul className="text-left text-[9px] space-y-2 mb-6 border-y border-white/5 py-4">
+      <li className="flex justify-between"><span>LVL_01 Operative:</span> <span className="text-white">50 Items</span></li>
+      <li className="flex justify-between"><span>LVL_02 Market Maker:</span> <span className="text-white">500 Items + Vision</span></li>
+      <li className="flex justify-between"><span>LVL_03 Syndicate:</span> <span className="text-white">Unlimited</span></li>
+    </ul>
+  </div>
 
           <button 
             onClick={handleUpgrade}
