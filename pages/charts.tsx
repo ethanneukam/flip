@@ -18,7 +18,7 @@ export default function OracleTerminal() {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [menuLoading, setMenuLoading] = useState(true);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [userTier, setUserTier] = useState<"free" | "pro">("free");
+  const [userTier, setUserTier] = useState<"free" | "operative" | "market_maker" | "syndicate">("free");
   const TIER_LIMITS = {
   free: 25,
   operative: 50,
