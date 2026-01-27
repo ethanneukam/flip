@@ -277,8 +277,7 @@ async function getItemsToScrape(searchKeyword?: string) {
       newBatch.push({
         ticker: currentTicker,
         title: `NODE_${currentTicker}`, // Placeholder: Scraper will use this if no better title exists
-        flip_price: 0,
-        confidence: 0
+        flip_price: 0
       });
     }
 
