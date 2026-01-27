@@ -126,7 +126,22 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     await page.close();
   }
 }
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
+function generateNextTicker(lastTicker: string): string {
+  let chars = lastTicker.split("");
+  let i = chars.length - 1;
+  while (i >= 0) {
+    let charIndex = CHARS.indexOf(chars[i]);
+    if (charIndex < CHARS.length - 1) {
+      chars[i] = CHARS[charIndex + 1];
+      return chars.join("");
+    }
+    chars[i] = CHARS[0];
+    i--;
+  }
+  return CHARS[0] + chars.map(() => CHARS[0]).join("");
+}
 export async function main(searchKeyword?: string) {
   console.log("🚀 Starting Market Oracle...");
   const items = await getItemsToScrape(searchKeyword);
@@ -220,30 +235,70 @@ export async function main(searchKeyword?: string) {
 }
 
 async function getItemsToScrape(searchKeyword?: string) {
-  console.log("📡 Connecting to Supabase 'items' table...");
+  console.log("📡 Oracle Pulse: Checking for unscanned nodes...");
 
+  // 1. Manual Search Override (Existing Logic)
+  // If a user manually scans, we prioritize that title
   if (searchKeyword && searchKeyword !== "undefined") {
-    const { data: existing } = await supabase.from("items").select("id, title").eq("title", searchKeyword).single();
-    if (existing) return [{ item_id: existing.id, keyword: existing.title }];
+    const { data: existing } = await supabase.from("items").select("id, title, ticker").eq("title", searchKeyword).single();
+    if (existing) return [{ item_id: existing.id, keyword: existing.title, ticker: existing.ticker }];
 
-    const { data: created } = await supabase.from("items").insert({ title: searchKeyword }).select().single();
-    return created ? [{ item_id: created.id, keyword: created.title }] : [];
-  }
-  
-  const { data, error } = await supabase.from("items").select("id, title").limit(50);
-    
-  if (error) {
-    console.error("❌ Supabase Error:", error.message);
-    return [];
+    const { data: created } = await supabase.from("items").insert({ 
+      title: searchKeyword, 
+      ticker: searchKeyword.substring(0, 5).toUpperCase(),
+      flip_price: 0 
+    }).select().single();
+    return created ? [{ item_id: created.id, keyword: created.title, ticker: created.ticker }] : [];
   }
 
+  // 2. Find items that need pricing (price is 0 or null)
+  let { data, error } = await supabase
+    .from("items")
+    .select("id, title, ticker")
+    .or('flip_price.eq.0,flip_price.is.null')
+    .limit(20);
+
+  // 3. INFINITE GENERATION: If no items left to scrape, generate a new brute-force batch
   if (!data || data.length === 0) {
-    console.log("❓ Supabase returned 0 rows. Double check your 'items' table data.");
-    return [];
+    console.log("♾️ Brute Force Triggered: Generating new market nodes...");
+    
+    const { data: lastItem } = await supabase
+      .from("items")
+      .select("ticker")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    let currentTicker = lastItem?.ticker || "AAA";
+    const newBatch = [];
+
+    for (let i = 0; i < 20; i++) {
+      currentTicker = generateNextTicker(currentTicker);
+      newBatch.push({
+        ticker: currentTicker,
+        title: `NODE_${currentTicker}`, // Placeholder: Scraper will use this if no better title exists
+        flip_price: 0,
+        confidence: 0
+      });
+    }
+
+    const { data: inserted, error: genError } = await supabase.from("items").insert(newBatch).select();
+    if (genError) {
+      console.error("❌ Generation Error:", genError.message);
+      return [];
+    }
+    data = inserted;
   }
 
-  console.log(`✅ Found ${data.length} items. Starting scan...`);
-  return data.map((item: any) => ({ item_id: item.id, keyword: item.title }));
+  console.log(`✅ Queueing ${data?.length} nodes for scanning.`);
+
+  // We return the 'title' as the keyword so the scraper finds real items.
+  // If the title is just a "NODE_XXX" placeholder, the scraper will search the ticker.
+  return data!.map((item: any) => ({ 
+    item_id: item.id, 
+    keyword: item.title, 
+    ticker: item.ticker 
+  }));
 }
 
 // Correct check for running directly in Node vs being imported
