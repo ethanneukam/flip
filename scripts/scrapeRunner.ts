@@ -275,7 +275,7 @@ async function getItemsToScrape(searchKeyword?: string) {
     for (let i = 0; i < 20; i++) {
       currentTicker = generateNextTicker(currentTicker);
       newBatch.push({
-        ticker: currentTicker,
+       ticker: currentTicker,
         title: `NODE_${currentTicker}`, // Placeholder: Scraper will use this if no better title exists
         price: 0,
         flip_price: 0
