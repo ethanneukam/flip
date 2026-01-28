@@ -272,16 +272,15 @@ async function getItemsToScrape(searchKeyword?: string) {
     let currentTicker = lastItem?.ticker || "AAA";
     const newBatch = [];
 
-    for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 20; i++) {
       currentTicker = generateNextTicker(currentTicker);
       newBatch.push({
-       ticker: currentTicker,
-        title: `NODE_${currentTicker}`, // Placeholder: Scraper will use this if no better title exists
+        ticker: currentTicker,        // Must not be null
+        title: `NODE_${currentTicker}`, // Must not be null (becomes 'name' in market_data)
         price: 0,
         flip_price: 0
       });
     }
-
     const { data: inserted, error: genError } = await supabase.from("items").insert(newBatch).select();
     if (genError) {
       console.error("❌ Generation Error:", genError.message);
