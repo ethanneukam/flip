@@ -6,6 +6,17 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
 
+const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon"];
+const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter"];
+const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3"];
+
+function generateAutonomousKeyword(): string {
+  const b = BRANDS[Math.floor(Math.random() * BRANDS.length)];
+  const c = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+  const m = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+  return `${b} ${c} ${m}`;
+}
+
 // EXPORTED TYPES FOR VERCEL COMPATIBILITY
 export interface ScraperResult {
   price: number;
@@ -104,6 +115,15 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       for (const result of results) {
         if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
+        if (result.title && result.title.length > 10) {
+          supabase.from("items").insert([{
+            title: result.title,
+            ticker: result.title.substring(0, 10).toUpperCase().replace(/\s/g, '-'),
+            flip_price: 0
+          }]).then(({ error }) => {
+            if (!error) console.log(`🌱 Harvested New Node: ${result.title.substring(0, 30)}...`);
+          });
+        }
 
         // 1. Log purely to price_logs
         const { error: logError } = await supabase.from("price_logs").insert([{ 
@@ -260,32 +280,19 @@ async function getItemsToScrape(searchKeyword?: string) {
 
   // 3. INFINITE GENERATION: If no items left to scrape, generate a new brute-force batch
   if (!data || data.length === 0) {
-    console.log("♾️ Brute Force Triggered: Generating new market nodes...");
-    
-    const { data: lastItem } = await supabase
-      .from("items")
-      .select("ticker")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    let currentTicker = lastItem?.ticker || "AAA";
+   console.log("♾️ Brain Triggered: Generating 20 new high-value seeds...");
     const newBatch = [];
-
-  for (let i = 0; i < 20; i++) {
-      currentTicker = generateNextTicker(currentTicker);
+    for (let i = 0; i < 20; i++) {
+      const title = generateAutonomousKeyword();
       newBatch.push({
-        ticker: currentTicker,        // Must not be null
-        title: `NODE_${currentTicker}`, // Must not be null (becomes 'name' in market_data)
+        ticker: `SEED-${Math.floor(Math.random() * 10000)}`,
+        title: title,
         price: 0,
         flip_price: 0
       });
     }
     const { data: inserted, error: genError } = await supabase.from("items").insert(newBatch).select();
-    if (genError) {
-      console.error("❌ Generation Error:", genError.message);
-      return [];
-    }
+    if (genError) { console.error("❌ Generation Error:", genError.message); return []; }
     data = inserted;
   }
 
