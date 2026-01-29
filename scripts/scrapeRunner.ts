@@ -116,21 +116,19 @@ for (const result of results) {
         if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
 
-        // --- IMPROVED HARVESTER: Adds new product names to the "To-Scrape" list ---
+        // --- THE INFINITE HARVESTER ---
+        // This is what grabs real names from search results and feeds the database
         if (result.title && result.title.length > 10) {
-          // We use upsert so we don't crash on duplicate titles
           await supabase.from("items").upsert({
             title: result.title,
             ticker: result.title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
             flip_price: 0
           }, { onConflict: 'title' });
-        }
-          }]).then(({ error }) => {
-            if (!error) console.log(`🌱 Harvested New Node: ${result.title.substring(0, 30)}...`);
-          });
+          
+          console.log(`🌱 Harvested: ${result.title.substring(0, 30)}...`);
         }
 
-        // 1. Log purely to price_logs
+        // 1. Log price data to price_logs
         const { error: logError } = await supabase.from("price_logs").insert([{ 
           item_id, 
           price: result.price, 
@@ -139,7 +137,7 @@ for (const result of results) {
         }]);
 
         if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
-      } // <--- THIS WAS THE MISSING BRACE IN YOUR CODE
+      }
 
       return validPrices; 
     }
