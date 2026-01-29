@@ -112,7 +112,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 
       let validPrices: number[] = [];
 
-    for (const result of results) {
+for (const result of results) {
         if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
 
@@ -123,6 +123,8 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
             title: result.title,
             ticker: result.title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
             flip_price: 0
+          }, { onConflict: 'title' });
+        }
           }]).then(({ error }) => {
             if (!error) console.log(`🌱 Harvested New Node: ${result.title.substring(0, 30)}...`);
           });
