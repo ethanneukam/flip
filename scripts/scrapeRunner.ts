@@ -125,7 +125,7 @@ for (const result of results) {
             flip_price: 0
           }, { onConflict: 'title' });
           
-          console.log(`🌱 Harvested: ${result.title.substring(0, 30)}...`);
+          console.log(`🌱 Harvested: ${result.title.slice(0, 40)}...`);
         }
 
         // 1. Log price data to price_logs
