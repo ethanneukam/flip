@@ -6,9 +6,9 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
 
-const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon"];
-const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter"];
-const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3"];
+const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
+const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", "Camping Tent", "Power Drill", "Action Camera", "Skincare Set"];
+const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable"];
 
 function generateAutonomousKeyword(): string {
   const b = BRANDS[Math.floor(Math.random() * BRANDS.length)];
@@ -112,13 +112,16 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 
       let validPrices: number[] = [];
 
-      for (const result of results) {
+    for (const result of results) {
         if (!result.price || isNaN(result.price)) continue;
         validPrices.push(result.price);
+
+        // --- IMPROVED HARVESTER: Adds new product names to the "To-Scrape" list ---
         if (result.title && result.title.length > 10) {
-          supabase.from("items").insert([{
+          // We use upsert so we don't crash on duplicate titles
+          await supabase.from("items").upsert({
             title: result.title,
-            ticker: result.title.substring(0, 10).toUpperCase().replace(/\s/g, '-'),
+            ticker: result.title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
             flip_price: 0
           }]).then(({ error }) => {
             if (!error) console.log(`🌱 Harvested New Node: ${result.title.substring(0, 30)}...`);
@@ -279,13 +282,13 @@ async function getItemsToScrape(searchKeyword?: string) {
     .limit(20);
 
   // 3. INFINITE GENERATION: If no items left to scrape, generate a new brute-force batch
-  if (!data || data.length === 0) {
-   console.log("♾️ Brain Triggered: Generating 20 new high-value seeds...");
+if (!data || data.length === 0) {
+    console.log("♾️ Brain Triggered: Generating 20 new high-value seeds...");
     const newBatch = [];
     for (let i = 0; i < 20; i++) {
       const title = generateAutonomousKeyword();
       newBatch.push({
-        ticker: `SEED-${Math.floor(Math.random() * 10000)}`,
+        ticker: title.substring(0, 5).toUpperCase().replace(/\s/g, ''),
         title: title,
         price: 0,
         flip_price: 0
