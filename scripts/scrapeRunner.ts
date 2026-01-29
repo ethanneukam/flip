@@ -214,10 +214,10 @@ export async function main(searchKeyword?: string) {
         await supabase.from("feed_events").insert([{
           item_id: item.item_id,
           event_type: 'PRICE_UPDATE',
-          message: `Oracle updated ${item.keyword} to $${flip_price.toFixed(2)}`,
+          message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
           metadata: { 
             price: flip_price, // This is what Pulse uses for the $ amount
-            ticker: item.ticker || item.keyword,
+            ticker: item.ticker || item.title,
             item_id: item.item_id 
           }
         }]);
