@@ -9,44 +9,54 @@ export default function PulseFeed() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-  const fetchFeed = async () => {
-    const { data, error } = await supabase
-      .from("feed_events")
-      .select(`*, profiles:user_id (username, avatar_url)`)
-      .order("created_at", { ascending: false })
-      .limit(20);
+  useEffect(() => {
+    const fetchFeed = async () => {
+      // Fetch the initial 20 events
+      const { data, error } = await supabase
+        .from("feed_events")
+        .select(`*, profiles:user_id (username, avatar_url)`)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-    if (data) setEvents(data);
-    setLoading(false);
-  };
+      if (data) setEvents(data);
+      setLoading(false);
+    };
 
-  fetchFeed();
+    fetchFeed();
 
-  // Fix: Listen to ALL events and manually refresh or prepend
-  const channel = supabase
-    .channel('pulse-live')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'feed_events' },
-      async (payload) => {
-        // Since realtime payloads don't include Joined tables (profiles), 
-        // we do a quick fetch for the specific new row
-        const { data: newRow } = await supabase
-          .from("feed_events")
-          .select(`*, profiles:user_id (username, avatar_url)`)
-          .eq('id', payload.new.id)
-          .single();
-        
-        if (newRow) {
-          setEvents((prev) => [newRow, ...prev].slice(0, 20));
+    // Subscribe to LIVE updates
+    const channel = supabase
+      .channel('pulse-live')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'feed_events' },
+        async (payload) => {
+          console.log("⚡ New Pulse Event:", payload);
+          
+          // Determine the user profile (if any)
+          let userProfile = null;
+          if (payload.new.user_id) {
+             const { data: profile } = await supabase
+              .from('profiles')
+              .select('username, avatar_url')
+              .eq('id', payload.new.user_id)
+              .single();
+             userProfile = profile;
+          }
+
+          // Construct the new event object
+          const newEvent = {
+            ...payload.new,
+            profiles: userProfile
+          };
+
+          setEvents((prev) => [newEvent, ...prev].slice(0, 50));
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => { supabase.removeChannel(channel); };
-}, []);
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   return (
     <div className="min-h-screen bg-black pb-32">
@@ -67,7 +77,7 @@ useEffect(() => {
           </div>
         ) : events.length > 0 ? (
           events.map((event) => (
-            <article key={event.id} className="p-4">
+            <article key={event.id} className="p-4 group">
               {/* Event Metadata */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <div className="flex items-center space-x-2">
@@ -83,7 +93,8 @@ useEffect(() => {
                   {new Date(event.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-{/* Massive Content Card */}
+
+              {/* Massive Content Card */}
               <div className="bg-white/[0.02] backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10 group-hover:border-blue-500/50 transition-all duration-500 shadow-2xl">
                 
                 {/* Header Section */}
@@ -91,10 +102,10 @@ useEffect(() => {
                   <div className="flex justify-between items-start mb-6">
                     <div className="space-y-1">
                       <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
-                        AGENT: @{event.profiles?.username || 'Anonymous'}
+                        AGENT: @{event.profiles?.username || 'Oracle_Bot'}
                       </p>
                       <h3 className="text-xl md:text-2xl font-black text-white leading-none tracking-tighter">
-                        {event.message || event.title}
+                        {event.message || "Unknown Market Event"}
                       </h3>
                     </div>
 
@@ -115,12 +126,12 @@ useEffect(() => {
                 </div>
 
                 {/* EXPANDED PERFORMANCE CHART */}
-                {event.metadata?.ticker && (
+                {event.metadata?.item_id && (
                   <div className="border-t border-white/5 bg-black/40">
                     <div className="px-6 py-4 flex items-center justify-between bg-white/[0.01]">
                       <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] flex items-center">
                         <Activity size={14} className="mr-2 text-blue-500" /> 
-                        TELEMETRY: {event.metadata.ticker}
+                        TELEMETRY: {event.metadata.ticker || "UNKNOWN"}
                       </span>
                       <div className="flex space-x-4 text-[9px] font-mono text-white/20">
                         <span>DATA_STREAMS: 4</span>
@@ -143,7 +154,7 @@ useEffect(() => {
             </article>
           ))
         ) : (
-          <div className="p-20 text-center border border-dashed border-white/10 rounded-3xl">
+          <div className="p-20 text-center border border-dashed border-white/10 rounded-3xl m-4">
              <p className="text-xs font-bold text-white/20 uppercase tracking-[1em]">Scanning Atmosphere...</p>
           </div>
         )}
