@@ -238,20 +238,21 @@ async function getItemsToScrape(searchKeyword?: string) {
       ticker: searchKeyword.substring(0, 5).toUpperCase(),
       flip_price: 0 
     }, { onConflict: 'title' }).select().single();
-    return created ? [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }] : [];
+    
+    if (created) {
+       return [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }];
+    }
   }
 
-  // 2. Fetch existing items that need pricing
-  let { data: existingData } = await supabase
+  // 2. Fetch existing items
+  const { data: existingData } = await supabase
     .from("items")
     .select("id, title, ticker")
     .or('flip_price.eq.0,flip_price.is.null')
-    .order('last_updated', { ascending: true }) // Scan oldest attempts first
     .limit(10);
 
-  // 3. FORCE GENERATION if queue is low
-  // We don't wait for the DB to "update"—we generate and inject them into the return array
-  console.log("🧠 Brain Triggered: Generating fresh seeds for this run...");
+  // 3. GENERATION LOGIC
+  console.log("🧠 Brain Triggered: Generating fresh seeds...");
   const newSeeds = [];
   for (let i = 0; i < 15; i++) {
     const title = generateAutonomousKeyword();
@@ -263,38 +264,48 @@ async function getItemsToScrape(searchKeyword?: string) {
     });
   }
 
-  // Insert seeds but don't crash if they already exist (onConflict)
-  const { data: insertedData } = await supabase
+  // 4. THE SAFETY NET: Try to save to DB, but keep the seeds in memory either way
+  const { data: insertedData, error: upsertError } = await supabase
     .from("items")
     .upsert(newSeeds, { onConflict: 'title' })
     .select();
 
-  // Combine existing items with newly generated items
-  const combined = [...(existingData || []), ...(insertedData || [])];
+  if (upsertError) console.warn("⚠️ Database Upsert Warning (Seeds may already exist)");
+
+  // Combine everything. If DB failed to return data, use our 'newSeeds' array as a fallback
+  const rawPool = [...(existingData || []), ...(insertedData || newSeeds)];
   
-  // 4. SHUFFLE and Filter out "Hermes GPU Special" if it keeps failing
-  const finalQueue = combined
-    .filter(item => item.title !== "Hermes GPU Special") 
+  // 5. CLEAN & MAP: Ensure every object has the required fields
+  const finalQueue = rawPool
+    .filter(item => item && item.title && item.title !== "Hermes GPU Special")
     .sort(() => 0.5 - Math.random())
-    .slice(0, 10);
+    .slice(0, 10)
+    .map((item: any) => ({
+      item_id: item.id || `temp-${Math.random()}`, // Fallback ID if DB insert failed
+      keyword: item.title,
+      title: item.title,
+      ticker: item.ticker || "GEN"
+    }));
 
   console.log(`✅ Queueing ${finalQueue.length} nodes for scanning.`);
-  return finalQueue.map((item: any) => ({ 
-    item_id: item.id, 
-    keyword: item.title, 
-    title: item.title,   
-    ticker: item.ticker 
-  }));
+  return finalQueue;
 }
 
+// DELETE the old single-run block and REPLACE it with this:
 if (require.main === module) {
-  main(process.argv[2])
-    .then(() => {
-      console.log("✅ Process finished successfully");
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error("Critical Error:", err);
-      process.exit(1);
-    });
+  (async () => {
+    console.log("♾️ Market Oracle: Infinite Mode Activated");
+    while (true) {
+      try {
+        // We pass the search keyword from the command line if it exists
+        await main(process.argv[2]); 
+        
+        console.log("⏳ Batch complete. Resting for 30 seconds...");
+        await wait(30000, 30000); 
+      } catch (e) {
+        console.error("❌ Loop Error:", e);
+        await wait(5000, 5000); // Short wait before retrying on error
+      }
+    }
+  })();
 }
