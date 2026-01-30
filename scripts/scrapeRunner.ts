@@ -231,52 +231,49 @@ export async function main(searchKeyword?: string) {
 async function getItemsToScrape(searchKeyword?: string) {
   console.log("📡 Oracle Pulse: Checking for unscanned nodes...");
 
+  // 1. Manual Search Override
   if (searchKeyword && searchKeyword !== "undefined") {
-    const { data: existing } = await supabase.from("items").select("id, title, ticker").eq("title", searchKeyword).single();
-    if (existing) return [{ item_id: existing.id, keyword: existing.title, title: existing.title, ticker: existing.ticker }];
-
-    const { data: created } = await supabase.from("items").insert({ 
+    const { data: created } = await supabase.from("items").upsert({ 
       title: searchKeyword, 
       ticker: searchKeyword.substring(0, 5).toUpperCase(),
       flip_price: 0 
-    }).select().single();
+    }, { onConflict: 'title' }).select().single();
     return created ? [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }] : [];
   }
 
-  // PRIORITY QUEUE:
-  // 1. Get items with 0 price (new harvests)
-  // 2. Sort by Created At DESC (Newest First) -> This stops "Lululemon Laptop" loops
+  // 2. Get items that haven't been priced yet
   let { data, error } = await supabase
     .from("items")
     .select("id, title, ticker")
     .or('flip_price.eq.0,flip_price.is.null')
-    .order('created_at', { ascending: false }) // <--- FIX: Prioritize fresh real items
+    .order('created_at', { ascending: false })
     .limit(20);
 
-  if (!data || data.length === 0) {
-    console.log("♾️ Brain Triggered: Generating 20 new high-value seeds...");
+  // 3. THE INFINITY FIX: 
+  // If we have fewer than 5 items waiting, OR if the items we have are "dead ends" (like Hermes GPU),
+  // we force the brain to generate more.
+  if (!data || data.length < 5) { 
+    console.log("🧠 Brain Triggered: Queue low. Injecting 20 fresh seeds...");
     const newBatch = [];
     for (let i = 0; i < 20; i++) {
       const title = generateAutonomousKeyword();
       newBatch.push({
-        ticker: title.substring(0, 5).toUpperCase().replace(/\s/g, ''),
+        ticker: title.substring(0, 8).toUpperCase().replace(/\s/g, ''),
         title: title,
-        price: 0,
         flip_price: 0
       });
     }
-    const { data: inserted, error: genError } = await supabase.from("items").insert(newBatch).select();
-    if (genError) { console.error("❌ Generation Error:", genError.message); return []; }
-    data = inserted;
+    
+    const { data: inserted } = await supabase.from("items").upsert(newBatch, { onConflict: 'title' }).select();
+    data = [...(data || []), ...(inserted || [])];
   }
 
   console.log(`✅ Queueing ${data?.length} nodes for scanning.`);
 
-  // Return formatted object WITH title
   return data!.map((item: any) => ({ 
     item_id: item.id, 
-    keyword: item.title, // Search keyword
-    title: item.title,   // Display title (Fixed!)
+    keyword: item.title, 
+    title: item.title,   
     ticker: item.ticker 
   }));
 }
