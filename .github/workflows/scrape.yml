@@ -1,11 +1,12 @@
 name: Hourly Market Scrape
 on:
-  repository_dispatch:
-    types: [start_scrape]
-  workflow_dispatch: # This adds a "Run" button in GitHub so you can test manually
+  workflow_dispatch: # Manual start
   schedule:
-    - cron: '0 * * * *'
-
+    - cron: '*/30 * * * *' # Backup: Runs every 30 mins if the loop breaks
+  workflow_run:
+    workflows: ["Market Oracle Loop"]
+    types:
+      - completed
 jobs:
   scrape:
     runs-on: ubuntu-latest
