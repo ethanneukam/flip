@@ -217,8 +217,8 @@ export async function main(searchKeyword?: string) {
         }
       } else {
         // If no prices found, update timestamp so we don't scan it again immediately
-        console.log(`⚠️ No data found for ${item.title}. Moving to back of queue.`);
-        await supabase.from("items").update({ last_updated: new Date().toISOString() }).eq("id", item.item_id);
+       console.log(`🗑️ No market data found for "${item.title}". Removing ghost node.`);
+        await supabase.from("items").delete().eq("id", item.item_id);
       }
     }
     if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
@@ -231,7 +231,7 @@ export async function main(searchKeyword?: string) {
 async function getItemsToScrape(searchKeyword?: string) {
   console.log("📡 Oracle Pulse: Checking for unscanned nodes...");
 
-  // 1. Manual Search Override
+  // 1. Manual Search Priority
   if (searchKeyword && searchKeyword !== "undefined") {
     const { data: created } = await supabase.from("items").upsert({ 
       title: searchKeyword, 
@@ -241,36 +241,45 @@ async function getItemsToScrape(searchKeyword?: string) {
     return created ? [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }] : [];
   }
 
-  // 2. Get items that haven't been priced yet
-  let { data, error } = await supabase
+  // 2. Fetch existing items that need pricing
+  let { data: existingData } = await supabase
     .from("items")
     .select("id, title, ticker")
     .or('flip_price.eq.0,flip_price.is.null')
-    .order('created_at', { ascending: false })
-    .limit(20);
+    .order('last_updated', { ascending: true }) // Scan oldest attempts first
+    .limit(10);
 
-  // 3. THE INFINITY FIX: 
-  // If we have fewer than 5 items waiting, OR if the items we have are "dead ends" (like Hermes GPU),
-  // we force the brain to generate more.
-  if (!data || data.length < 5) { 
-    console.log("🧠 Brain Triggered: Queue low. Injecting 20 fresh seeds...");
-    const newBatch = [];
-    for (let i = 0; i < 20; i++) {
-      const title = generateAutonomousKeyword();
-      newBatch.push({
-        ticker: title.substring(0, 8).toUpperCase().replace(/\s/g, ''),
-        title: title,
-        flip_price: 0
-      });
-    }
-    
-    const { data: inserted } = await supabase.from("items").upsert(newBatch, { onConflict: 'title' }).select();
-    data = [...(data || []), ...(inserted || [])];
+  // 3. FORCE GENERATION if queue is low
+  // We don't wait for the DB to "update"—we generate and inject them into the return array
+  console.log("🧠 Brain Triggered: Generating fresh seeds for this run...");
+  const newSeeds = [];
+  for (let i = 0; i < 15; i++) {
+    const title = generateAutonomousKeyword();
+    newSeeds.push({
+      ticker: title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
+      title: title,
+      flip_price: 0,
+      last_updated: new Date().toISOString()
+    });
   }
 
-  console.log(`✅ Queueing ${data?.length} nodes for scanning.`);
+  // Insert seeds but don't crash if they already exist (onConflict)
+  const { data: insertedData } = await supabase
+    .from("items")
+    .upsert(newSeeds, { onConflict: 'title' })
+    .select();
 
-  return data!.map((item: any) => ({ 
+  // Combine existing items with newly generated items
+  const combined = [...(existingData || []), ...(insertedData || [])];
+  
+  // 4. SHUFFLE and Filter out "Hermes GPU Special" if it keeps failing
+  const finalQueue = combined
+    .filter(item => item.title !== "Hermes GPU Special") 
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 10);
+
+  console.log(`✅ Queueing ${finalQueue.length} nodes for scanning.`);
+  return finalQueue.map((item: any) => ({ 
     item_id: item.id, 
     keyword: item.title, 
     title: item.title,   
