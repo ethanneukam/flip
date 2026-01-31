@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { ShieldCheck, FileText, Lock } from "lucide-react";
+import Link from "next/link";
 
 export default function ComplianceModal({ userId, onComplete }: { userId: string, onComplete: () => void }) {
   const [step, setStep] = useState(1);
