@@ -66,3 +66,16 @@
     @apply bg-background text-foreground;
   }
 }
+@layer base {
+  body {
+    /* Prevents pull-to-refresh and bounce on iOS */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* Allow selection in inputs and terminal logs */
+  input, textarea, [contenteditable="true"], .font-mono {
+    user-select: text;
+  }
+}
