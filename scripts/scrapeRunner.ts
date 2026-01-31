@@ -233,12 +233,13 @@ async function getItemsToScrape(searchKeyword?: string) {
 
   // 1. Manual Search Priority
   if (searchKeyword && searchKeyword !== "undefined") {
-    const { data: created } = await supabase.from("items").upsert({ 
+    const { data: created, error: manualError } = await supabase.from("items").upsert({ 
       title: searchKeyword, 
       ticker: searchKeyword.substring(0, 5).toUpperCase(),
       flip_price: 0 
     }, { onConflict: 'title' }).select().single();
     
+    if (manualError) console.error("❌ Manual Search Error:", manualError.message);
     if (created) return [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }];
   }
 
@@ -261,21 +262,37 @@ async function getItemsToScrape(searchKeyword?: string) {
     };
   });
 
-  // 4. Force save seeds to get real UUIDs
-  const { data: insertedData } = await supabase
+  // 4. Force save seeds (WITH ERROR LOGGING)
+  const { data: insertedData, error: seedError } = await supabase
     .from("items")
     .upsert(seeds, { onConflict: 'title' })
     .select();
 
-  // Combine only items that have real database IDs
+  if (seedError) {
+    console.error("❌ BRAIN ERROR (Database Rejected Seeds):", seedError.message);
+    // CRITICAL FALLBACK: If DB fails, use a fake ID so the scraper can still run
+    // This keeps the loop alive even if the DB is acting up
+    console.log("⚠️ Switching to In-Memory Mode for this batch.");
+    const fallbackQueue = seeds.slice(0, 5).map(s => ({
+      item_id: "temp-" + Math.random(), 
+      keyword: s.title,
+      title: s.title,
+      ticker: s.ticker
+    }));
+    return fallbackQueue;
+  }
+
+  // Combine real database items
   const pool = [...(existingData || []), ...(insertedData || [])];
   
   const finalQueue = pool
-    .filter(item => item && item.id) // ONLY keep items with a real UUID
+    .filter(item => item && item.id) 
     .sort(() => 0.5 - Math.random())
     .slice(0, 10);
 
   console.log(`✅ Queueing ${finalQueue.length} nodes with valid UUIDs.`);
+  
+  // MAP correctly
   return finalQueue.map(item => ({
     item_id: item.id,
     keyword: item.title,
