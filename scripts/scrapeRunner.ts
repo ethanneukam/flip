@@ -174,7 +174,7 @@ export async function main(searchKeyword?: string) {
         const { error: feedError } = await supabase.from("feed_events").insert([{
           item_id: item.item_id,
           type: 'PRICE_UPDATE',
-          // Use item.title here. This was previously undefined!
+          title: `Price Update: ${item.ticker || 'ASSET'}`, // <--- ADD THIS LINE
           message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
           metadata: { 
             price: flip_price, 
@@ -208,6 +208,7 @@ export async function main(searchKeyword?: string) {
                 user_id: alert.user_id,
                 item_id: item.item_id,
                 type: 'PRICE_ALERT',
+                title: `🚨 Price Target Hit!`, // <--- ADD THIS LINE
                 message: `🚨 ALERT: ${item.title} hit your target of $${alert.target_price}!`,
                 metadata: { price: flip_price, ticker: item.ticker, alert_id: alert.id }
               }]);
