@@ -10,6 +10,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
+  const [showCompliance, setShowCompliance] = useState(false);
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -19,27 +21,40 @@ export default function AuthPage() {
     checkUser();
   }, [router]);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
+ const handleAuth = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setMessage(null);
 
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMessage({ type: 'success', text: "Verification link sent to email." });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+  try {
+    if (isSignUp) {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      setMessage({ type: 'success', text: "Verification link sent to email." });
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      // CHECK COMPLIANCE STATUS BEFORE REDIRECT
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("kyc_status")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.kyc_status === 'verified') {
         router.push("/feed");
+      } else {
+        setActiveUserId(data.user.id);
+        setShowCompliance(true); // Trigger the modal over the Auth Page
       }
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message });
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    setMessage({ type: 'error', text: error.message });
+  } finally {
+    setLoading(false);
+  }
+};
 return (
   <main className="min-h-screen bg-black text-white flex flex-col md:flex-row overflow-hidden">
     
@@ -174,7 +189,7 @@ return (
             </button>
           </form>
 
-          <div className="text-center">
+<div className="text-center">
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
@@ -187,6 +202,15 @@ return (
           </div>
         </div>
       </div>
+
+      {/* COMPLIANCE GATE OVERLAY */}
+      {showCompliance && activeUserId && (
+        <ComplianceModal 
+          userId={activeUserId} 
+          onComplete={() => router.push("/feed")} 
+        />
+      )}
+
     </main>
   );
 }
