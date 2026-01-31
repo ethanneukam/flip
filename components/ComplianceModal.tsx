@@ -32,8 +32,14 @@ export default function ComplianceModal({ userId, onComplete }: { userId: string
             </div>
             <h2 className="text-2xl font-black uppercase italic tracking-tight">Terms of Protocol</h2>
             <div className="max-h-48 overflow-y-auto text-sm text-gray-500 pr-2 font-medium leading-relaxed">
-              <p>By accessing the Oracle v3 stream, you agree that price data is for informational purposes only. FLIP is not responsible for market volatility or trading losses.</p>
-              <p className="mt-4 font-bold text-black italic underline">Strictly no high-frequency botting of the manual terminal endpoints.</p>
+             // Inside ComplianceModal.tsx
+<p>
+  By accessing the Oracle v3 stream, you agree to our{" "}
+  <Link href="/tos" target="_blank" className="text-blue-500 underline hover:text-blue-400">
+    Terms of Protocol
+  </Link>. 
+  FLIP is not responsible for market volatility or trading losses.
+</p>
             </div>
             <button 
               onClick={() => setStep(2)}
