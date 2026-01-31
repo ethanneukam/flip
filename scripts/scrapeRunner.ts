@@ -173,7 +173,7 @@ export async function main(searchKeyword?: string) {
         // 2. Log to the Pulse Feed (WITH ERROR CHECKING)
         const { error: feedError } = await supabase.from("feed_events").insert([{
           item_id: item.item_id,
-          event_type: 'PRICE_UPDATE',
+          type: 'PRICE_UPDATE',
           // Use item.title here. This was previously undefined!
           message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
           metadata: { 
@@ -207,7 +207,7 @@ export async function main(searchKeyword?: string) {
               await supabase.from("feed_events").insert([{
                 user_id: alert.user_id,
                 item_id: item.item_id,
-                event_type: 'PRICE_ALERT',
+                type: 'PRICE_ALERT',
                 message: `🚨 ALERT: ${item.title} hit your target of $${alert.target_price}!`,
                 metadata: { price: flip_price, ticker: item.ticker, alert_id: alert.id }
               }]);
