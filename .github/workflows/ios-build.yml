@@ -6,22 +6,35 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # <--- Update this to 22
-          
+          node-version: 22
+
       - name: Install Dependencies
         run: npm install
-        
+
       - name: Next.js Export
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm run build
-        
+
+      - name: Ensure index.html exists
+        run: |
+          if [ ! -f out/index.html ]; then
+            echo "index.html not found in /out, attempting to fix..."
+            cp out/404.html out/index.html || cp $(find out -name "*.html" | head -n 1) out/index.html
+          fi
+
       - name: Capacitor Sync
         run: |
           npx cap sync
           npx cap copy ios
+
+      - name: Upload iOS Project Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flip-ios-project
+          path: ios/
