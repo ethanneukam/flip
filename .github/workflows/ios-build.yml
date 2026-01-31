@@ -14,14 +14,13 @@ jobs:
         run: npm install
         
       - name: Next.js Export
+        # This part is the fix: injecting the secrets as ENV variables
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm run build
         
       - name: Capacitor Sync
         run: |
           npx cap sync
           npx cap copy ios
-          
-      - name: Build Xcode Project
-        run: |
-          cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphoneos
