@@ -30,6 +30,7 @@ jobs:
 
       - name: Capacitor Sync
         run: |
+          npx cap add ios    # <--- ADD THIS LINE
           npx cap sync
           npx cap copy ios
 
