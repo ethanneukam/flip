@@ -1,20 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  productionBrowserSourceMaps: true,
-
-  // OPTIONAL — keep if you want it
+  output: 'export', // <--- CRITICAL FOR MOBILE WRAP
   images: {
+    unoptimized: true, // <--- Required for 'export' mode
     domains: [
       "lh3.googleusercontent.com",
       "images.unsplash.com"
     ],
   },
-
-  // OPTIONAL for future server actions
-  experimental: {
-    serverActions: true,
-  },
+  // Note: Server Actions don't work in 'export' mode. 
+  // If you need them, we stick to PWA, but for Capacitor/Native, use API routes.
 };
 
 module.exports = nextConfig;
