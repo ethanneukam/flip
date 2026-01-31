@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import { Loader2, Shield, Zap, BarChart3, ChevronRight } from "lucide-react";
+import ComplianceModal from "@/components/ComplianceModal";
 
 export default function AuthPage() {
   const router = useRouter();
