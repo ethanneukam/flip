@@ -239,56 +239,49 @@ async function getItemsToScrape(searchKeyword?: string) {
       flip_price: 0 
     }, { onConflict: 'title' }).select().single();
     
-    if (created) {
-       return [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }];
-    }
+    if (created) return [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }];
   }
 
   // 2. Fetch existing items
-  const { data: existingData } = await supabase
+  let { data: existingData } = await supabase
     .from("items")
     .select("id, title, ticker")
     .or('flip_price.eq.0,flip_price.is.null')
     .limit(10);
 
-  // 3. GENERATION LOGIC
+  // 3. Brain Generation
   console.log("🧠 Brain Triggered: Generating fresh seeds...");
-  const newSeeds = [];
-  for (let i = 0; i < 15; i++) {
+  const seeds = Array.from({ length: 15 }).map(() => {
     const title = generateAutonomousKeyword();
-    newSeeds.push({
+    return {
+      title,
       ticker: title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
-      title: title,
       flip_price: 0,
       last_updated: new Date().toISOString()
-    });
-  }
+    };
+  });
 
-  // 4. THE SAFETY NET: Try to save to DB, but keep the seeds in memory either way
-  const { data: insertedData, error: upsertError } = await supabase
+  // 4. Force save seeds to get real UUIDs
+  const { data: insertedData } = await supabase
     .from("items")
-    .upsert(newSeeds, { onConflict: 'title' })
+    .upsert(seeds, { onConflict: 'title' })
     .select();
 
-  if (upsertError) console.warn("⚠️ Database Upsert Warning (Seeds may already exist)");
-
-  // Combine everything. If DB failed to return data, use our 'newSeeds' array as a fallback
-  const rawPool = [...(existingData || []), ...(insertedData || newSeeds)];
+  // Combine only items that have real database IDs
+  const pool = [...(existingData || []), ...(insertedData || [])];
   
-  // 5. CLEAN & MAP: Ensure every object has the required fields
-  const finalQueue = rawPool
-    .filter(item => item && item.title && item.title !== "Hermes GPU Special")
+  const finalQueue = pool
+    .filter(item => item && item.id) // ONLY keep items with a real UUID
     .sort(() => 0.5 - Math.random())
-    .slice(0, 10)
-    .map((item: any) => ({
-      item_id: item.id || `temp-${Math.random()}`, // Fallback ID if DB insert failed
-      keyword: item.title,
-      title: item.title,
-      ticker: item.ticker || "GEN"
-    }));
+    .slice(0, 10);
 
-  console.log(`✅ Queueing ${finalQueue.length} nodes for scanning.`);
-  return finalQueue;
+  console.log(`✅ Queueing ${finalQueue.length} nodes with valid UUIDs.`);
+  return finalQueue.map(item => ({
+    item_id: item.id,
+    keyword: item.title,
+    title: item.title,
+    ticker: item.ticker
+  }));
 }
 
 // DELETE the old single-run block and REPLACE it with this:
