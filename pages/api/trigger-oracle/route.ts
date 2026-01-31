@@ -11,13 +11,13 @@ export async function POST() {
 
     // Spawn the process
     // 'npx tsx' allows us to run TypeScript files directly in production/dev
-    const process = spawn("npx", ["tsx", scriptPath], {
+    const oracleprocess = spawn("npx", ["tsx", scriptPath], {
       detached: true,
       stdio: "ignore", // We let it run in the background
     });
 
     // Unref allows the parent (this API) to exit while the child continues
-    process.unref();
+    oracleprocess.unref();
 
     return NextResponse.json({ 
       success: true, 
