@@ -50,7 +50,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error("Invalid Tier Selected");
     }
 
-    // 3. Create Checkout Session
+// 3. Create Checkout Session
+    const APP_URL = 'https://flip-black-two.vercel.app'; // <--- ADD YOUR ACTUAL VERCEL URL HERE
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -60,8 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       ],
       mode: 'subscription',
-      success_url: `${req.headers.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.origin}/pricing`,
+      // CHANGE THESE TWO LINES:
+      success_url: `${APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/pricing`,
       customer_email: email,
       metadata: {
         userId: userId,
