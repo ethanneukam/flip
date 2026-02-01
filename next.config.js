@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  trailingSlash: true, // <--- ADD THIS LINE
+  // output: 'export', // KEEP THIS COMMENTED OUT FIRST
+  trailingSlash: true, 
   images: {
     unoptimized: true,
     domains: [
