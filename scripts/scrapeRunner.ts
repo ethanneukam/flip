@@ -101,7 +101,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
             ticker: result.title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
             flip_price: 0
           }, { onConflict: 'title' });
-          
+           
           // Log only the first 40 chars to keep logs clean
           console.log(`🌱 Harvested: ${result.title.slice(0, 40)}...`);
         }
@@ -114,6 +114,34 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         }]);
         if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
       }
+
+      // --- 🕸️ RELATED ITEMS DEEP EXPANSION 🕸️ ---
+      // This scans the current page for "Related Items" or "Customers Also Bought" links
+      try {
+        const relatedLinks = await page.$$eval('a', (anchors: any[]) => 
+          anchors
+            .map(a => ({ text: a.innerText, href: a.href }))
+            .filter(a => a.text.length > 15 && a.text.length < 100 && (a.href.includes('/dp/') || a.href.includes('/product/') || a.href.includes('/ip/')))
+            .slice(0, 4) // Grab 4 related items per scan to grow network
+        );
+
+        if (relatedLinks.length > 0) {
+           console.log(`    🕸️ Web Expansion: Found ${relatedLinks.length} related items.`);
+           const relatedSeeds = relatedLinks.map(link => ({
+              title: link.text.trim(),
+              ticker: link.text.trim().substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
+              flip_price: 0,
+              last_updated: new Date().toISOString()
+           }));
+
+           // Feed these back into the Brain
+           await supabase.from("items").upsert(relatedSeeds, { onConflict: 'title' });
+        }
+      } catch (relatedErr) {
+          // Silently fail on related items so we don't crash the main price check
+      }
+      // ---------------------------------------------
+
       return validPrices; 
     }
     return [];
@@ -128,7 +156,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
 export async function main(searchKeyword?: string) {
   console.log("🚀 Starting Market Oracle...");
   const items = await getItemsToScrape(searchKeyword);
-  
+   
   if (items.length === 0) {
     console.log("⚠️ No items found to scrape. Check your 'items' table in Supabase.");
     return;
@@ -148,7 +176,7 @@ export async function main(searchKeyword?: string) {
 
     for (const item of batch) {
       console.log(`\n--- Market Scan: ${item.title} ---`); // Use title for logs
-      
+       
       let allPrices: number[] = [];
 
       for (const scraper of allScrapers) {
@@ -285,14 +313,14 @@ async function getItemsToScrape(searchKeyword?: string) {
 
   // Combine real database items
   const pool = [...(existingData || []), ...(insertedData || [])];
-  
+   
   const finalQueue = pool
     .filter(item => item && item.id) 
     .sort(() => 0.5 - Math.random())
     .slice(0, 10);
 
   console.log(`✅ Queueing ${finalQueue.length} nodes with valid UUIDs.`);
-  
+   
   // MAP correctly
   return finalQueue.map(item => ({
     item_id: item.id,
