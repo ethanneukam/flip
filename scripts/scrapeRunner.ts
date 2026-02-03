@@ -11,6 +11,13 @@ const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", 
 const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", "Camping Tent", "Power Drill", "Action Camera", "Skincare Set"];
 const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable"];
 
+function generateAutonomousKeyword(): string {
+  const b = BRANDS[Math.floor(Math.random() * BRANDS.length)];
+  const c = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+  const m = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
+  return `${b} ${c} ${m}`;
+}
+
 function generateUniqueTicker(title: string): string {
   const base = title.substring(0, 5).toUpperCase().replace(/[^A-Z]/g, '');
   const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
