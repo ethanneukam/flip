@@ -11,11 +11,10 @@ const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", 
 const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", "Camping Tent", "Power Drill", "Action Camera", "Skincare Set"];
 const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable"];
 
-function generateAutonomousKeyword(): string {
-  const b = BRANDS[Math.floor(Math.random() * BRANDS.length)];
-  const c = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
-  const m = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
-  return `${b} ${c} ${m}`;
+function generateUniqueTicker(title: string): string {
+  const base = title.substring(0, 5).toUpperCase().replace(/[^A-Z]/g, '');
+  const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+  return `${base}-${randomSuffix}`; // Result: APPLE-XJ3
 }
 
 export interface ScraperResult {
@@ -94,17 +93,18 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         validPrices.push(result.price);
 
         // --- IMPROVED HARVESTER ---
-        if (result.title && result.title.length > 10) {
-          // This saves REAL product names to the DB
-          await supabase.from("items").upsert({
-            title: result.title,
-            ticker: result.title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
-            flip_price: 0
-          }, { onConflict: 'title' });
-           
-          // Log only the first 40 chars to keep logs clean
-          console.log(`🌱 Harvested: ${result.title.slice(0, 40)}...`);
-        }
+ if (result.title && result.title.length > 10) {
+  await supabase.from("items").upsert({
+    title: result.title,
+    ticker: generateUniqueTicker(result.title), // Ensure uniqueness here too
+    flip_price: 0
+  }, { 
+    onConflict: 'ticker', // Now we conflict on the ticker restriction
+    ignoreDuplicates: true  // If ticker exists, just skip this one
+  });
+  
+  console.log(`🌱 Harvested: ${result.title.slice(0, 40)}...`);
+}
 
         const { error: logError } = await supabase.from("price_logs").insert([{ 
           item_id, 
@@ -281,16 +281,15 @@ async function getItemsToScrape(searchKeyword?: string) {
 
   // 3. Brain Generation
   console.log("🧠 Brain Triggered: Generating fresh seeds...");
-  const seeds = Array.from({ length: 15 }).map(() => {
-    const title = generateAutonomousKeyword();
-    return {
-      title,
-      ticker: title.substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
-      flip_price: 0,
-      last_updated: new Date().toISOString()
-    };
-  });
-
+const seeds = Array.from({ length: 15 }).map(() => {
+  const title = generateAutonomousKeyword();
+  return {
+    title,
+    ticker: generateUniqueTicker(title), // Uses the new unique generator
+    flip_price: 0,
+    last_updated: new Date().toISOString()
+  };
+});
   // 4. Force save seeds (WITH ERROR LOGGING)
   const { data: insertedData, error: seedError } = await supabase
     .from("items")
