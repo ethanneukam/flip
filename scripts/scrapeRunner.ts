@@ -5,6 +5,7 @@ import { chromium, BrowserContext, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
+import { gradeItemCondition } from "./aiGrader";
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
 const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
@@ -100,19 +101,35 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
         validPrices.push(result.price);
 
         // --- IMPROVED HARVESTER ---
- if (result.title && result.title.length > 10) {
-  await supabase.from("items").upsert({
-    title: result.title,
-    ticker: generateUniqueTicker(result.title), // Ensure uniqueness here too
-    flip_price: 0
-  }, { 
-    onConflict: 'ticker', // Now we conflict on the ticker restriction
-    ignoreDuplicates: true  // If ticker exists, just skip this one
-  });
-  
-  console.log(`🌱 Harvested: ${result.title.slice(0, 40)}...`);
-}
-
+// --- IMPROVED HARVESTER (WITH AI BRAIN) ---
+        if (result.title && result.title.length > 10) {
+          
+          // 🧠 ASK THE AI FOR A GRADE
+          console.log(`    🧠 Grading: ${result.title.substring(0, 30)}...`);
+          // Note: Passing result.condition (if it exists) helps the AI, otherwise it uses the title
+          const grading = await gradeItemCondition(result.title, result.condition || "");
+       
+          // 💾 SAVE TO SUPABASE WITH THE NEW DATA
+          const { error } = await supabase.from("items").upsert({
+            title: result.title,
+            // Use result.ticker if the scraper found one, otherwise generate it
+            ticker: result.ticker || generateUniqueTicker(result.title), 
+            flip_price: result.price, // Initialize with the found price
+            condition_grade: grading.grade,
+            condition_score: grading.score,
+            ai_notes: grading.notes
+          }, { 
+            onConflict: 'ticker',
+            ignoreDuplicates: true 
+          });
+       
+          if (!error) {
+            console.log(`    ✨ Rated [${grading.grade}] - ${grading.notes}`);
+          } else {
+             // Optional: Log error if needed, but usually we ignore dups
+             // console.error(error.message);
+          }
+        }
         const { error: logError } = await supabase.from("price_logs").insert([{ 
           item_id, 
           price: result.price, 
