@@ -1,12 +1,31 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import MarketChart from "@/components/oracle/MarketChart";
-import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera, Bell, Lock } from "lucide-react";
+import { Search, ShieldCheck, Activity, ArrowUpRight, Loader2, ChevronRight, Camera, Bell, Lock, Globe, Ship, Percent, TrendingUp } from "lucide-react";
 import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path if needed
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
 import { UpgradeModal } from "@/components/UpgradeModel";
 
+function GlobalTicker() {
+    return (
+      <div className="w-full bg-blue-600 text-white py-1.5 overflow-hidden whitespace-nowrap border-b border-white/20 shadow-lg z-50">
+        <div className="animate-marquee inline-block font-black text-[10px] uppercase tracking-[0.2em]">
+          <span className="mx-4 text-white/90">USD/JPY: 148.22 <span className="text-green-300">▲</span></span>
+          <span className="mx-4 text-white/90">USD/GBP: 0.79 <span className="text-red-300">▼</span></span>
+          <span className="mx-4 text-blue-200">IMPORT DUTY (JP): 10%</span>
+          <span className="mx-4 text-blue-200">IMPORT DUTY (UK): 5%</span>
+          <span className="mx-4 text-yellow-400">NODE STATUS: 5 REGIONS ACTIVE</span>
+          <span className="mx-4 text-white/90">EU VAT ADJ: +15%</span>
+          <span className="mx-4 text-white/90">ARBITRAGE SPREAD (GLOBAL): 14.2% AVG</span>
+          {/* Duplicate for seamless loop */}
+          <span className="mx-4 text-white/90">USD/JPY: 148.22 ▲</span>
+          <span className="mx-4 text-white/90">USD/GBP: 0.79 ▼</span>
+          <span className="mx-4 text-blue-200">IMPORT DUTY (JP): 10%</span>
+        </div>
+      </div>
+    );
+  }
 export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
   const [data, setData] = useState<any>(null);
@@ -201,9 +220,11 @@ const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
 return (
   <> {/* <--- ADD THIS OPENING FRAGMENT */}
-  <main className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-mono pb-24">
-    {/* Top Header */}
-    <div className="flex justify-between items-center border-b border-white/10 p-4 bg-[#0A0A0A] sticky top-0 z-10">
+ <GlobalTicker /> {/* <--- Ticker stays at the absolute top */}
+      <main className="min-h-screen bg-[#0A0A0A] text-white flex flex-col font-mono pb-24">
+        
+        {/* Top Header (Remains the same) */}
+        <div className="flex justify-between items-center border-b border-white/10 p-4 bg-[#0A0A0A] sticky top-0 z-10">
       <div>
         <h1 className="text-blue-500 font-black text-xs uppercase tracking-widest">Oracle Terminal v1.1</h1>
         <p className="text-[10px] text-gray-500 uppercase">Broker_Layout // {new Date().toLocaleTimeString()}</p>
@@ -307,7 +328,52 @@ return (
                 <MarketChart itemId={data?.id} ticker={ticker} />
               </div>
             </div>
+{/* NEW: Global Arbitrage Radar (The "Fleshed Out" Part) */}
+                <div className="bg-gradient-to-br from-blue-900/20 to-black border border-blue-500/30 rounded-2xl p-4 shadow-xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                      <Globe size={14} className="animate-spin-slow" /> Global_Arbitrage_Engine
+                    </h3>
+                    <div className="flex gap-2">
+                      <span className="bg-blue-500/20 text-blue-400 text-[8px] px-2 py-0.5 rounded border border-blue-500/30">JP_NODE: ON</span>
+                      <span className="bg-green-500/20 text-green-400 text-[8px] px-2 py-0.5 rounded border border-green-500/30">UK_NODE: ON</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Japan Node Card */}
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <div className="flex justify-between text-[9px] text-gray-500 mb-1 uppercase"><span>Origin</span><span>Net Profit</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold flex items-center gap-1"><Globe size={10} className="text-red-500"/> TOKYO_JP</span>
+                        <span className="text-sm font-black text-green-400">+${(marketPrice * 0.18).toFixed(2)}</span>
+                      </div>
+                      <div className="mt-2 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="bg-green-500 h-full w-[72%]" />
+                      </div>
+                    </div>
 
+                    {/* London Node Card */}
+                    <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+                      <div className="flex justify-between text-[9px] text-gray-500 mb-1 uppercase"><span>Origin</span><span>Net Profit</span></div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold flex items-center gap-1"><Globe size={10} className="text-blue-500"/> LONDON_UK</span>
+                        <span className="text-sm font-black text-green-400">+${(marketPrice * 0.09).toFixed(2)}</span>
+                      </div>
+                      <div className="mt-2 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="bg-green-500 h-full w-[45%]" />
+                      </div>
+                    </div>
+
+                    {/* Landed Cost Summary */}
+                    <div className="bg-blue-600/10 p-3 rounded-xl border border-blue-500/20 flex flex-col justify-center">
+                       <p className="text-[8px] text-blue-400 uppercase font-black tracking-widest">Est_Landed_Cost</p>
+                       <p className="text-lg font-black text-white">${(marketPrice * 1.12 + 45).toFixed(2)}</p>
+                       <p className="text-[8px] text-gray-500 italic">Includes 10% Duty + $45 DHL Shipping</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             {/* Ingestion Nodes (Under Chart) */}
             <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
               <h3 className="text-[10px] font-black text-gray-500 uppercase mb-3 tracking-widest">Market_Ingestion_Nodes</h3>
@@ -396,18 +462,34 @@ return (
               </div>
             </div>
           </div> {/* End Column 1 */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+               
+</div> {/* End Far Right Column */}
         </div> {/* End Grid */}
       </div> {/* End Main Content Area */}
     </div> {/* End Flex Wrapper */}
 
     <BottomNav />
-    
-    <style jsx>{`
-      .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-    `}</style>
   </main>
+
+      {/* Global Marquee CSS */}
+      <style jsx global>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: inline-block;
+          animation: marquee 30s linear infinite;
+        }
+        .animate-spin-slow {
+          animation: spin 8s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
 {/* PRICE ALERT MODAL */}
   {isAlertModalOpen && data && (
