@@ -6,17 +6,52 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers";
 import { gradeItemCondition } from "./aiGrader";
+import { convertToUSD } from "./fxEngine";
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
 const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
 const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", "Camping Tent", "Power Drill", "Action Camera", "Skincare Set"];
 const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable"];
 
+const GLOBAL_NODES = [
+  { region: 'US', tld: '.com', currency: 'USD', platforms: ['Amazon', 'eBay', 'StockX', 'Walmart', 'Goat'] },
+  { region: 'JP', tld: '.co.jp', currency: 'JPY', platforms: ['Amazon', 'Mercari', 'YahooJP', 'Rakuten'] },
+  { region: 'UK', tld: '.co.uk', currency: 'GBP', platforms: ['Amazon', 'eBay', 'Depop'] },
+  { region: 'EU', tld: '.de', currency: 'EUR', platforms: ['Amazon', 'eBay', 'Grailed'] },
+  { region: 'AU', tld: '.com.au', currency: 'AUD', platforms: ['Amazon', 'eBay'] }
+];
+
 function generateAutonomousKeyword(): string {
   const b = BRANDS[Math.floor(Math.random() * BRANDS.length)];
   const c = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
   const m = MODIFIERS[Math.floor(Math.random() * MODIFIERS.length)];
   return `${b} ${c} ${m}`;
+}
+
+function calculateLandedCost(basePriceUsd: number, originRegion: string): number {
+  if (originRegion === 'US') return basePriceUsd;
+
+  let dutyMultiplier = 1.0;
+  let flatShipping = 0;
+
+  switch (originRegion) {
+    case 'JP':
+      dutyMultiplier = 1.10; // 10% Import Duty
+      flatShipping = 65;     // DHL Express from Tokyo
+      break;
+    case 'UK':
+    case 'EU':
+      dutyMultiplier = 1.05; // 5% Duty
+      flatShipping = 45;     // Transatlantic Priority
+      break;
+    case 'AU':
+      dutyMultiplier = 1.05;
+      flatShipping = 55;
+      break;
+  }
+
+  // Formula: (Price * Duty) + Shipping
+  return (basePriceUsd * dutyMultiplier) + flatShipping;
 }
 
 function generateUniqueTicker(title: string): string {
@@ -78,17 +113,19 @@ async function applyStealthAndOptimization(page: Page) {
 
 const wait = (min = 1500, max = 4000) => new Promise((res) => setTimeout(res, Math.random() * (max - min) + min));
 
-async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string) {
+async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string, tld: string = ".com", region: string = "US") {
   const page = await context.newPage();
   await applyStealthAndOptimization(page);
   page.setDefaultTimeout(30000); 
 
   try {
-    console.log(`    🔍 [${scraper.source}] Initializing: "${keyword}"`);
+    // UPDATE THIS LINE: Log the region and TLD
+    console.log(`    🔍 [${scraper.source} ${region}] Initializing: "${keyword}" on ${tld}`);
     await wait(1000, 2000);
 
     const results = await Promise.race([
-      scraper.scrape(page, keyword),
+      // UPDATE THIS LINE: Pass tld to the scraper
+      scraper.scrape(page, keyword, tld), 
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 50000))
     ]) as ScraperResult[] | null;
 
@@ -201,15 +238,27 @@ export async function main(searchKeyword?: string) {
     for (const item of batch) {
       console.log(`\n--- Market Scan: ${item.title} ---`); // Use title for logs
        
-      let allPrices: number[] = [];
+let allPrices: number[] = [];
 
-      for (const scraper of allScrapers) {
-        // Use 'keyword' for scraping (what we type into Amazon)
-        const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword);
-        if (pricesFromSource.length > 0) {
-          allPrices = [...allPrices, ...pricesFromSource];
+      for (const node of GLOBAL_NODES) {
+        console.log(`  🌍 Switching to Node: ${node.region} (${node.currency})`);
+        
+        for (const scraper of allScrapers) {
+          // Only run if the platform is relevant for this country node
+          if (!node.platforms.includes(scraper.source)) continue;
+
+          const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
+          
+          if (pricesFromSource && pricesFromSource.length > 0) {
+            for (const p of pricesFromSource) {
+              // Convert to USD and apply Landed Cost (Shipping/Duty)
+              const convertedPrice = await convertToUSD(p, node.currency);
+              const landedPrice = calculateLandedCost(convertedPrice, node.region);
+              allPrices.push(landedPrice);
+            }
+          }
+          await wait(2000, 4000); 
         }
-        await wait(2000, 4000); 
       }
 
      if (allPrices.length > 0) {
@@ -279,6 +328,35 @@ export async function main(searchKeyword?: string) {
 
   await browser.close();
   console.log("\n🏁 Market Scan Complete.");
+}
+async function runGlobalMarketScan(item: any, context: any) {
+  for (const node of GLOBAL_NODES) {
+    console.log(`🌍 Node Triggered: ${node.region} (${node.currency})`);
+    
+    for (const scraper of allScrapers) {
+      // Only run scraper if it supports the platform in this node
+      if (!node.platforms.includes(scraper.source)) continue;
+
+      const results = await scraper.scrape(context, item.keyword, node.tld);
+      
+      for (const res of results) {
+        const usdPrice = await convertToUSD(res.price, node.currency);
+        
+        // Landed Cost Calculation (The "Real" Price)
+        const landedPrice = calculateLandedCost(usdPrice, node.region);
+
+        await supabase.from("price_logs").insert({
+          item_id: item.id,
+          price: landedPrice,
+          local_price: res.price,
+          currency: node.currency,
+          region: node.region,
+          url: res.url,
+          source: scraper.source
+        });
+      }
+    }
+  }
 }
 
 async function getItemsToScrape(searchKeyword?: string) {
