@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 import { Globe, ArrowUpRight, Ship, Percent } from 'lucide-react';
 
 export default function ArbitrageRadar() {
