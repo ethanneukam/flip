@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, Activity, Box, DollarSign, Globe, 
-  Zap, ShieldCheck, Cpu, layers, ArrowUpRight, BarChart3, Clock
+  Zap, ShieldCheck, Cpu, Layers, ArrowUpRight, BarChart3, Clock
 } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
