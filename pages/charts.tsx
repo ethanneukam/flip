@@ -212,7 +212,32 @@ const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
       setIsScanning(false);
     }
   };
+const handleAcquireAsset = async (scannedItem: any) => {
+  setLoading(true);
+  
+  // We assume 'scannedItem' contains the data from your /api/ai-scan and current price logs
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert([{
+      title: scannedItem.title,
+      ticker: scannedItem.ticker,
+      acquired_price: scannedItem.currentPrice, // The "Landed Cost" we calculated
+      market_value: scannedItem.currentPrice,
+      condition_grade: scannedItem.grade || 'A',
+      image_url: scannedItem.image,
+      status: 'held'
+    }]);
 
+  if (error) {
+    console.error("❌ Acquisition Failed:", error.message);
+    toast.error("Asset acquisition failed.");
+  } else {
+    toast.success(`${scannedItem.ticker} added to your vault!`);
+    // Optionally trigger a refresh of the inventory list
+  }
+  setLoading(false);
+};
+    
   const marketPrice = data?.flip_price || 0; // Use flip_price here
   const estimatedFees = marketPrice * 0.1325;
   const shippingCost = 15.00;
