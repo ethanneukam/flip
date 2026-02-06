@@ -240,6 +240,13 @@ const handleAcquireAsset = async (scannedItem: any) => {
 };
     
  const handleInstantSell = async (inventoryItem: any) => {
+     // 1. Get the current user session
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    toast.error("You must be logged in to sell.");
+    return;
+  }
   const sellPrice = inventoryItem.market_value;
   const profit = sellPrice - inventoryItem.acquired_price;
 
