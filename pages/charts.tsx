@@ -6,6 +6,7 @@ import { PriceAlertModal } from "@/components/PriceAlertModal"; // Update path i
 import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
 import { UpgradeModal } from "@/components/UpgradeModel";
+import { toast, Toaster } from 'react-hot-toast';
 
 function GlobalTicker() {
     return (
@@ -323,7 +324,7 @@ return (
               )}
             </div>
           </div>
-
+<Toaster position="top-right" />
           {/* RIGHT: MAIN CONTENT AREA */}
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
