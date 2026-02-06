@@ -71,7 +71,7 @@ export interface ScraperResult {
 
 export interface Scraper {
   source: string;
-  scrape: (page: any, keyword: string) => Promise<ScraperResult[] | null>;
+  scrape: (page: any, keyword: string, tld?: string) => Promise<ScraperResult[] | null>;
 }
 
 const supabase = createClient(
@@ -329,31 +329,41 @@ let allPrices: number[] = [];
   await browser.close();
   console.log("\n🏁 Market Scan Complete.");
 }
-async function runGlobalMarketScan(item: any, context: any) {
+async function runGlobalMarketScan(item: any, context: BrowserContext) {
   for (const node of GLOBAL_NODES) {
     console.log(`🌍 Node Triggered: ${node.region} (${node.currency})`);
     
     for (const scraper of allScrapers) {
-      // Only run scraper if it supports the platform in this node
       if (!node.platforms.includes(scraper.source)) continue;
 
-      const results = await scraper.scrape(context, item.keyword, node.tld);
-      
-      for (const res of results) {
-        const usdPrice = await convertToUSD(res.price, node.currency);
-        
-        // Landed Cost Calculation (The "Real" Price)
-        const landedPrice = calculateLandedCost(usdPrice, node.region);
+      // Open a new page for this node scan
+      const page = await context.newPage();
+      await applyStealthAndOptimization(page);
 
-        await supabase.from("price_logs").insert({
-          item_id: item.id,
-          price: landedPrice,
-          local_price: res.price,
-          currency: node.currency,
-          region: node.region,
-          url: res.url,
-          source: scraper.source
-        });
+      try {
+        // Now passing 3 arguments: page, keyword, and tld
+        const results = await scraper.scrape(page, item.keyword, node.tld);
+        
+        if (results) {
+          for (const res of results) {
+            const usdPrice = await convertToUSD(res.price, node.currency);
+            const landedPrice = calculateLandedCost(usdPrice, node.region);
+
+            await supabase.from("price_logs").insert({
+              item_id: item.id,
+              price: landedPrice,
+              local_price: res.price,
+              currency: node.currency,
+              region: node.region,
+              url: res.url,
+              source: scraper.source
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`❌ [${scraper.source}] Node Scan Error:`, err);
+      } finally {
+        await page.close();
       }
     }
   }
