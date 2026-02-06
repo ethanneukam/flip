@@ -1,25 +1,46 @@
 // pages/api/ai-scan.ts
+import fetch from "node-fetch";
+
+const OLLAMA_URL = "http://localhost:11434/api/generate";
+
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   const { image } = req.body; // Base64 string from camera
 
-  // Call OpenAI Vision or Google Vision
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o",
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: "Identify this exact luxury item. Return ONLY the product name and model number. No prose." },
-          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
-        ]
-      }]
-    })
-  });
+  if (!image) {
+    return res.status(400).json({ error: 'No image data provided' });
+  }
 
-  const aiResult = await response.json();
-  const productName = aiResult.choices[0].message.content;
+  // Ollama vision models (like llava) require raw base64 without the "data:image/jpeg;base64," prefix
+  const cleanBase64 = image.replace(/^data:image\/\w+;base64,/, "");
 
-  res.status(200).json({ productName });
+  try {
+    const response = await fetch(OLLAMA_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llava", // Use 'llava' for vision; 'mistral' is text-only
+        prompt: "Identify this exact luxury item or electronic. Return ONLY the product name and model number. No prose, no conversation.",
+        images: [cleanBase64],
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Ollama Error: ${response.statusText}`);
+
+    const data: any = await response.json();
+    
+    // Clean up the response to ensure it's just the product name
+    const productName = data.response.trim();
+
+    console.log(`📸 Vision Scan Result: ${productName}`);
+    res.status(200).json({ productName });
+
+  } catch (error) {
+    console.error("🧠 Local Vision AI Error:", error);
+    res.status(500).json({ error: "Local Vision AI Offline. Ensure 'ollama run llava' is active." });
+  }
 }
