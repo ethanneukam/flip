@@ -46,13 +46,14 @@ export default function InvestorCommandCenter() {
       setPriceLogs(logs.slice(0, 40));
       setInventory(inv);
       setMetrics(prev => ({
-        ...prev,
-        dayVol: vol24h,
-        weekVol: vol7d,
-        yearVol: projectedYear,
-        tps: (logs.length / 60).toFixed(2), // Transactions Per Minute proxy
-        avgMargin: 12.4 // Hardcoded logic or calculated from (market_value - acquired)
-      }));
+  ...prev,
+  dayVol: vol24h,
+  weekVol: vol7d,
+  yearVol: projectedYear,
+  // Wrap this in Number() to fix the Type Error
+  tps: Number((logs.length / 60).toFixed(2)), 
+  avgMargin: 12.4 
+}));
     }
     setLoading(false);
   };
