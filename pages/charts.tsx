@@ -239,6 +239,30 @@ const handleAcquireAsset = async (scannedItem: any) => {
   setLoading(false);
 };
     
+ const handleInstantSell = async (inventoryItem: any) => {
+  const sellPrice = inventoryItem.market_value;
+  const profit = sellPrice - inventoryItem.acquired_price;
+
+  // 1. Update Inventory status to 'sold'
+  const { error: invError } = await supabase
+    .from('inventory')
+    .update({ status: 'sold' })
+    .eq('id', inventoryItem.id);
+
+  if (invError) return toast.error("Liquidity Check Failed.");
+
+  // 2. Record the Trade
+  await supabase.from('trades').insert([{
+    user_id: user.id,
+    item_id: inventoryItem.id,
+    type: 'SELL',
+    amount: sellPrice
+  }]);
+
+  // 3. Update User Balance (Simulated here, usually done via RPC)
+  toast.success(`Sold for $${sellPrice.toFixed(2)}! Net: $${profit.toFixed(2)}`);
+};   
+    
   const marketPrice = data?.flip_price || 0; // Use flip_price here
   const estimatedFees = marketPrice * 0.1325;
   const shippingCost = 15.00;
