@@ -1,0 +1,13 @@
+services:
+  - type: worker
+    name: oracle-scraper-worker
+    env: docker
+    region: ohio # Close to US-East
+    plan: free # No credit card required
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false # You'll set this in the dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OLLAMA_URL
+        sync: false
