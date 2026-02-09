@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
+import http from "http"; // <--- ADD THIS LINE
 import { chromium, BrowserContext, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
@@ -441,13 +442,24 @@ const seeds = Array.from({ length: 15 }).map(() => {
   }));
 }
 
-// DELETE the old single-run block and REPLACE it with this:
+// REPLACE the bottom block with this:
 if (require.main === module) {
+  // 1. START HEARTBEAT SERVER (RENDER + CRON-JOB.ORG)
+  const PORT = process.env.PORT || 10000;
+  http.createServer((req, res) => {
+    console.log(`Ping received at ${new Date().toISOString()}`);
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('ALIVE');
+  }).listen(PORT, '0.0.0.0', () => {
+    console.log(`📡 Heartbeat Monitoring active on port ${PORT}`);
+  });
+
+  // 2. START INFINITE SCRAPER LOOP
   (async () => {
     console.log("♾️ Market Oracle: Infinite Mode Activated");
     while (true) {
       try {
-        // We pass the search keyword from the command line if it exists
+        // Pass the search keyword from the command line if it exists
         await main(process.argv[2]); 
         
         console.log("⏳ Batch complete. Resting for 30 seconds...");
