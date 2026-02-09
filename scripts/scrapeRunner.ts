@@ -444,8 +444,10 @@ const seeds = Array.from({ length: 15 }).map(() => {
 
 // REPLACE the bottom block with this:
 if (require.main === module) {
-  // 1. START HEARTBEAT SERVER (RENDER + CRON-JOB.ORG)
-  const PORT = process.env.PORT || 10000;
+  // 1. START HEARTBEAT SERVER (FIXED FOR TYPESCRIPT)
+  // We use Number() to force the environment variable into a numeric type
+  const PORT = Number(process.env.PORT) || 10000;
+
   http.createServer((req, res) => {
     console.log(`Ping received at ${new Date().toISOString()}`);
     res.writeHead(200, { 'Content-Type': 'text/plain' });
