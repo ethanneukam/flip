@@ -447,28 +447,34 @@ const seeds = Array.from({ length: 15 }).map(() => {
 const isMain = process.argv[1].includes('scrapeRunner');
 
 if (isMain) {
-  // 1. START HEARTBEAT SERVER
+  // 1. START HEARTBEAT SERVER (Crucial for Render)
   const PORT = Number(process.env.PORT) || 10000;
-
-  http.createServer((req, res) => {
-    console.log(`Ping received at ${new Date().toISOString()}`);
+  
+  const server = http.createServer((req, res) => {
+    // console.log(`Ping received at ${new Date().toISOString()}`); // Uncomment to debug pings
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('ALIVE');
-  }).listen(PORT, '0.0.0.0', () => {
+  });
+
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`📡 Heartbeat Monitoring active on port ${PORT}`);
   });
 
   // 2. START INFINITE SCRAPER LOOP
   (async () => {
     console.log("♾️ Market Oracle: Infinite Mode Activated");
+    
+    // Initial delay to let server settle
+    await new Promise(res => setTimeout(res, 2000));
+
     while (true) {
       try {
         await main(process.argv[2]); 
-        
         console.log("⏳ Batch complete. Resting for 30 seconds...");
         await new Promise(res => setTimeout(res, 30000)); 
-      } catch (e) {
-        console.error("❌ Loop Error:", e);
+      } catch (e: any) {
+        console.error("❌ LOOP CRASH:", e.message);
+        if (e.stack) console.error(e.stack);
         await new Promise(res => setTimeout(res, 5000));
       }
     }
