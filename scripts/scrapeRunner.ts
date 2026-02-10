@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers/index.js";
 import { gradeItemCondition } from "./aiGrader.js";
-import { convertToUSD } from "./fxEngine";
+import { convertToUSD } from "./fxEngine.js";
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
 const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
