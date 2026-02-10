@@ -242,7 +242,7 @@ export async function main(searchKeyword?: string) {
 });
 
   const context = await browser.newContext();
-  const BATCH_SIZE = 2;
+  const BATCH_SIZE = 1;
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
