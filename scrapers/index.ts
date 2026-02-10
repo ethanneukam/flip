@@ -1,13 +1,13 @@
-import { amazonScraper } from "./amazonScraper";
-import { ebayScraper } from "./ebayScraper";
-import { bestbuyScraper } from "./bestbuyScraper";
-import { craigslistScraper } from "./craigslistScraper";
-import { etsyScraper } from "./etsyScraper";
-import { facebookScraper } from "./facebookScraper";
-import { offerupScraper } from "./offerupScraper";
-import { stockxScraper } from "./stockxScraper";
-import { targetScraper } from "./targetScraper";
-import { walmartScraper } from "./walmartScraper";
+import { amazonScraper } from "./amazonScraper.js";
+import { ebayScraper } from "./ebayScraper.js";
+import { bestbuyScraper } from "./bestbuyScraper.js";
+import { craigslistScraper } from "./craigslistScraper.js";
+import { etsyScraper } from "./etsyScraper.js";
+import { facebookScraper } from "./facebookScraper.js";
+import { offerupScraper } from "./offerupScraper.js";
+import { stockxScraper } from "./stockxScraper.js";
+import { targetScraper } from "./targetScraper.js";
+import { walmartScraper } from "./walmartScraper.js";
 export * from "./types";
 
 export const allScrapers = [
