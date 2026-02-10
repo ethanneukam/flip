@@ -1,5 +1,5 @@
 import { Page } from "playwright";
-import { Scraper, ScraperResult } from "../scripts/scrapeRunner";
+import { Scraper, ScraperResult } from "./scraper-types";
 
 /**
  * Retries a scraper if it fails or times out.
