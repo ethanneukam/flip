@@ -226,6 +226,10 @@ export async function main(searchKeyword?: string) {
     '--single-process', // Crucial: Keeps everything in one process
     '--disable-extensions',
     '--no-zygote',
+    '--disable-setuid-sandbox',
+    '--disable-accelerated-2d-canvas',
+    '--proxy-server="direct://"',
+    '--proxy-bypass-list=*',
     '--js-flags="--max-old-space-size=256"' // Limits V8 engine memory
   ]
 })
@@ -474,10 +478,11 @@ while (true) {
         await main(process.argv[2]); 
         console.log("⏳ Batch complete. Resting...");
         await new Promise(res => setTimeout(res, 30000)); 
-      } catch (e: any) {
-        // This will force the logs to show you what's actually inside that [object Object]
-        console.error("❌ REAL ERROR REVEALED:");
-        console.error(e?.message || JSON.stringify(e)); 
+ } catch (e: any) {
+        console.error("❌ ORACLE CRASH DETECTED");
+        // This line forces the hidden error details to print
+        console.error(JSON.stringify(e, Object.getOwnPropertyNames(e))); 
+        
         await new Promise(res => setTimeout(res, 10000));
       }
     }
