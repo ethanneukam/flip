@@ -443,7 +443,7 @@ const seeds = Array.from({ length: 15 }).map(() => {
 }
 
 // REPLACE the bottom block with this:
-// --- ESM COMPATIBLE BOOTSTRAP ---
+// --- ENTRY POINT ---
 const isMain = process.argv[1].includes('scrapeRunner');
 
 if (isMain) {
@@ -451,7 +451,6 @@ if (isMain) {
   const PORT = Number(process.env.PORT) || 10000;
   
   const server = http.createServer((req, res) => {
-    // console.log(`Ping received at ${new Date().toISOString()}`); // Uncomment to debug pings
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('ALIVE');
   });
@@ -473,9 +472,9 @@ if (isMain) {
         console.log("⏳ Batch complete. Resting for 30 seconds...");
         await new Promise(res => setTimeout(res, 30000)); 
       } catch (e: any) {
-        console.error("❌ LOOP CRASH:", e.message);
-        if (e.stack) console.error(e.stack);
-        await new Promise(res => setTimeout(res, 5000));
+        console.error("❌ LOOP CRASH:", e?.message || e);
+        // Prevent infinite rapid-fire crashes
+        await new Promise(res => setTimeout(res, 10000));
       }
     }
   })();
