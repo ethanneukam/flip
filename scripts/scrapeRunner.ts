@@ -8,6 +8,7 @@ import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers/index.js";
 import { gradeItemCondition } from "./aiGrader.js";
 import { convertToUSD } from "./fxEngine.js";
+import { Scraper, ScraperResult } from "../lib/scraper-types.js";
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
 const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
@@ -61,19 +62,6 @@ function generateUniqueTicker(title: string): string {
   return `${base}-${randomSuffix}`; // Result: APPLE-XJ3
 }
 
-export interface ScraperResult {
-  price: number;
-  url: string;
-  condition?: string;
-  title?: string;
-  image_url?: string | null;
-  ticker?: string;
-}
-
-export interface Scraper {
-  source: string;
-  scrape: (page: any, keyword: string, tld?: string) => Promise<ScraperResult[] | null>;
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
