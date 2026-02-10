@@ -224,10 +224,16 @@ export async function main(searchKeyword?: string) {
     return;
   }
 
-  const browser = await chromium.launch({ 
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
-  });
+ const browser = await chromium.launch({
+  args: [
+    '--disable-dev-shm-usage', // Forces Chromium to use /tmp instead of memory
+    '--no-sandbox',            // Reduces memory overhead
+    '--disable-gpu',           // Essential for servers without a graphics card
+    '--single-process',        // Forces everything into one process to save RAM
+    '--disable-extensions',
+    '--no-zygote'
+  ]
+});
 
   const context = await browser.newContext();
   const BATCH_SIZE = 5;
