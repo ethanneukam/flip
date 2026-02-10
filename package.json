@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-   "start": "node --loader ts-node/esm --max-old-space-size=300 scripts/scrapeRunner.ts"
+   "start": "node --loader ts-node/esm --max-old-space-size=300 scripts/scrapeRunner.ts",
     "worker": "npx ts-node scripts/scrapeRunner.ts"
   },
   "dependencies": {
