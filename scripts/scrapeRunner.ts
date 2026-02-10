@@ -101,11 +101,17 @@ async function applyStealthAndOptimization(page: Page) {
     'referer': 'https://www.google.com/',
     'accept-language': 'en-US,en;q=0.9',
   });
+
+  // BLOCKING IMAGES, FONTS, AND CSS TO SAVE RAM
   await page.route('**/*', (route) => {
     const url = route.request().url();
     const type = route.request().resourceType();
     const blockList = ['google-analytics', 'doubleclick', 'facebook.com', 'adsystem', 'amazon-adsystem', 'ads-twitter'];
-    if (blockList.some(domain => url.includes(domain)) || ['image', 'media', 'font', 'stylesheet'].includes(type)) {
+    
+    if (
+      blockList.some(domain => url.includes(domain)) || 
+      ['image', 'media', 'font', 'stylesheet', 'other'].includes(type)
+    ) {
       return route.abort();
     }
     route.continue();
@@ -236,7 +242,7 @@ export async function main(searchKeyword?: string) {
 });
 
   const context = await browser.newContext();
-  const BATCH_SIZE = 5;
+  const BATCH_SIZE = 2;
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
