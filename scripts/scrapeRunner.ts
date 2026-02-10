@@ -5,7 +5,7 @@ import http from "http"; // <--- ADD THIS LINE
 import { chromium, BrowserContext, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
-import { allScrapers } from "../scrapers";
+import { allScrapers } from "../scrapers/index.js";
 import { gradeItemCondition } from "./aiGrader";
 import { convertToUSD } from "./fxEngine";
 
