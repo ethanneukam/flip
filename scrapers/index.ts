@@ -8,7 +8,7 @@ import { offerupScraper } from "./offerupScraper.js";
 import { stockxScraper } from "./stockxScraper.js";
 import { targetScraper } from "./targetScraper.js";
 import { walmartScraper } from "./walmartScraper.js";
-export * from "./types";
+export * from "./types.js";
 
 export const allScrapers = [
   amazonScraper,
