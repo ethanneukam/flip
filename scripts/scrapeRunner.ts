@@ -1,3 +1,13 @@
+process.on('unhandledRejection', (reason: any) => {
+  console.error("🕵️ CRITICAL ERROR UNMASKED:");
+  if (reason instanceof Error) {
+    console.error(reason.stack);
+  } else {
+    console.error(JSON.stringify(reason, Object.getOwnPropertyNames(reason)));
+  }
+  process.exit(1);
+});
+
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
@@ -63,9 +73,13 @@ function generateUniqueTicker(title: string): string {
 }
 
 
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("❌ MISSING SUPABASE KEYS! Check your Render Environment Variables.");
+}
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 function calculateMedian(values: number[]): number {
