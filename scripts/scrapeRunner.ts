@@ -6,7 +6,7 @@ import { chromium, BrowserContext, Page } from "playwright";
 import { createClient } from "@supabase/supabase-js";
 import UserAgent from "user-agents";
 import { allScrapers } from "../scrapers/index.js";
-import { gradeItemCondition } from "./aiGrader";
+import { gradeItemCondition } from "./aiGrader.js";
 import { convertToUSD } from "./fxEngine";
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
