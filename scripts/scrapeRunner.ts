@@ -443,9 +443,11 @@ const seeds = Array.from({ length: 15 }).map(() => {
 }
 
 // REPLACE the bottom block with this:
-if (require.main === module) {
-  // 1. START HEARTBEAT SERVER (FIXED FOR TYPESCRIPT)
-  // We use Number() to force the environment variable into a numeric type
+// --- ESM COMPATIBLE BOOTSTRAP ---
+const isMain = process.argv[1].includes('scrapeRunner');
+
+if (isMain) {
+  // 1. START HEARTBEAT SERVER
   const PORT = Number(process.env.PORT) || 10000;
 
   http.createServer((req, res) => {
@@ -461,14 +463,13 @@ if (require.main === module) {
     console.log("♾️ Market Oracle: Infinite Mode Activated");
     while (true) {
       try {
-        // Pass the search keyword from the command line if it exists
         await main(process.argv[2]); 
         
         console.log("⏳ Batch complete. Resting for 30 seconds...");
-        await wait(30000, 30000); 
+        await new Promise(res => setTimeout(res, 30000)); 
       } catch (e) {
         console.error("❌ Loop Error:", e);
-        await wait(5000, 5000); // Short wait before retrying on error
+        await new Promise(res => setTimeout(res, 5000));
       }
     }
   })();
