@@ -444,10 +444,12 @@ const seeds = Array.from({ length: 15 }).map(() => {
 
 // REPLACE the bottom block with this:
 // --- ENTRY POINT ---
-const isMain = process.argv[1].includes('scrapeRunner');
+// This ensures the scraper ONLY runs when executed directly, 
+// preventing the "double-start" memory crash on Render.
+const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
 
 if (isMain) {
-  // 1. START HEARTBEAT SERVER (Crucial for Render)
+  // 1. START HEARTBEAT SERVER (Satisfies Render's Port Check)
   const PORT = Number(process.env.PORT) || 10000;
   
   const server = http.createServer((req, res) => {
@@ -463,17 +465,19 @@ if (isMain) {
   (async () => {
     console.log("♾️ Market Oracle: Infinite Mode Activated");
     
-    // Initial delay to let server settle
+    // Give the server a moment to breathe
     await new Promise(res => setTimeout(res, 2000));
 
     while (true) {
       try {
+        // Run the main scraping logic
         await main(process.argv[2]); 
+        
         console.log("⏳ Batch complete. Resting for 30 seconds...");
         await new Promise(res => setTimeout(res, 30000)); 
       } catch (e: any) {
-        console.error("❌ LOOP CRASH:", e?.message || e);
-        // Prevent infinite rapid-fire crashes
+        // Catch the [object Object] error here so the app doesn't die
+        console.error("❌ LOOP ERROR:", e);
         await new Promise(res => setTimeout(res, 10000));
       }
     }
