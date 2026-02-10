@@ -220,14 +220,15 @@ export async function main(searchKeyword?: string) {
 
  const browser = await chromium.launch({
   args: [
-    '--disable-dev-shm-usage', // Forces Chromium to use /tmp instead of memory
-    '--no-sandbox',            // Reduces memory overhead
-    '--disable-gpu',           // Essential for servers without a graphics card
-    '--single-process',        // Forces everything into one process to save RAM
+    '--disable-dev-shm-usage',
+    '--no-sandbox',
+    '--disable-gpu',
+    '--single-process', // Crucial: Keeps everything in one process
     '--disable-extensions',
-    '--no-zygote'
+    '--no-zygote',
+    '--js-flags="--max-old-space-size=256"' // Limits V8 engine memory
   ]
-});
+})
 
   const context = await browser.newContext();
   const BATCH_SIZE = 1;
@@ -468,16 +469,15 @@ if (isMain) {
     // Give the server a moment to breathe
     await new Promise(res => setTimeout(res, 2000));
 
-    while (true) {
+while (true) {
       try {
-        // Run the main scraping logic
         await main(process.argv[2]); 
-        
-        console.log("⏳ Batch complete. Resting for 30 seconds...");
+        console.log("⏳ Batch complete. Resting...");
         await new Promise(res => setTimeout(res, 30000)); 
       } catch (e: any) {
-        // Catch the [object Object] error here so the app doesn't die
-        console.error("❌ LOOP ERROR:", e);
+        // This will force the logs to show you what's actually inside that [object Object]
+        console.error("❌ REAL ERROR REVEALED:");
+        console.error(e?.message || JSON.stringify(e)); 
         await new Promise(res => setTimeout(res, 10000));
       }
     }
