@@ -1,17 +1,18 @@
+# Use the official Playwright image which has all browsers pre-installed
 FROM mcr.microsoft.com/playwright:v1.56.1-jammy
 
 WORKDIR /app
 
-# Copy package files
+# Install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy rest of the code
+# Copy source code
 COPY . .
-RUN npx tsc --noEmit || true
 
-# Set environment variables (Railway will override these)
-ENV NODE_ENV=production
+# Environment variables to help with memory and logging
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV TS_NODE_TRANSPILE_ONLY=true
 
-# Command to run your infinite scraper
-CMD ["npx", "ts-node", "scripts/scrapeRunner.ts"]
+# Run the scraper directly
+CMD ["npm", "start"]
