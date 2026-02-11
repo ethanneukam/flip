@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-  "start": "NODE_OPTIONS='--trace-warnings --unhandled-rejections=strict' node --loader ts-node/esm --max-old-space-size=400 scripts/scrapeRunner.ts",
+"build": "tsc",
+  "start": "node --max-old-space-size=400 dist/scripts/scrapeRunner.js",
     "worker": "npx ts-node scripts/scrapeRunner.ts"
   },
   "dependencies": {
