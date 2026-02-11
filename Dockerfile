@@ -8,6 +8,7 @@ RUN npm install
 
 # Copy rest of the code
 COPY . .
+RUN npx tsc
 
 # Set environment variables (Railway will override these)
 ENV NODE_ENV=production
