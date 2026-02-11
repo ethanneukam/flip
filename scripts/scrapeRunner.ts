@@ -1,9 +1,10 @@
 process.on('unhandledRejection', (reason: any) => {
-  console.error("🕵️ CRITICAL ERROR UNMASKED:");
+  console.error("🚨 CRITICAL CRASH DETECTED 🚨");
   if (reason instanceof Error) {
+    console.error(reason.message);
     console.error(reason.stack);
   } else {
-    console.error(JSON.stringify(reason, Object.getOwnPropertyNames(reason)));
+    console.error(JSON.stringify(reason, null, 2));
   }
   process.exit(1);
 });
