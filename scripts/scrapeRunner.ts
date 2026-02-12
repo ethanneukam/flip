@@ -1,13 +1,23 @@
-process.on('unhandledRejection', (reason: any) => {
-  console.error("🚨 CRITICAL CRASH DETECTED 🚨");
+process.on('unhandledRejection', (reason) => {
+  console.error("________________________________________________");
+  console.error("🚨 CRITICAL ERROR CAUGHT INSIDE SCRAPER 🚨");
   if (reason instanceof Error) {
-    console.error(reason.message);
     console.error(reason.stack);
   } else {
+    // This fixes the [object Object] issue
     console.error(JSON.stringify(reason, null, 2));
   }
+  console.error("________________________________________________");
   process.exit(1);
 });
+
+// Check Environment Variables immediately
+const requiredVars = ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const missing = requiredVars.filter(key => !process.env[key]);
+if (missing.length > 0) {
+  console.error("❌ MISSING ENV VARS:", missing);
+  process.exit(1);
+}
 
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
