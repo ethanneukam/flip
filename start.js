@@ -1,40 +1,46 @@
-// start.js - KEEPS RENDER ALIVE
+// start.js - OPTIMIZED FOR CRON JOBS
 import { createServer } from 'node:http';
 import { register } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-console.log("⚠️ STARTING LAUNCHER WITH SERVER ⚠️");
-
-// 1. START A DUMMY WEB SERVER (Satisfies Render)
+// 1. MINIMALIST SERVER (Returns strictly "OK" to satisfy cron-job.org)
 const port = process.env.PORT || 3000;
 const server = createServer((req, res) => {
+    // Force a tiny response to prevent "Output too large"
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Scraper is running in the background.');
+    res.end('OK');
 });
 
 server.listen(port, () => {
-    console.log(`✅ HTTP Server listening on port ${port} (Keeps Render alive)`);
+    console.log(`✅ HTTP Server listening on port ${port}`);
+
+    // 2. THE TRICK: Wait 2 seconds before launching the scraper.
+    // This gives the server time to "settle" and answer the health check immediately.
+    setTimeout(() => {
+        launchScraper();
+    }, 2000);
 });
 
-// 2. ERROR HANDLERS (Keep these to catch crashes)
+async function launchScraper() {
+    try {
+        console.log("📝 Registering TypeScript loader...");
+        // Only register if not already registered (prevents errors on re-runs)
+        try { register("ts-node/esm", pathToFileURL("./")); } catch (e) {}
+
+        console.log("🚀 Launching scraper in background...");
+        // We import purely for side-effects (running the script)
+        await import('./scripts/scrapeRunner.ts'); 
+    } catch (e) {
+        console.error("❌ SCRAPER ERROR:", e);
+    }
+}
+
+// 3. SAFETY NETS (Keep the app alive if scraper crashes)
 process.on('uncaughtException', (err) => {
-    console.error("💀 UNCAUGHT EXCEPTION:", err);
-    // Don't exit immediately, let the server keep running if possible
+    console.error("💀 SILENT CRASH CAUGHT:", err.message);
+    // Do not exit. Let the server stay alive for Render.
 });
 
 process.on('unhandledRejection', (reason) => {
-    console.error("🔴 UNHANDLED REJECTION:", reason);
+    console.error("🔴 PROMISE REJECTED:", reason);
 });
-
-// 3. LAUNCH YOUR SCRAPER
-try {
-    console.log("📝 Registering TypeScript loader...");
-    register("ts-node/esm", pathToFileURL("./"));
-    
-    console.log("🚀 Launching scrapeRunner.ts...");
-    // We don't await this because we want the server to run in parallel
-    import('./scripts/scrapeRunner.ts'); 
-    
-} catch (e) {
-    console.error("❌ FAILED TO LOAD SCRIPT:", e);
-}
