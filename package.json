@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
 "build": "echo 'Skipping build'",
-  "start": "node --no-warnings start.js",
+  "start":  "node seedFactory.js && node start.js",
     "worker": "npx ts-node scripts/scrapeRunner.ts"
   },
   "dependencies": {
