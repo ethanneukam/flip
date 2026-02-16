@@ -266,10 +266,19 @@ export async function main(searchKeyword?: string) {
     const batch = items.slice(i, i + BATCH_SIZE);
     console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)`);
 
-    for (const item of batch) {
-      console.log(`\n--- Market Scan: ${item.title} ---`); // Use title for logs
-       
-let allPrices: number[] = [];
+for (const item of batch) {
+  console.log(`\n--- Market Scan: ${item.title} ---`);
+
+  // 🧠 PRE-SCAN SANITY CHECK
+  // Stop the Oracle from searching for "DeWalt GPUs" or "Canon Tents"
+  const sanityCheck = await gradeItemCondition(item.title);
+  if (!sanityCheck.is_real) {
+    console.log(`🗑️ Skipping "${item.title}": Marked as Hallucination by AI.`);
+    await supabase.from("items").delete().eq("id", item.item_id);
+    continue; // Move to the next item immediately
+  }
+
+  let allPrices: number[] = [];
 
       for (const node of GLOBAL_NODES) {
         console.log(`  🌍 Switching to Node: ${node.region} (${node.currency})`);
