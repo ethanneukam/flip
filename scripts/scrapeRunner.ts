@@ -278,7 +278,7 @@ export async function main(searchKeyword?: string) {
     '--disable-accelerated-2d-canvas',
     '--proxy-server="direct://"',
     '--proxy-bypass-list=*',
-    '--js-flags="--max-old-space-size=256"' // Limits V8 engine memory
+    '--js-flags="--max-old-space-size=128"' // Limits V8 engine memory
   ]
 })
 
@@ -528,7 +528,8 @@ async function getItemsToScrape(searchKeyword?: string) {
 // We export this function so start.js can trigger it
 export async function startScraperLoop() {
   console.log("♾️ Market Oracle: Loop Activated via Controller");
-
+const used = process.memoryUsage().heapUsed / 1024 / 1024;
+console.log(`📊 Memory Usage: ${Math.round(used * 100) / 100} MB`);
   // Infinite Loop
   while (true) {
     try {
