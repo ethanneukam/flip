@@ -547,7 +547,14 @@ export async function startScraperLoop() {
     }
   }
 }
-
+try {
+  await runScraper(currentSeed);
+} catch (error) {
+  console.error("❌ Scraper encountered an issue");
+} finally {
+  // CRITICAL: Ensure the browser closes even if the scrape fails/times out
+  if (browser) await browser.close(); 
+}
 // Keep this for local testing (node scripts/scrapeRunner.ts)
 const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
 if (isMain) {
