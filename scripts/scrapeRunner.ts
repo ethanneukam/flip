@@ -473,43 +473,35 @@ const seeds = Array.from({ length: 15 }).map(() => {
 }
 
 // REPLACE the bottom block with this:
-// --- ENTRY POINT ---
-// This ensures the scraper ONLY runs when executed directly, 
-// preventing the "double-start" memory crash on Render.
-const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
+// ... (All the code above remains the same)
 
-if (isMain) {
-  // 1. START HEARTBEAT SERVER (Satisfies Render's Port Check)
-  const PORT = Number(process.env.PORT) || 10000;
-  
-  const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('ALIVE');
-  });
+// --- REPLACED BOTTOM BLOCK ---
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`📡 Heartbeat Monitoring active on port ${PORT}`);
-  });
+// We export this function so start.js can trigger it
+export async function startScraperLoop() {
+  console.log("♾️ Market Oracle: Loop Activated via Controller");
 
-  // 2. START INFINITE SCRAPER LOOP
-  (async () => {
-    console.log("♾️ Market Oracle: Infinite Mode Activated");
-    
-    // Give the server a moment to breathe
-    await new Promise(res => setTimeout(res, 2000));
+  // Infinite Loop
+  while (true) {
+    try {
+      // 1. Run the Main Batch
+      await main(); 
+      
+      console.log("⏳ Batch complete. Cooling down for 30s...");
+      await new Promise(res => setTimeout(res, 30000)); 
 
-while (true) {
-      try {
-        await main(process.argv[2]); 
-        console.log("⏳ Batch complete. Resting...");
-        await new Promise(res => setTimeout(res, 30000)); 
- } catch (e: any) {
-        console.error("❌ ORACLE CRASH DETECTED");
-        // This line forces the hidden error details to print
-        console.error(JSON.stringify(e, Object.getOwnPropertyNames(e))); 
-        
-        await new Promise(res => setTimeout(res, 10000));
-      }
+    } catch (e: any) {
+      console.error("❌ ORACLE CRASH DETECTED");
+      console.error(JSON.stringify(e, Object.getOwnPropertyNames(e))); 
+      
+      // Safety pause so we don't spam errors
+      await new Promise(res => setTimeout(res, 10000));
     }
-  })();
+  }
+}
+
+// Keep this for local testing (node scripts/scrapeRunner.ts)
+const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
+if (isMain) {
+    startScraperLoop();
 }
