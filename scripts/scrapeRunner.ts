@@ -30,6 +30,8 @@ import { allScrapers } from "../scrapers/index.js";
 import { gradeItemCondition } from "./aiGrader.js";
 import { convertToUSD } from "./fxEngine.js";
 import { Scraper, ScraperResult } from "../lib/scraper-types.js";
+import fs from 'fs';
+import readline from 'readline';
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
 const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
@@ -107,6 +109,27 @@ function calculateMedian(values: number[]): number {
     : (validPrices[mid - 1] + validPrices[mid]) / 2;
 }
 
+async function* createSeedGenerator(shardId = 0) {
+  const filePath = `./seeds-${shardId}.txt`;
+  
+  if (!fs.existsSync(filePath)) {
+    console.error(`❌ SEED FILE MISSING: ${filePath} (Run "node seedFactory.js" first!)`);
+    return;
+  }
+
+  const fileStream = fs.createReadStream(filePath);
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity
+  });
+
+  for await (const line of rl) {
+    if (line.trim()) yield line.trim();
+  }
+}
+
+// 2. Start the generator instance immediately
+const seedStream = createSeedGenerator(0); // Change '0' if using shards
 async function applyStealthAndOptimization(page: Page) {
   const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
   await page.setExtraHTTPHeaders({
@@ -433,15 +456,31 @@ async function getItemsToScrape(searchKeyword?: string) {
 
   // 3. Brain Generation
   console.log("🧠 Brain Triggered: Generating fresh seeds...");
-const seeds = Array.from({ length: 15 }).map(() => {
-  const title = generateAutonomousKeyword();
-  return {
-    title,
-    ticker: generateUniqueTicker(title), // Uses the new unique generator
+// --- REPLACEMENT START ---
+  
+  // 1. Pull the next 15 lines from our massive file
+  const nextSeeds: string[] = [];
+  
+  for (let i = 0; i < 15; i++) {
+    const { value, done } = await seedStream.next();
+    if (done) {
+      console.log("🏁 Seed file exhausted! Restarting scraper or shutting down...");
+      break; // You might want to process.exit(0) here or restart the loop
+    }
+    if (value) nextSeeds.push(value);
+  }
+
+  // 2. Map file seeds to your database structure
+  const seeds = nextSeeds.map(title => ({
+    title: title,
+    ticker: generateUniqueTicker(title), // Keep your existing ticker logic
     flip_price: 0,
     last_updated: new Date().toISOString()
-  };
-});
+  }));
+
+  // --- REPLACEMENT END ---
+
+  // ... (Keep your existing Supabase code below exactly as is) ...
   // 4. Force save seeds (WITH ERROR LOGGING)
   const { data: insertedData, error: seedError } = await supabase
     .from("items")
