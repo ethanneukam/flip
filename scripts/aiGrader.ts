@@ -1,51 +1,36 @@
-import fetch from "node-fetch";
+// scripts/aiGrader.ts
+import env from "dotenv";
+env.config();
 
-const OLLAMA_URL = "http://localhost:11434/api/generate";
-
-interface GradingResult {
-  grade: string;
-  score: number;
-  notes: string;
-}
-
-export async function gradeItemCondition(title: string, description: string = ""): Promise<GradingResult> {
-  const prompt = `
-    You are an expert appraiser for an asset exchange. 
-    Analyze the following product text. 
-    Look for keywords indicating damage (scratches, cracks, dents, used) vs value (sealed, new, mint, pro).
-    
-    Product: "${title} ${description}"
-    
-    Return ONLY a JSON object. No markdown. No other text. Format:
-    {
-      "grade": "String (A=Mint/Sealed, B=Good, C=Fair/Used, F=Damaged)",
-      "score": Number (0.0 to 1.0),
-      "notes": "Short reason for grade (max 5 words)"
-    }
-  `;
-
+// Example using Groq (Fast & Free tier available) or OpenAI
+export async function gradeItemCondition(title: string) {
   try {
-    const response = await fetch(OLLAMA_URL, {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Authorization": `Bearer ${process.env.AI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        model: "mistral", // Change this to "tinyllama" if you downloaded that instead
-        prompt: prompt,
-        stream: false,
-        format: "json" 
-      }),
+        model: "llama-3.3-70b-versatile", // Or gpt-4o-mini
+        messages: [
+          {
+            role: "system",
+            content: "You are a product authenticator. Your job is to determine if a product is a real, existing consumer good. If the product is fake (e.g., 'Dyson Sneakers'), mark it as 'FAKE'. If real, provide a market value grade."
+          },
+          {
+            role: "user",
+            content: `Analyze this asset: "${title}"`
+          }
+        ],
+        response_format: { type: "json_object" }
+      })
     });
 
-    const data: any = await response.json();
-    const result = JSON.parse(data.response);
-    
-    return {
-      grade: result.grade || "C",
-      score: typeof result.score === 'number' ? result.score : 0.5,
-      notes: result.notes || "Analyzed"
-    };
-  } catch (error) {
-    console.error("🧠 AI Error:", error);
-    return { grade: "NR", score: 0.5, notes: "AI Offline" };
+    const data = await response.json();
+    return JSON.parse(data.choices[0].message.content);
+  } catch (err) {
+    console.error("AI Layer Offline:", err.message);
+    return { status: "unknown" };
   }
 }
