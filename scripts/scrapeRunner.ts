@@ -526,37 +526,42 @@ async function getItemsToScrape(searchKeyword?: string) {
 // --- REPLACED BOTTOM BLOCK ---
 
 // We export this function so start.js can trigger it
-export async function startScraperLoop() {
-  console.log("♾️ Market Oracle: Loop Activated via Controller");
-const used = process.memoryUsage().heapUsed / 1024 / 1024;
-console.log(`📊 Memory Usage: ${Math.round(used * 100) / 100} MB`);
-  // Infinite Loop
-  while (true) {
-    try {
-      // 1. Run the Main Batch
-      await main(); 
-      
-      console.log("⏳ Batch complete. Cooling down for 30s...");
-      await new Promise(res => setTimeout(res, 30000)); 
+// --- REPLACED BOTTOM BLOCK ---
 
-    } catch (e: any) {
-      console.error("❌ ORACLE CRASH DETECTED");
-      console.error(JSON.stringify(e, Object.getOwnPropertyNames(e))); 
-      
-      // Safety pause so we don't spam errors
-      await new Promise(res => setTimeout(res, 10000));
-    }
+// Helper for the generator (matching the name used in your loop)
+async function* getSeedGenerator(shardId = 0) {
+  const filePath = `./seeds-${shardId}.txt`;
+  if (!fs.existsSync(filePath)) {
+    console.error(`❌ SEED FILE MISSING: ${filePath}`);
+    return;
+  }
+  const fileStream = fs.createReadStream(filePath);
+  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (line.trim()) yield line.trim();
   }
 }
-try {
-  await runScraper(currentSeed);
-} catch (error) {
-  console.error("❌ Scraper encountered an issue");
-} finally {
-  // CRITICAL: Ensure the browser closes even if the scrape fails/times out
-  if (browser) await browser.close(); 
+
+export async function startScraperLoop(shardId = 0) {
+  console.log("♾️ Market Oracle: Loop Activated via Controller");
+  
+  while (true) {
+    try {
+      // We call main() which already handles the getItemsToScrape logic
+      // and the browser launching internal to your current code.
+      await main(); 
+      
+      console.log("😴 Batch complete. Cooling down...");
+    } catch (error: any) {
+      console.error("❌ Scraper Loop encountered an issue:", error.message);
+    }
+
+    // Wait 30 seconds before starting the next batch of 10 seeds
+    await new Promise(resolve => setTimeout(resolve, 30000));
+  }
 }
-// Keep this for local testing (node scripts/scrapeRunner.ts)
+
+// Keep this for local testing
 const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
 if (isMain) {
     startScraperLoop();
