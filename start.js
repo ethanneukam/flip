@@ -2,27 +2,36 @@ import { createServer } from 'node:http';
 import { register } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-const port = process.env.PORT || 3000;
+// Render prefers 10000, fallback to 3000 for local dev
+const port = process.env.PORT || 10000;
 
-// 1. THE WEB SERVER (Keeps Render Happy)
+// 1. THE WEB SERVER (Satisfies Render's Health Check)
 const server = createServer((req, res) => {
-    console.log("📥 Ping received");
+    // Basic health check endpoint
+    if (req.url === '/health') {
+        res.writeHead(200);
+        res.end('ALIVE');
+        return;
+    }
+    
+    console.log(`📥 Ping received: ${req.method} ${req.url}`);
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('OK');
+    res.end('ORACLE_ONLINE');
 });
 
-server.listen(port, () => {
-    console.log(`✅ Server live on port ${port}`);
+// CRITICAL: Explicitly bind to '0.0.0.0' for Render
+server.listen(port, '0.0.0.0', () => {
+    console.log(`✅ Server live on port ${port} (Bound to 0.0.0.0)`);
     
     // 2. LAUNCH THE SCRAPER
-    setTimeout(launchScraper, 2000);
+    // We start this after the server is up so the health check passes immediately
+    launchScraper();
 });
 
 async function launchScraper() {
     try {
-        console.log("📝 Registering Environment...");
+        console.log("📝 Registering TypeScript Loader...");
         
-        // Use the scraper-specific config we made earlier
         register("ts-node/esm", {
             parentURL: pathToFileURL("./"),
             project: "./tsconfig.scraper.json" 
@@ -30,18 +39,29 @@ async function launchScraper() {
 
         console.log("🚀 Importing Scraper Logic...");
         
-        // DYNAMIC IMPORT + EXECUTION
-        const scraperModule = await import('./scripts/scrapeRunner.ts');
+        // Use a cache-busting timestamp if you ever need to hot-reload
+        const scraperModule = await import(`./scripts/scrapeRunner.ts?update=${Date.now()}`);
         
-        // EXECUTE THE LOOP
         if (scraperModule.startScraperLoop) {
-            console.log("🟢 Triggering Infinite Loop...");
-            scraperModule.startScraperLoop();
+            console.log("🟢 Oracle Loop Triggered.");
+            // We don't 'await' this because it's an infinite loop
+            scraperModule.startScraperLoop().catch(err => {
+                console.error("🚨 FATAL LOOP ERROR:", err);
+            });
         } else {
-            console.error("❌ ERROR: startScraperLoop not found in scrapeRunner.ts");
+            console.error("❌ ERROR: startScraperLoop export missing.");
         }
         
     } catch (e) {
         console.error("❌ BOOT FAILED:", e);
+        // On a boot failure, we keep the HTTP server alive so you can check logs 
+        // without Render constanty rebooting the container
     }
 }
+
+// Handle unexpected kills
+process.on('SIGTERM', () => {
+    console.log('👋 SIGTERM received. Shutting down gracefully...');
+    server.close();
+    process.exit(0);
+});
