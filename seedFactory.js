@@ -32,9 +32,8 @@ function generateMassiveList(shardId = 0, shardTotal = 1) {
       for (const storage of storagePool) {
         for (const condition of ATTRIBUTES.CONDITION) {
           for (const region of ATTRIBUTES.REGIONS) {
-              const seed = `${item.brand} ${item.model} ${year} ${storage} ${condition} ${region}`.replace(/\s+/g, ' ').trim();
-              allSeeds.push(seed);
-            }
+            const seed = `${item.brand} ${item.model} ${year} ${storage} ${condition} ${region}`.replace(/\s+/g, ' ').trim();
+            allSeeds.push(seed);
           }
         }
       }
@@ -66,4 +65,5 @@ const args = process.argv.slice(2);
 const shardId = parseInt(args[0] || "0");
 const shardTotal = parseInt(args[1] || "1");
 
+generateMassiveList(shardId, shardTotal);
 generateMassiveList(shardId, shardTotal);
