@@ -278,7 +278,7 @@ export async function main(searchKeyword?: string) {
     for (const item of batch) {
       console.log(`\n--- Market Scan: ${item.title} ---`);
 
-      // 1. Sanity Check First (Saves AI Tokens & RAM)
+      // 1. Sanity Check First
       const sanityCheck = await gradeItemCondition(item.title);
       if (!sanityCheck.is_real) {
         console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
@@ -286,7 +286,7 @@ export async function main(searchKeyword?: string) {
         continue; 
       }
 
-      // 2. Fresh Browser per Item (RAM Stability)
+      // 2. Fresh Browser per Item
       let browser = null;
       try {
         browser = await chromium.launch({
@@ -332,32 +332,11 @@ export async function main(searchKeyword?: string) {
             message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
             metadata: { price: flip_price, ticker: item.ticker || "ASSET" }
           }]);
-
-          // Handle Alerts
-          const { data: alerts } = await supabase.from("price_alerts")
-            .select("*").eq("item_id", item.item_id).eq("is_active", true);
-
-          if (alerts) {
-            for (const alert of alerts) {
-              const triggered = (alert.condition === 'below' && flip_price <= alert.target_price) ||
-                                (alert.condition === 'above' && flip_price >= alert.target_price);
-              if (triggered) {
-                await supabase.from("feed_events").insert([{
-                  user_id: alert.user_id,
-                  item_id: item.item_id,
-                  type: 'PRICE_ALERT',
-                  title: `🚨 Price Target Hit!`,
-                  message: `🚨 ALERT: ${item.title} hit target of $${alert.target_price}!`,
-                }]);
-                await supabase.from("price_alerts").update({ is_active: false }).eq("id", alert.id);
-              }
-            }
-          }
         } else {
           console.log(`🗑️ No data for "${item.title}". Removing.`);
           await supabase.from("items").delete().eq("id", item.item_id);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("❌ Scraper Error:", err.message);
       } finally {
         if (browser) {
@@ -365,15 +344,10 @@ export async function main(searchKeyword?: string) {
           console.log("🧹 RAM Purged.");
         }
       }
-   } // End for (const item of batch)
-      if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
-    } // End for (let i = 0; i < items.length; i += BATCH_SIZE)
-  } catch (err: any) {
-    console.error("❌ Batch Item Error:", err.message);
-  } finally {
-    // Fail-safe logic
-  }
-} // End function main
+    } // End item loop
+    if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
+  } // End batch loop
+}// End function main
 
 async function runGlobalMarketScan(item: any, context: BrowserContext) {
   for (const node of GLOBAL_NODES) {
