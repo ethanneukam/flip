@@ -57,16 +57,23 @@ export const amazonScraper: Scraper = {
         });
       }, baseUrl);
 
-      const filteredResults = results
-        .filter(item => item.rawPrice && item.asin)
+ const filteredResults = results
+        .filter(item => item.rawPrice && item.asin) // Keep only items with price/ASIN
         .map(item => {
-          // Clean price (handles commas in EU/JP and currency symbols)
+          // 1. Improved Price Cleaning (handles "£", "¥", "$", and EU comma decimals)
           const cleanPrice = parseFloat(item.rawPrice.replace(/[^\d.,]/g, "").replace(",", "."));
+          
+          // 2. SAFE URL Check: Use the scraped URL if it exists, otherwise build it via ASIN
+          // This prevents the 'startsWith' on null error
+          const productUrl = (item.url && typeof item.url === 'string' && item.url.startsWith('http'))
+            ? item.url
+            : `${baseUrl}/dp/${item.asin}`;
+
           return {
             price: cleanPrice,
-            url: item.url.startsWith('http') ? item.url : `${baseUrl}/dp/${item.asin}`,
+            url: productUrl,
             condition: "New",
-            title: item.title,
+            title: item.title || "Unknown Product",
             ticker: keyword
           };
         })
