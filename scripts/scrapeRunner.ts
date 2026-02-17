@@ -176,8 +176,9 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
       let validPrices: number[] = [];
 
-      for (const result of results) {
-        if (!result.price || isNaN(result.price)) continue;
+    for (const result of results) {
+  if (!result.title || result.title.includes('Unknown') || result.title.length < 15) {
+    continue;
         validPrices.push(result.price);
 
         // --- IMPROVED HARVESTER ---
@@ -292,37 +293,48 @@ export async function main(searchKeyword?: string) {
 for (const item of batch) {
   console.log(`\n--- Market Scan: ${item.title} ---`);
 
-  // 🧠 PRE-SCAN SANITY CHECK
-  // Stop the Oracle from searching for "DeWalt GPUs" or "Canon Tents"
+  // 1. DO THE SANITY CHECK FIRST
+  // This saves RAM because we don't launch the browser if the item is fake!
   const sanityCheck = await gradeItemCondition(item.title);
   if (!sanityCheck.is_real) {
     console.log(`🗑️ Skipping "${item.title}": Marked as Hallucination by AI.`);
     await supabase.from("items").delete().eq("id", item.item_id);
-    continue; // Move to the next item immediately
+    continue; 
   }
 
-  let allPrices: number[] = [];
+  let browser = null;
 
-      for (const node of GLOBAL_NODES) {
-        console.log(`  🌍 Switching to Node: ${node.region} (${node.currency})`);
+  try {
+    // 2. NOW LAUNCH THE BROWSER
+    browser = await chromium.launch({
+      args: [ 
+        '--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu', 
+        '--single-process', '--no-zygote', '--no-first-run',
+        '--js-flags="--max-old-space-size=128"' 
+      ]
+    });
+    
+    const context = await browser.newContext();
+    let allPrices: number[] = [];
+
+    // 3. EXECUTE NODES
+    for (const node of GLOBAL_NODES) {
+      console.log(`  🌍 Node: ${node.region}`);
+      for (const scraper of allScrapers) {
+        if (!node.platforms.includes(scraper.source)) continue;
+
+        const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
         
-        for (const scraper of allScrapers) {
-          // Only run if the platform is relevant for this country node
-          if (!node.platforms.includes(scraper.source)) continue;
-
-          const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
-          
-          if (pricesFromSource && pricesFromSource.length > 0) {
-            for (const p of pricesFromSource) {
-              // Convert to USD and apply Landed Cost (Shipping/Duty)
-              const convertedPrice = await convertToUSD(p, node.currency);
-              const landedPrice = calculateLandedCost(convertedPrice, node.region);
-              allPrices.push(landedPrice);
-            }
+        if (pricesFromSource?.length > 0) {
+          for (const p of pricesFromSource) {
+            const convertedPrice = await convertToUSD(p, node.currency);
+            const landedPrice = calculateLandedCost(convertedPrice, node.region);
+            allPrices.push(landedPrice);
           }
-          await wait(2000, 4000); 
         }
+        await wait(1500, 3000); 
       }
+    }
 
      if (allPrices.length > 0) {
         const flip_price = calculateMedian(allPrices);
@@ -387,11 +399,17 @@ for (const item of batch) {
       }
     }
     if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
-  }
-
-  await browser.close();
-  console.log("\n🏁 Market Scan Complete.");
 }
+
+  } catch (err) {
+    console.error("❌ Batch Item Error:", err.message);
+  } finally {
+    // 5. THE FAIL-SAFE: ALWAYS CLOSE
+    if (browser) {
+      await browser.close(); 
+      console.log("🧹 RAM Purged. Browser Process Killed.");
+    }
+  }
 async function runGlobalMarketScan(item: any, context: BrowserContext) {
   for (const node of GLOBAL_NODES) {
     console.log(`🌍 Node Triggered: ${node.region} (${node.currency})`);
@@ -526,42 +544,53 @@ async function getItemsToScrape(searchKeyword?: string) {
 // --- REPLACED BOTTOM BLOCK ---
 
 // We export this function so start.js can trigger it
-// --- REPLACED BOTTOM BLOCK ---
-
-// Helper for the generator (matching the name used in your loop)
-async function* getSeedGenerator(shardId = 0) {
-  const filePath = `./seeds-${shardId}.txt`;
-  if (!fs.existsSync(filePath)) {
-    console.error(`❌ SEED FILE MISSING: ${filePath}`);
-    return;
-  }
-  const fileStream = fs.createReadStream(filePath);
-  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    if (line.trim()) yield line.trim();
-  }
-}
-
 export async function startScraperLoop(shardId = 0) {
-  console.log("♾️ Market Oracle: Loop Activated via Controller");
-  
+  const seedGenerator = getSeedGenerator(shardId);
+
   while (true) {
+    let browser = null; // Declare it here!
+
     try {
-      // We call main() which already handles the getItemsToScrape logic
-      // and the browser launching internal to your current code.
-      await main(); 
+      const { value: currentSeed, done } = await seedGenerator.next();
+      if (done) break;
+
+      // Launch with the "Low RAM" flags we discussed
+      browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--disable-dev-shm-usage',
+          '--no-sandbox',
+          '--single-process', // This is the big memory saver
+          '--disable-gpu',
+          '--no-zygote'
+        ],
+      });
+
+      const context = await browser.newContext();
+      // ... your scraping logic here ...
       
-      console.log("😴 Batch complete. Cooling down...");
-    } catch (error: any) {
-      console.error("❌ Scraper Loop encountered an issue:", error.message);
+    } catch (error) {
+      console.error("❌ Scraper encountered an issue:", error.message);
+    } finally {
+      // Check if browser exists before trying to close it
+      if (browser) {
+        await browser.close();
+        console.log("🧹 Browser closed to free up RAM.");
+      }
     }
 
-    // Wait 30 seconds before starting the next batch of 10 seeds
-    await new Promise(resolve => setTimeout(resolve, 30000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
 }
-
-// Keep this for local testing
+try {
+  await runScraper(currentSeed);
+} catch (error) {
+  console.error("❌ Scraper encountered an issue");
+} finally {
+  // CRITICAL: Ensure the browser closes even if the scrape fails/times out
+  if (browser) await browser.close(); 
+}
+// Keep this for local testing (node scripts/scrapeRunner.ts)
 const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
 if (isMain) {
     startScraperLoop();
