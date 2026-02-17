@@ -176,10 +176,12 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
       let validPrices: number[] = [];
 
-    for (const result of results) {
-  if (!result.title || result.title.includes('Unknown') || result.title.length < 15) {
-    continue;
-        validPrices.push(result.price);
+   for (const result of results) {
+      if (!result.title || result.title.includes('Unknown') || result.title.length < 15) {
+        continue; 
+      } // <--- Added missing closing brace
+      
+      validPrices.push(result.price);
 
         // --- IMPROVED HARVESTER ---
 // --- IMPROVED HARVESTER (WITH AI BRAIN) ---
@@ -363,11 +365,15 @@ export async function main(searchKeyword?: string) {
           console.log("🧹 RAM Purged.");
         }
       }
-    }
-    // Wait between batches
-    if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
+   } // End for (const item of batch)
+      if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
+    } // End for (let i = 0; i < items.length; i += BATCH_SIZE)
+  } catch (err: any) {
+    console.error("❌ Batch Item Error:", err.message);
+  } finally {
+    // Fail-safe logic
   }
-}
+} // End function main
 
 async function runGlobalMarketScan(item: any, context: BrowserContext) {
   for (const node of GLOBAL_NODES) {
@@ -540,14 +546,6 @@ export async function startScraperLoop(shardId = 0) {
 
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
-}
-try {
-  await runScraper(currentSeed);
-} catch (error) {
-  console.error("❌ Scraper encountered an issue");
-} finally {
-  // CRITICAL: Ensure the browser closes even if the scrape fails/times out
-  if (browser) await browser.close(); 
 }
 // Keep this for local testing (node scripts/scrapeRunner.ts)
 const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
