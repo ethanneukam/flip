@@ -263,153 +263,112 @@ export async function main(searchKeyword?: string) {
   const items = await getItemsToScrape(searchKeyword);
    
   if (items.length === 0) {
-    console.log("⚠️ No items found to scrape. Check your 'items' table in Supabase.");
+    console.log("⚠️ No items found to scrape. Check your 'items' table.");
     return;
   }
 
- const browser = await chromium.launch({
-  args: [
-    '--disable-dev-shm-usage',
-    '--no-sandbox',
-    '--disable-gpu',
-    '--single-process', // Crucial: Keeps everything in one process
-    '--disable-extensions',
-    '--no-zygote',
-    '--disable-setuid-sandbox',
-    '--disable-accelerated-2d-canvas',
-    '--proxy-server="direct://"',
-    '--proxy-bypass-list=*',
-    '--js-flags="--max-old-space-size=128"' // Limits V8 engine memory
-  ]
-})
-
-  const context = await browser.newContext();
   const BATCH_SIZE = 1;
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
-    console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)`);
+    console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1}`);
 
-for (const item of batch) {
-  console.log(`\n--- Market Scan: ${item.title} ---`);
+    for (const item of batch) {
+      console.log(`\n--- Market Scan: ${item.title} ---`);
 
-  // 1. DO THE SANITY CHECK FIRST
-  // This saves RAM because we don't launch the browser if the item is fake!
-  const sanityCheck = await gradeItemCondition(item.title);
-  if (!sanityCheck.is_real) {
-    console.log(`🗑️ Skipping "${item.title}": Marked as Hallucination by AI.`);
-    await supabase.from("items").delete().eq("id", item.item_id);
-    continue; 
-  }
-
-  let browser = null;
-
-  try {
-    // 2. NOW LAUNCH THE BROWSER
-    browser = await chromium.launch({
-      args: [ 
-        '--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu', 
-        '--single-process', '--no-zygote', '--no-first-run',
-        '--js-flags="--max-old-space-size=128"' 
-      ]
-    });
-    
-    const context = await browser.newContext();
-    let allPrices: number[] = [];
-
-    // 3. EXECUTE NODES
-    for (const node of GLOBAL_NODES) {
-      console.log(`  🌍 Node: ${node.region}`);
-      for (const scraper of allScrapers) {
-        if (!node.platforms.includes(scraper.source)) continue;
-
-        const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
-        
-        if (pricesFromSource?.length > 0) {
-          for (const p of pricesFromSource) {
-            const convertedPrice = await convertToUSD(p, node.currency);
-            const landedPrice = calculateLandedCost(convertedPrice, node.region);
-            allPrices.push(landedPrice);
-          }
-        }
-        await wait(1500, 3000); 
+      // 1. Sanity Check First (Saves AI Tokens & RAM)
+      const sanityCheck = await gradeItemCondition(item.title);
+      if (!sanityCheck.is_real) {
+        console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
+        await supabase.from("items").delete().eq("id", item.item_id);
+        continue; 
       }
-    }
 
-     if (allPrices.length > 0) {
-        const flip_price = calculateMedian(allPrices);
-        console.log(`✨ FINAL MARKET PRICE: $${flip_price.toFixed(2)} (${allPrices.length} data points)`);
+      // 2. Fresh Browser per Item (RAM Stability)
+      let browser = null;
+      try {
+        browser = await chromium.launch({
+         args: [ '--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu', '--single-process', '--disable-extensions', '--no-zygote', '--disable-setuid-sandbox', '--disable-accelerated-2d-canvas', '--proxy-server="direct://"', '--proxy-bypass-list=*', '--js-flags="--max-old-space-size=128"'  ]
+        });
         
-        // 1. Update the items table
-        await supabase.from("items").update({ 
-          flip_price: flip_price, 
-          last_updated: new Date().toISOString() 
-        }).eq("id", item.item_id);
+        const context = await browser.newContext();
+        let allPrices: number[] = [];
 
-        // 2. Log to the Pulse Feed (WITH ERROR CHECKING)
-        const { error: feedError } = await supabase.from("feed_events").insert([{
-          item_id: item.item_id,
-          type: 'PRICE_UPDATE',
-          title: `Price Update: ${item.ticker || 'ASSET'}`, // <--- ADD THIS LINE
-          message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
-          metadata: { 
-            price: flip_price, 
-            ticker: item.ticker || "ASSET",
-            item_id: item.item_id 
+        // 3. Scan Global Nodes
+        for (const node of GLOBAL_NODES) {
+          console.log(`  🌍 Node: ${node.region}`);
+          for (const scraper of allScrapers) {
+            if (!node.platforms.includes(scraper.source)) continue;
+
+            const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
+            
+            if (pricesFromSource?.length > 0) {
+              for (const p of pricesFromSource) {
+                const convertedPrice = await convertToUSD(p, node.currency);
+                const landedPrice = calculateLandedCost(convertedPrice, node.region);
+                allPrices.push(landedPrice);
+              }
+            }
+            await wait(1500, 3000); 
           }
-        }]);
-
-        if (feedError) {
-            console.error("❌ Feed Insert Error:", feedError.message);
-        } else {
-            console.log("✅ Feed Event Published.");
         }
 
-        // 3. Check Alerts
-        const { data: alerts } = await supabase
-          .from("price_alerts")
-          .select("*")
-          .eq("item_id", item.item_id)
-          .eq("is_active", true);
+        // 4. Update Database
+        if (allPrices.length > 0) {
+          const flip_price = calculateMedian(allPrices);
+          console.log(`✨ FINAL PRICE: $${flip_price.toFixed(2)} (${allPrices.length} data points)`);
+          
+          await supabase.from("items").update({ 
+            flip_price: flip_price, 
+            last_updated: new Date().toISOString() 
+          }).eq("id", item.item_id);
 
-        if (alerts && alerts.length > 0) {
-          for (const alert of alerts) {
-            const isTriggered = 
-              (alert.condition === 'below' && flip_price <= alert.target_price) ||
-              (alert.condition === 'above' && flip_price >= alert.target_price);
+          await supabase.from("feed_events").insert([{
+            item_id: item.item_id,
+            type: 'PRICE_UPDATE',
+            title: `Price Update: ${item.ticker || 'ASSET'}`,
+            message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
+            metadata: { price: flip_price, ticker: item.ticker || "ASSET" }
+          }]);
 
-            if (isTriggered) {
-              console.log(`🎯 ALERT TRIGGERED for User ${alert.user_id}`);
-              await supabase.from("feed_events").insert([{
-                user_id: alert.user_id,
-                item_id: item.item_id,
-                type: 'PRICE_ALERT',
-                title: `🚨 Price Target Hit!`, // <--- ADD THIS LINE
-                message: `🚨 ALERT: ${item.title} hit your target of $${alert.target_price}!`,
-                metadata: { price: flip_price, ticker: item.ticker, alert_id: alert.id }
-              }]);
-              await supabase.from("price_alerts").update({ is_active: false }).eq("id", alert.id);
+          // Handle Alerts
+          const { data: alerts } = await supabase.from("price_alerts")
+            .select("*").eq("item_id", item.item_id).eq("is_active", true);
+
+          if (alerts) {
+            for (const alert of alerts) {
+              const triggered = (alert.condition === 'below' && flip_price <= alert.target_price) ||
+                                (alert.condition === 'above' && flip_price >= alert.target_price);
+              if (triggered) {
+                await supabase.from("feed_events").insert([{
+                  user_id: alert.user_id,
+                  item_id: item.item_id,
+                  type: 'PRICE_ALERT',
+                  title: `🚨 Price Target Hit!`,
+                  message: `🚨 ALERT: ${item.title} hit target of $${alert.target_price}!`,
+                }]);
+                await supabase.from("price_alerts").update({ is_active: false }).eq("id", alert.id);
+              }
             }
           }
+        } else {
+          console.log(`🗑️ No data for "${item.title}". Removing.`);
+          await supabase.from("items").delete().eq("id", item.item_id);
         }
-      } else {
-        // If no prices found, update timestamp so we don't scan it again immediately
-       console.log(`🗑️ No market data found for "${item.title}". Removing ghost node.`);
-        await supabase.from("items").delete().eq("id", item.item_id);
+      } catch (err) {
+        console.error("❌ Scraper Error:", err.message);
+      } finally {
+        if (browser) {
+          await browser.close();
+          console.log("🧹 RAM Purged.");
+        }
       }
     }
+    // Wait between batches
     if (i + BATCH_SIZE < items.length) await wait(10000, 20000); 
+  }
 }
 
-  } catch (err) {
-    console.error("❌ Batch Item Error:", err.message);
-  } finally {
-    // 5. THE FAIL-SAFE: ALWAYS CLOSE
-    if (browser) {
-      await browser.close(); 
-      console.log("🧹 RAM Purged. Browser Process Killed.");
-    }
-  }
 async function runGlobalMarketScan(item: any, context: BrowserContext) {
   for (const node of GLOBAL_NODES) {
     console.log(`🌍 Node Triggered: ${node.region} (${node.currency})`);
