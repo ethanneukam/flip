@@ -5,7 +5,6 @@ const ATTRIBUTES = {
   STORAGE: ["128GB", "256GB", "512GB", "1TB"],
   CONDITION: ["new", "used", "refurbished"],
   REGIONS: ["US", "UK", "CA"],
-  MARKET: ["price", "resale value", "for sale"],
   YEARS: [2025, 2024, 2023]
 };
 
@@ -33,8 +32,7 @@ function generateMassiveList(shardId = 0, shardTotal = 1) {
       for (const storage of storagePool) {
         for (const condition of ATTRIBUTES.CONDITION) {
           for (const region of ATTRIBUTES.REGIONS) {
-            for (const market of ATTRIBUTES.MARKET) {
-              const seed = `${item.brand} ${item.model} ${year} ${storage} ${condition} ${region} ${market}`.replace(/\s+/g, ' ').trim();
+              const seed = `${item.brand} ${item.model} ${year} ${storage} ${condition} ${region}`.replace(/\s+/g, ' ').trim();
               allSeeds.push(seed);
             }
           }
