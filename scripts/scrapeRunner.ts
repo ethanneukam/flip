@@ -275,20 +275,27 @@ export async function main(searchKeyword?: string) {
     const batch = items.slice(i, i + BATCH_SIZE);
     console.log(`\n📦 Processing Batch ${Math.floor(i / BATCH_SIZE) + 1}`);
 
-    for (const item of batch) {
-      console.log(`\n--- Market Scan: ${item.title} ---`);
+   for (const item of batch) {
+  console.log(`\n--- Market Scan: ${item.title} ---`);
 
-      // 1. Sanity Check First
-      const sanityCheck = await gradeItemCondition(item.title);
-      if (!sanityCheck.is_real) {
-        console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
-        await supabase.from("items").delete().eq("id", item.item_id);
-        continue; 
-      }
+  // 1. Sanity Check (Keep this)
+  const sanityCheck = await gradeItemCondition(item.title);
+  if (!sanityCheck.is_real) {
+    console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
+    await supabase.from("items").delete().eq("id", item.item_id);
+    continue; 
+  }
 
-      // 2. Fresh Browser per Item
+  let allPrices: number[] = [];
+
+  // 2. Scan Sources One-by-One with Fresh Browsers
+  for (const node of GLOBAL_NODES) {
+    for (const scraper of allScrapers) {
+      if (!node.platforms.includes(scraper.source)) continue;
+
       let browser = null;
       try {
+        // Launch a fresh browser for EVERY source to keep RAM at zero-baseline
         browser = await chromium.launch({
          args: [ '--disable-dev-shm-usage', '--no-sandbox', '--disable-gpu', '--single-process', '--disable-extensions', '--no-zygote', '--disable-setuid-sandbox', '--disable-accelerated-2d-canvas', '--proxy-server="direct://"', '--proxy-bypass-list=*', '--js-flags="--max-old-space-size=128"'  ]
         });
@@ -304,16 +311,24 @@ export async function main(searchKeyword?: string) {
 
             const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
             
-            if (pricesFromSource?.length > 0) {
-              for (const p of pricesFromSource) {
-                const convertedPrice = await convertToUSD(p, node.currency);
-                const landedPrice = calculateLandedCost(convertedPrice, node.region);
-                allPrices.push(landedPrice);
-              }
-            }
-            await wait(1500, 3000); 
+     if (pricesFromSource?.length > 0) {
+          for (const p of pricesFromSource) {
+            const convertedPrice = await convertToUSD(p, node.currency);
+            const landedPrice = calculateLandedCost(convertedPrice, node.region);
+            allPrices.push(landedPrice);
           }
         }
+      } catch (err: any) {
+        console.error(`❌ Source Error [${scraper.source}]:`, err.message);
+      } finally {
+        if (browser) {
+          await browser.close();
+          console.log(`🧹 RAM Purged after ${scraper.source}.`);
+        }
+      }
+      await wait(2000, 5000); // Breathe between sources
+    }
+  }
 
         // 4. Update Database
         if (allPrices.length > 0) {
