@@ -77,8 +77,8 @@ function generateMassiveList(shardId = 0, shardTotal = 1) {
           }
         }
       }
-    }
-  }
+    
+  
 
   // Fisher-Yates Shuffle
   for (let i = allSeeds.length - 1; i > 0; i--) {
