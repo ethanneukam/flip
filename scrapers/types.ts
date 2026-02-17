@@ -13,8 +13,5 @@ export interface ScraperResult {
 
 export interface Scraper {
   source: string;
-  scrape: (
-    page: Page,
-    keyword: string
-  ) => Promise<ScraperResult[] | null>;
+  scrape: (page: any, keyword: string, tld?: string) => Promise<ScraperResult[] | null>;
 }
