@@ -483,45 +483,26 @@ async function getItemsToScrape(searchKeyword?: string) {
 // --- REPLACED BOTTOM BLOCK ---
 
 // We export this function so start.js can trigger it
-export async function startScraperLoop(shardId = 0) {
-  const seedGenerator = getSeedGenerator(shardId);
+// --- FIXED BOTTOM BLOCK ---
 
+export async function startScraperLoop() {
+  console.log("🟢 Oracle Infinite Loop Started...");
+  
   while (true) {
-    let browser = null; // Declare it here!
-
     try {
-      const { value: currentSeed, done } = await seedGenerator.next();
-      if (done) break;
-
-      // Launch with the "Low RAM" flags we discussed
-      browser = await chromium.launch({
-        headless: true,
-        args: [
-          '--disable-dev-shm-usage',
-          '--no-sandbox',
-          '--single-process', // This is the big memory saver
-          '--disable-gpu',
-          '--no-zygote'
-        ],
-      });
-
-      const context = await browser.newContext();
-      // ... your scraping logic here ...
-      
-    } catch (error) {
-      console.error("❌ Scraper encountered an issue:", error.message);
-    } finally {
-      // Check if browser exists before trying to close it
-      if (browser) {
-        await browser.close();
-        console.log("🧹 Browser closed to free up RAM.");
-      }
+      // main() already handles seed generation, batching, 
+      // and browser management internally.
+      await main(); 
+    } catch (error: any) {
+      console.error("🚨 Scraper Loop encountered a critical issue:", error.message);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    console.log("😴 Cycle complete. Cooling down for 60 seconds...");
+    await new Promise(resolve => setTimeout(resolve, 60000));
   }
 }
-// Keep this for local testing (node scripts/scrapeRunner.ts)
+
+// Entry point for local testing (node scripts/scrapeRunner.ts)
 const isMain = process.argv[1] && process.argv[1].includes('scrapeRunner');
 if (isMain) {
     startScraperLoop();
