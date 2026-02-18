@@ -159,7 +159,7 @@ const wait = (min = 1500, max = 4000) => new Promise((res) => setTimeout(res, Ma
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string, tld: string = ".com", region: string = "US") {
   const page = await context.newPage();
   await applyStealthAndOptimization(page);
-  page.setDefaultTimeout(30000); 
+  page.setDefaultTimeout(40000); 
 
   try {
     // UPDATE THIS LINE: Log the region and TLD
@@ -169,7 +169,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
     const results = await Promise.race([
       // UPDATE THIS LINE: Pass tld to the scraper
       scraper.scrape(page, keyword, tld), 
-      new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 50000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 60000))
     ]) as ScraperResult[] | null;
 
     if (results && results.length > 0) {
