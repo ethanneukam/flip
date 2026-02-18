@@ -294,16 +294,52 @@ export async function main(searchKeyword?: string) {
         let browser = null;
         try {
           // LAUNCH BROWSER (One instance per source to prevent memory leaks)
-          browser = await chromium.launch({
-            args: [ 
-              '--disable-dev-shm-usage', 
-              '--no-sandbox', 
-              '--disable-gpu', 
-              '--single-process', 
-              '--no-zygote', 
-              '--js-flags="--max-old-space-size=128"' 
-            ]
-          });
+          rowser = await chromium.launch({
+  args: [
+    // --- MEMORY & STABILITY ---
+    '--disable-dev-shm-usage',     // Uses /tmp instead of /dev/shm (essential for Docker/Render)
+    '--no-sandbox',                // Disables the security sandbox (required for many cloud hosts)
+    '--disable-setuid-sandbox',    // Additional sandbox disable
+    '--single-process',            // Forces everything into one process (massive RAM saver)
+    '--no-zygote',                 // Disables the "forking" process manager
+    '--js-flags="--max-old-space-size=128"', // Limits V8 engine memory
+
+    // --- STRIP UI & FEATURES ---
+    '--disable-gpu',               // No hardware acceleration
+    '--disable-canvas-aa',         // Disable antialiasing on canvas
+    '--disable-2d-canvas-clip-utils',
+    '--disable-gl-drawing-for-tests',
+    '--disable-extensions',        // No extensions
+    '--no-first-run',              // Skip first-run tasks
+    '--no-default-browser-check',  // Skip default browser check
+    '--disable-default-apps',      // No default apps (Google Docs, etc)
+    '--disable-sync',              // No Google account syncing
+    '--disable-browser-side-navigation',
+    '--disable-infobars',          // No "Chrome is being controlled by..." banners
+
+    // --- BACKGROUND PROCESS KILLERS ---
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-breakpad',          // No crash reporting
+    '--disable-component-update',  // No checking for updates in background
+    '--disable-client-side-phishing-detection',
+    '--disable-hang-monitor',      // Don't monitor for "Page Unresponsive"
+    '--disable-ipc-flooding-protection',
+    '--disable-notifications',     // No desktop notifications
+    '--disable-popup-blocking',
+    '--disable-prompt-on-repost',
+    '--disable-renderer-backgrounding',
+    '--metrics-recording-only',    // Don't report metrics
+    '--password-store=basic',      // Don't use system keychain
+    '--use-mock-keychain',         // Use a dummy keychain
+
+    // --- STEALTH & NETWORK ---
+    '--disable-blink-features=AutomationControlled', // Helps hide Playwright presence
+    '--mute-audio',                // Saves CPU cycles
+    '--force-color-profile=srgb',  // Consistent rendering
+  ]
+});
           
           const context = await browser.newContext();
           
