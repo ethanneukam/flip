@@ -294,7 +294,7 @@ export async function main(searchKeyword?: string) {
         let browser = null;
         try {
           // LAUNCH BROWSER (One instance per source to prevent memory leaks)
-          rowser = await chromium.launch({
+          browser = await chromium.launch({
   args: [
     // --- MEMORY & STABILITY ---
     '--disable-dev-shm-usage',     // Uses /tmp instead of /dev/shm (essential for Docker/Render)
