@@ -17,7 +17,9 @@ export const walmartScraper: Scraper = {
   scrape: async (page: any, keyword: string) => {
     try {
       const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
-      await page.setUserAgent(ua);
+      await page.setExtraHTTPHeaders({
+    "User-Agent": ua
+});
 
       const searchUrl = `https://www.walmart.com/search?q=${encodeURIComponent(keyword)}`;
       
