@@ -177,7 +177,7 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       let validPrices: number[] = [];
 
    for (const result of results) {
-      if (!result.title || result.title.includes('Unknown') || result.title.length < 15) {
+      if (!result.title || result.title.includes('Unknown') || result.title.length < 8) {
         continue; 
       } // <--- Added missing closing brace
       
@@ -393,8 +393,10 @@ console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try agai
         metadata: { price: flip_price, ticker: item.ticker || "ASSET" }
       }]);
     } else {
-      console.log(`🗑️ No data found for "${item.title}". Removing.`);
-      await supabase.from("items").delete().eq("id", item.item_id);
+     console.log(`⚠️ No data found for "${item.title}". Cooling down...`);
+      await supabase.from("items").update({ 
+        last_updated: new Date().toISOString() 
+      }).eq("id", item.item_id);
     }
     
     // Breathing room between items
