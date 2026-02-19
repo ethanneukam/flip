@@ -376,24 +376,36 @@ console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try agai
     }
 
     // 4. Update Database with Final Median Price
+   // 4. Update Database with Final Median Price
     if (itemPrices.length > 0) {
       const flip_price = calculateMedian(itemPrices);
-      console.log(`✨ FINAL PRICE for ${item.ticker}: $${flip_price.toFixed(2)} (${itemPrices.length} sources)`);
+      console.log(`✨ FINAL FLIP PRICE for ${item.ticker}: $${flip_price.toFixed(2)}`);
       
+      // Update the main Asset record
       await supabase.from("items").update({ 
         flip_price: flip_price, 
         last_updated: new Date().toISOString() 
       }).eq("id", item.item_id);
 
+      // --- LOG THE FINAL FLIP PRICE IN PRICE_LOGS ---
+      await supabase.from("price_logs").insert([{ 
+        item_id: item.item_id, 
+        price: flip_price, 
+        source: 'Final Flip Price', // Direct and clean
+        url: 'system://calculated' 
+      }]);
+
+      // Log the event for your UI feed
       await supabase.from("feed_events").insert([{
         item_id: item.item_id,
         type: 'PRICE_UPDATE',
         title: `Price Update: ${item.ticker || 'ASSET'}`,
-        message: `Oracle updated ${item.title} to $${flip_price.toFixed(2)}`,
+        message: `New Flip Price: $${flip_price.toFixed(2)}`,
         metadata: { price: flip_price, ticker: item.ticker || "ASSET" }
       }]);
+
     } else {
-     console.log(`⚠️ No data found for "${item.title}". Cooling down...`);
+      console.log(`⚠️ No data found for "${item.title}". Cooling down...`);
       await supabase.from("items").update({ 
         last_updated: new Date().toISOString() 
       }).eq("id", item.item_id);
