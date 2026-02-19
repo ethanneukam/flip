@@ -277,7 +277,9 @@ export async function main(searchKeyword?: string) {
     const sanityCheck = await gradeItemCondition(item.title);
     if (!sanityCheck.is_real) {
       console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
-      await supabase.from("items").delete().eq("id", item.item_id);
+      // await supabase.from("items").delete().eq("id", item.item_id);
+await supabase.from("items").update({ last_updated: new Date().toISOString() }).eq("id", item.item_id);
+console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try again next cycle.`);
       continue; 
     }
 
@@ -295,6 +297,7 @@ export async function main(searchKeyword?: string) {
         try {
           // LAUNCH BROWSER (One instance per source to prevent memory leaks)
           browser = await chromium.launch({
+            headless: true,
   args: [
     // --- MEMORY & STABILITY ---
     '--disable-dev-shm-usage',     // Uses /tmp instead of /dev/shm (essential for Docker/Render)
@@ -339,6 +342,9 @@ export async function main(searchKeyword?: string) {
     '--mute-audio',                // Saves CPU cycles
     '--force-color-profile=srgb',  // Consistent rendering
   ]
+  handleSIGINT: false,
+  handleSIGTERM: false,
+  handleSIGHUP: false,
 });
           
           const context = await browser.newContext();
