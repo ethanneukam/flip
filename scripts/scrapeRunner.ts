@@ -162,12 +162,10 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
   page.setDefaultTimeout(40000); 
 
   try {
-    // UPDATE THIS LINE: Log the region and TLD
     console.log(`    🔍 [${scraper.source} ${region}] Initializing: "${keyword}" on ${tld}`);
     await wait(1000, 2000);
 
     const results = await Promise.race([
-      // UPDATE THIS LINE: Pass tld to the scraper
       scraper.scrape(page, keyword, tld), 
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 60000))
     ]) as ScraperResult[] | null;
@@ -176,28 +174,34 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
       let validPrices: number[] = [];
 
-   for (const result of results) {
-      if (!result.title || result.title.includes('Unknown') || result.title.length < 8) {
-        continue; 
-      } // <--- Added missing closing brace
-      
-      validPrices.push(result.price);
+      // Loop starts here
+      for (const result of results) {
+        // 1. Validation check
+        if (!result.title || result.title.includes('Unknown') || result.title.length < 8) {
+          continue; 
+        } 
+        
+        validPrices.push(result.price);
 
-        // --- IMPROVED HARVESTER ---
-// --- IMPROVED HARVESTER (WITH AI BRAIN) ---
+        // 2. LOG INDIVIDUAL HIT IMMEDIATELY
+        const { error: logError } = await supabase.from("price_logs").insert([{ 
+          item_id, 
+          price: result.price, 
+          source: scraper.source, 
+          url: result.url || ''
+        }]);
+        if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
+
+        // 3. AI GRADING & HARVESTER (Now correctly inside the loop)
         if (result.title && result.title.length > 10) {
-          
-          // 🧠 ASK THE AI FOR A GRADE
           console.log(`    🧠 Grading: ${result.title.substring(0, 30)}...`);
-          // Note: Passing result.condition (if it exists) helps the AI, otherwise it uses the title
           const grading = await gradeItemCondition(result.title, result.condition || "");
        
-          // 💾 SAVE TO SUPABASE WITH THE NEW DATA
+          // SAVE TO SUPABASE
           const { error } = await supabase.from("items").upsert({
             title: result.title,
-            // Use result.ticker if the scraper found one, otherwise generate it
             ticker: result.ticker || generateUniqueTicker(result.title), 
-            flip_price: result.price, // Initialize with the found price
+            flip_price: result.price, 
             condition_grade: grading.grade,
             condition_score: grading.score,
             ai_notes: grading.notes
@@ -208,28 +212,17 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
        
           if (!error) {
             console.log(`    ✨ Rated [${grading.grade}] - ${grading.notes}`);
-          } else {
-             // Optional: Log error if needed, but usually we ignore dups
-             // console.error(error.message);
           }
         }
-        const { error: logError } = await supabase.from("price_logs").insert([{ 
-          item_id, 
-          price: result.price, 
-          source: scraper.source, 
-          url: result.url 
-        }]);
-        if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
-      }
+      } // Loop ends here correctly
 
       // --- 🕸️ RELATED ITEMS DEEP EXPANSION 🕸️ ---
-      // This scans the current page for "Related Items" or "Customers Also Bought" links
       try {
         const relatedLinks = await page.$$eval('a', (anchors: any[]) => 
           anchors
             .map(a => ({ text: a.innerText, href: a.href }))
             .filter(a => a.text.length > 15 && a.text.length < 100 && (a.href.includes('/dp/') || a.href.includes('/product/') || a.href.includes('/ip/')))
-            .slice(0, 4) // Grab 4 related items per scan to grow network
+            .slice(0, 4)
         );
 
         if (relatedLinks.length > 0) {
@@ -241,13 +234,11 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
               last_updated: new Date().toISOString()
            }));
 
-           // Feed these back into the Brain
            await supabase.from("items").upsert(relatedSeeds, { onConflict: 'title' });
         }
       } catch (relatedErr) {
-          // Silently fail on related items so we don't crash the main price check
+          // Silently fail
       }
-      // ---------------------------------------------
 
       return validPrices; 
     }
@@ -377,15 +368,15 @@ console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try agai
 
     // 4. Update Database with Final Median Price
    // 4. Update Database with Final Median Price
-    if (itemPrices.length > 0) {
-      const flip_price = calculateMedian(itemPrices);
-      console.log(`✨ FINAL FLIP PRICE for ${item.ticker}: $${flip_price.toFixed(2)}`);
+if (itemPrices.length > 0) {
+  const flip_price = calculateMedian(itemPrices);
+  console.log(`✨ SETTING FLIP PRICE for ${item.ticker}: $${flip_price.toFixed(2)}`);
       
       // Update the main Asset record
-      await supabase.from("items").update({ 
-        flip_price: flip_price, 
-        last_updated: new Date().toISOString() 
-      }).eq("id", item.item_id);
+     const { error: updateError } = await supabase.from("items").update({ 
+    flip_price: flip_price, 
+    last_updated: new Date().toISOString() 
+  }).eq("id", item.item_id);
 
       // --- LOG THE FINAL FLIP PRICE IN PRICE_LOGS ---
       await supabase.from("price_logs").insert([{ 
