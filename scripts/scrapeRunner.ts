@@ -341,7 +341,7 @@ console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try agai
     '--disable-blink-features=AutomationControlled', // Helps hide Playwright presence
     '--mute-audio',                // Saves CPU cycles
     '--force-color-profile=srgb',  // Consistent rendering
-  ]
+  ],
   handleSIGINT: false,
   handleSIGTERM: false,
   handleSIGHUP: false,
