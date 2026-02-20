@@ -11,7 +11,7 @@ export const walmartScraper: Scraper = {
     try {
       // 1. Setup Stealthier Headers
       const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
-      await page.setUserAgent(ua);
+      await page.context().setUserAgent(ua);
 
       const searchUrl = `https://www.walmart.com/search?q=${encodeURIComponent(keyword)}&sort=relevance`;
       
