@@ -5,17 +5,19 @@ export const ebayScraper: Scraper = {
   source: "eBay",
 
   scrape: async (page: Page, keyword: string, tld: string = ".com") => {
+    // STABILITY GUARD: Don't start if the page was already closed by the runner
+    if (page.isClosed()) return [];
+
     try {
-      // 1. Construct URL
       const baseUrl = `https://www.ebay${tld}`;
       const url = `${baseUrl}/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_BIN=1&LH_ItemCondition=3&_sop=10`;
       
       console.log(`    🔍 [eBay] Scanning search results: "${keyword}"`);
 
-      // 2. Navigation
       await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
       
-      // 3. Resilient Selector
+      if (page.isClosed()) return []; // Double check after long navigation
+
       try {
         await page.waitForSelector('.s-item__price', { timeout: 8000 });
       } catch {
@@ -23,15 +25,12 @@ export const ebayScraper: Scraper = {
         return [];
       }
 
-      // 4. Extract Data
       const rawItems = await page.evaluate(() => {
         const items = Array.from(document.querySelectorAll('.s-item'));
         const extracted: any[] = [];
 
         items.forEach((el) => {
-          // Skip placeholders/ads
           if (el.querySelector('.s-item__title--tagblock')) return;
-
           const titleEl = el.querySelector(".s-item__title");
           const priceEl = el.querySelector(".s-item__price");
           const linkEl = el.querySelector("a.s-item__link") as HTMLAnchorElement;
@@ -53,13 +52,9 @@ export const ebayScraper: Scraper = {
         return extracted;
       });
 
-      // 5. Process and Clean Data
       const results: any[] = [];
-
       for (const item of rawItems) {
         if (!item.priceText) continue;
-
-        // Clean price: removes currency symbols and commas
         const priceMatch = item.priceText.replace(/[^\d.,]/g, "").replace(",", "");
         const cleanPrice = parseFloat(priceMatch);
 
@@ -80,8 +75,12 @@ export const ebayScraper: Scraper = {
       return results;
 
     } catch (err: any) {
+      if (err.message.includes("closed")) {
+        console.log("    ⚠️ [eBay] Browser closed before scrape finished.");
+        return [];
+      }
       console.error(`    ❌ eBay Scrape Error: ${err.message}`);
       return [];
     }
-  } // End of scrape function
-}; // End of ebayScraper object
+  }
+};
