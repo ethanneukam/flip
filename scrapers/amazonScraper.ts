@@ -5,22 +5,19 @@ export const amazonScraper: Scraper = {
 
   scrape: async (page: any, keyword: string, tld: string = ".com") => {
     try {
-      // FIX: Dynamically build the URL based on the Node's TLD (.com, .co.uk, .de, etc.)
       const baseUrl = `https://www.amazon${tld}`;
       const searchUrl = `${baseUrl}/s?k=${encodeURIComponent(keyword)}`;
       
       await page.goto(searchUrl, { 
-        waitUntil: "networkidle", // Wait for network to settle
+        waitUntil: "networkidle", 
         timeout: 45000 
       });
 
-      // 1. CAPTCHA Check
       if (await page.$("form[action='/errors/validateCaptcha']")) {
         console.log("⚠️ [Amazon] Captcha Blocked.");
         return null;
       }
 
-      // 2. Robust Selector: Wait for items OR the "no results" container
       try {
         await page.waitForSelector('.s-result-item', { timeout: 15000 });
       } catch (e) {
@@ -28,25 +25,23 @@ export const amazonScraper: Scraper = {
         return [];
       }
 
-      // 3. Extract items
-      const results = await page.evaluate((base) => {
-        // Use a broader selector for items
+      const results = await page.evaluate(() => {
         const items = Array.from(document.querySelectorAll('.s-result-item[data-component-type="s-search-result"]'));
         
         return items.map(el => {
-          const titleEl = el.querySelector('h2 a span');
-          const priceEl = el.querySelector('.a-price .a-offscreen');
+          // BROAD SELECTORS: Amazon often swaps these classes
+          const titleEl = el.querySelector('h2 a span') || el.querySelector('h2 span');
+          const priceWhole = el.querySelector('.a-price-whole');
+          const priceFraction = el.querySelector('.a-price-fraction');
+          const offscreenPrice = el.querySelector('.a-price .a-offscreen');
           const linkEl = el.querySelector('h2 a');
-          
-          let priceText = priceEl ? (priceEl as HTMLElement).innerText : null;
-          // Fallback for different regions
-          if (!priceText) {
-            const whole = el.querySelector('.a-price-whole')?.textContent || "";
-            const fraction = el.querySelector('.a-price-fraction')?.textContent || "";
-            priceText = whole ? `${whole}.${fraction}` : null;
-          }
-
           const asin = el.getAttribute('data-asin');
+
+          // Price Logic: Try offscreen text first, then build from whole/fraction
+          let priceText = offscreenPrice ? offscreenPrice.textContent : null;
+          if (!priceText && priceWhole) {
+            priceText = `${priceWhole.textContent}${priceFraction?.textContent || "00"}`;
+          }
 
           return {
             title: titleEl?.textContent?.trim() || "Unknown",
@@ -55,16 +50,28 @@ export const amazonScraper: Scraper = {
             asin: asin
           };
         });
-      }, baseUrl);
+      });
 
- const filteredResults = results
-        .filter(item => item.rawPrice && item.asin) // Keep only items with price/ASIN
+      const filteredResults = results
+        .filter(item => item.rawPrice && item.asin) 
         .map(item => {
-          // 1. Improved Price Cleaning (handles "£", "¥", "$", and EU comma decimals)
-          const cleanPrice = parseFloat(item.rawPrice.replace(/[^\d.,]/g, "").replace(",", "."));
+          // --- THE CRITICAL PRICE FIX ---
+          // 1. Remove currency symbols
+          // 2. Remove commas (thousands separators)
+          // 3. Keep the dot for decimals
+          let cleanPriceStr = item.rawPrice.replace(/[^\d.,]/g, "");
           
-          // 2. SAFE URL Check: Use the scraped URL if it exists, otherwise build it via ASIN
-          // This prevents the 'startsWith' on null error
+          // Logic for US/UK/JP (Comma as separator, dot as decimal)
+          // If there is both a comma and a dot, remove the comma.
+          if (cleanPriceStr.includes(',') && cleanPriceStr.includes('.')) {
+            cleanPriceStr = cleanPriceStr.replace(/,/g, "");
+          } else if (cleanPriceStr.includes(',') && cleanPriceStr.indexOf(',') < cleanPriceStr.length - 3) {
+             // If comma is just a separator (e.g., 2,695)
+             cleanPriceStr = cleanPriceStr.replace(/,/g, "");
+          }
+
+          const cleanPrice = parseFloat(cleanPriceStr);
+          
           const productUrl = (item.url && typeof item.url === 'string' && item.url.startsWith('http'))
             ? item.url
             : `${baseUrl}/dp/${item.asin}`;
@@ -73,11 +80,12 @@ export const amazonScraper: Scraper = {
             price: cleanPrice,
             url: productUrl,
             condition: "New",
-            title: item.title || "Unknown Product",
+            // Fallback to keyword if title is still unknown to prevent loop skip
+            title: (item.title === "Unknown" || !item.title) ? keyword : item.title,
             ticker: keyword
           };
         })
-        .filter(item => !isNaN(item.price));
+        .filter(item => !isNaN(item.price) && item.price > 0);
 
       console.log(`    ✅ [Amazon ${tld}] Successfully scraped ${filteredResults.length} items.`);
       return filteredResults;
