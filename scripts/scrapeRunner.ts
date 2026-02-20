@@ -170,9 +170,14 @@ async function runScraper(context: BrowserContext, scraper: any, item_id: string
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 60000))
     ]) as ScraperResult[] | null;
 
-    if (results && results.length > 0) {
+  if (results && results.length > 0) {
       console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
+      
+      // ADD THIS LINE TO DEBUG:
+      console.log(`    🕵️ RAW PEEK at item 1:`, JSON.stringify(results[0]));
+      
       let validPrices: number[] = [];
+      // ... rest of your code
 
       // Loop starts here
       for (const result of results) {
