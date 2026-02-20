@@ -4,37 +4,89 @@ import { Scraper } from "../scripts/scrapeRunner";
 export const ebayScraper: Scraper = {
   source: "eBay",
 
-  scrape: async (page: Page, keyword: string) => {
+  // Added tld support to match your Amazon node strategy
+  scrape: async (page: Page, keyword: string, tld: string = ".com") => {
     try {
-      // 1. Construct URL (Buy It Now + Sort by Newly Listed usually gives best market signal)
-      const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(keyword)}&_sacat=0&LH_BIN=1&LH_ItemCondition=3`;
+      // 1. Construct URL - Flexible TLD for international scanning
+      // LH_BIN=1 (Buy It Now), LH_ItemCondition=3 (Used)
+      const baseUrl = `https://www.ebay${tld}`;
+      const url = `${baseUrl}/sch/i.html?_nkw=${encodeURIComponent(keyword)}&LH_BIN=1&LH_ItemCondition=3&_sop=10`;
+      
       console.log(`    🔍 [eBay] Scanning search results: "${keyword}"`);
 
-      // 2. Navigation with longer timeout
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      // 2. Navigation - networkidle is safer for eBay's heavy scripts
+      await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
       
-      // 3. Safety Wait (replaces humanMouse)
-      // Just waiting is safer than moving the mouse in headless mode
+      // 3. Resilient Selector: eBay often changes the parent container, 
+      // but the price class is very stable.
       try {
-        await page.waitForSelector('.s-item__price', { timeout: 5000 });
+        await page.waitForSelector('.s-item__price', { timeout: 8000 });
       } catch {
-        console.log('    ⚠️ [eBay] No results found on page.');
+        console.log('    ⚠️ [eBay] No results found on page (Selector Timeout).');
         return [];
       }
 
-      // 4. Extract ALL data in one go (The "Pro" Way)
-      // This prevents "Execution Context Destroyed" or "Target Crashed" errors
+      // 4. Extract Data
       const rawItems = await page.evaluate(() => {
-        const items = document.querySelectorAll('.srp-results .s-item:not(.s-item--placeholder)');
+        // Broadened the selector to find items regardless of the "River" container name
+        const items = Array.from(document.querySelectorAll('.s-item'));
         const extracted: any[] = [];
 
         items.forEach((el) => {
+          // Skip the "Shop on eBay" header/placeholder item
+          if (el.querySelector('.s-item__title--tagblock')) return;
+
           const titleEl = el.querySelector(".s-item__title");
           const priceEl = el.querySelector(".s-item__price");
           const linkEl = el.querySelector("a.s-item__link") as HTMLAnchorElement;
           const imgEl = el.querySelector(".s-item__image-img img") as HTMLImageElement;
           
-          if (titleEl && priceEl) {
+          if (titleEl && priceEl && !titleEl.textContent?.includes("Shop on eBay")) {
+            extracted.push({
+              title: titleEl.textContent?.replace("New Listing", "").trim() || "Unknown",
+              priceText: priceEl.textContent?.trim(),
+              url: linkEl?.href || "",
+              imageUrl: imgEl?.src || "",
+              condition: "Used"
+            });
+          }
+        });
+        return extracted;
+      });
+
+      // 5. Process and Clean Data
+      const results: any[] = [];
+
+      for (const item of rawItems) {
+        if (!item.priceText) continue;
+
+        // FIXED REGEX: Now handles any currency symbol ($, £, €, etc.)
+        // It captures the digits and decimals regardless of the prefix
+        const priceMatch = item.priceText.replace(/[^\d.,]/g, "").replace(",", "");
+        const cleanPrice = parseFloat(priceMatch);
+
+        if (!isNaN(cleanPrice) && cleanPrice > 1) {
+          results.push({
+            price: cleanPrice,
+            title: item.title,
+            url: item.url,
+            image_url: item.imageUrl,
+            source: "eBay",
+            ticker: keyword,
+            condition: item.condition
+          });
+        }
+      }
+
+      console.log(`    ✅ [eBay] Extracted ${results.length} valid listings.`);
+      return results;
+
+    } catch (err: any) {
+      console.error(`    ❌ eBay Scrape Error: ${err.message}`);
+      return [];
+    }
+  }
+};          if (titleEl && priceEl) {
             extracted.push({
               title: titleEl.textContent?.replace("New Listing", "").trim() || "Unknown",
               priceText: priceEl.textContent?.trim(),
