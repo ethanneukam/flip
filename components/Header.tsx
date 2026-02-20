@@ -72,7 +72,7 @@ useEffect(() => {
 }, []);
   return (
     <header className="w-full bg-[#0B0E11] border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-[#0B0E11]/90">
-      <Link href="/">
+      <Link href="/charts">
         <div className="flex items-center cursor-pointer group space-x-2">
           <img 
             src="/logo.png" 
