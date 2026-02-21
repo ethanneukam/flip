@@ -65,7 +65,28 @@ export default function MarketChart({ itemId, ticker, data }: any) {
 
   const change = getChange();
   const themeColor = change.up ? '#10b981' : '#ef4444'; // Green vs Red
+// Inside your MarketChart component...
 
+if (loading) {
+  return (
+    <div className="flex items-center justify-center h-64 w-full bg-[#0D0D0D] rounded-3xl border border-white/5">
+      <Loader2 className="animate-spin text-blue-600" size={32} />
+    </div>
+  );
+}
+
+if (chartData.length === 0) {
+  return (
+    <div className="flex flex-col items-center justify-center h-64 w-full bg-[#0D0D0D] rounded-3xl border border-white/5">
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-700">Waiting for Market Data</span>
+      <span className="text-[8px] text-gray-800 mt-2 italic">Oracle is currently indexing prices...</span>
+    </div>
+  );
+}
+
+return (
+  // ... your existing AreaChart code here
+);
   return (
     <div className="flex flex-col h-full w-full bg-[#0D0D0D] p-4 rounded-3xl border border-white/5 shadow-2xl">
       <div className="h-full w-full">
