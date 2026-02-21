@@ -30,7 +30,7 @@ export default function Pricing() {
       // Use your actual Vercel URL here
 const API_HOST = process.env.NEXT_PUBLIC_API_URL || 'https://flip-black-two.vercel.app'; 
 
-const res = await fetch(`${API_HOST}/api/stripe/subscribe`, {
+const res = await fetch(`/api/stripe/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, tier, email: user.email }),
