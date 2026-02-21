@@ -85,9 +85,7 @@ if (chartData.length === 0) {
   );
 }
 
-return (
-  // ... your existing AreaChart code here
-);
+
   return (
     <div className="flex flex-col h-full w-full bg-[#0D0D0D] p-4 rounded-3xl border border-white/5 shadow-2xl">
       <div className="h-full w-full">
