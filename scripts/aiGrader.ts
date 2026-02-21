@@ -29,7 +29,7 @@ export async function gradeItemCondition(title: string, condition: string = "") 
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192", 
+        model: "llama-3.1-8b-instant", 
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Asset: "${title}". Reported Condition: "${condition}"` }
