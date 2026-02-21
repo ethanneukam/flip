@@ -34,9 +34,26 @@ import fs from 'fs';
 import readline from 'readline';
 
 // EXPANDED CATEGORIES FOR BETTER SEEDS
-const BRANDS = ["Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", "Casio"];
-const CATEGORIES = ["Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", "Camping Tent", "Power Drill", "Action Camera", "Skincare Set"];
-const MODIFIERS = ["Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable"];
+const BRANDS = [
+  "Apple", "Sony", "Nvidia", "Nike", "Dyson", "Samsung", "Rolex", "Nintendo", 
+  "Lego", "KitchenAid", "DeWalt", "Canon", "ASUS", "MSI", "Patagonia", 
+  "Lululemon", "Tesla", "DJI", "Bose", "Peloton", "YETI", "Hermes", "Prada", 
+  "Casio", "Fujifilm", "Sonos", "Milwaukee", "Theragun", "Breville", "Steelcase"
+];
+
+const CATEGORIES = [
+  "Smartphone", "Gaming Laptop", "GPU", "Wireless Headphones", "Smartwatch", 
+  "4K Monitor", "Sneakers", "Coffee Maker", "Power Station", "Mechanical Keyboard", 
+  "Mirrorless Camera", "Electric Scooter", "Drone", "Handbag", "Electric Guitar", 
+  "Camping Tent", "Power Drill", "Action Camera", "Skincare Set", "VR Headset", 
+  "E-Reader", "Projector", "Soundbar", "Ergonomic Chair", "Massage Gun"
+];
+
+const MODIFIERS = [
+  "Pro", "Ultra", "Series 5", "V2", "Edition", "Wireless", "OLED", "Titanium", 
+  "Limited", "Gen 3", "Special", "Professional", "Compact", "Portable", "M3", 
+  "MagSafe", "Noise Cancelling", "Refurbished", "Used", "Factory Sealed"
+];
 
 const GLOBAL_NODES = [
   { region: 'US', tld: '.com', currency: 'USD', platforms: ['Amazon', 'eBay', 'StockX', 'Walmart', 'Goat'] },
