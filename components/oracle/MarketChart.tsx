@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, CartesianGrid, Brush, ReferenceLine 
 } from 'recharts';
 import { createClient } from '@supabase/supabase-js';
+import { Loader2 } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
