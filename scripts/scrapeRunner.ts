@@ -175,92 +175,70 @@ const wait = (min = 1500, max = 4000) => new Promise((res) => setTimeout(res, Ma
 
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string, tld: string = ".com", region: string = "US") {
   const page = await context.newPage();
+  
+  // Stealth needs to be applied to the page before navigation
   await applyStealthAndOptimization(page);
   page.setDefaultTimeout(40000); 
 
   try {
     console.log(`    🔍 [${scraper.source} ${region}] Initializing: "${keyword}" on ${tld}`);
-    await wait(1000, 2000);
-
+    
     const results = await Promise.race([
       scraper.scrape(page, keyword, tld), 
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 60000))
     ]) as ScraperResult[] | null;
 
-  if (results && results.length > 0) {
+    if (results && results.length > 0) {
       console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
       
-      // ADD THIS LINE TO DEBUG:
-      console.log(`    🕵️ RAW PEEK at item 1:`, JSON.stringify(results[0]));
-      
       let validPrices: number[] = [];
-      // ... rest of your code
 
-      // Loop starts here
       for (const result of results) {
-        // 1. Validation check
-        if (!result.title || result.title.includes('Unknown') || result.title.length < 8) {
-          continue; 
-        } 
+        // Validation check
+        if (!result.title || result.title.includes('Unknown') || result.title.length < 8) continue; 
         
         validPrices.push(result.price);
 
-        // 2. LOG INDIVIDUAL HIT IMMEDIATELY
-        const { error: logError } = await supabase.from("price_logs").insert([{ 
+        // LOG INDIVIDUAL HIT (This goes to price_logs, NOT items)
+        await supabase.from("price_logs").insert([{ 
           item_id, 
           price: result.price, 
           source: scraper.source, 
           url: result.url || ''
         }]);
-        if (logError) console.error(`    ⚠️ [${scraper.source}] Logging Error: ${logError.message}`);
 
-        // 3. AI GRADING & HARVESTER (Now correctly inside the loop)
-        if (result.title && result.title.length > 10) {
-          console.log(`    🧠 Grading: ${result.title.substring(0, 30)}...`);
+        // AI GRADING
+        if (result.title.length > 10) {
           const grading = await gradeItemCondition(result.title, result.condition || "");
-       
-          // SAVE TO SUPABASE
-          const { error } = await supabase.from("items").upsert({
-            title: result.title,
-            ticker: result.ticker || generateUniqueTicker(result.title), 
-            flip_price: result.price, 
-            condition_grade: grading.grade,
-            condition_score: grading.score,
-            ai_notes: grading.notes
-          }, { 
-            onConflict: 'ticker',
-            ignoreDuplicates: true 
-          });
-       
-          if (!error) {
-            console.log(`    ✨ Rated [${grading.grade}] - ${grading.notes}`);
+          
+          // CRITICAL: Only update the main item if the grading says it's real 
+          // AND it matches your current search. 
+          // Don't upsert random results into the main 'items' table here.
+          if (grading.is_real) {
+             console.log(`    ✨ Rated [${grading.grade}] for hit: ${result.title.substring(0, 20)}`);
           }
         }
-      } // Loop ends here correctly
+      }
 
-      // --- 🕸️ RELATED ITEMS DEEP EXPANSION 🕸️ ---
+      // --- 🕸️ WEB EXPANSION (Keep this for finding NEW items) ---
       try {
         const relatedLinks = await page.$$eval('a', (anchors: any[]) => 
           anchors
             .map(a => ({ text: a.innerText, href: a.href }))
-            .filter(a => a.text.length > 15 && a.text.length < 100 && (a.href.includes('/dp/') || a.href.includes('/product/') || a.href.includes('/ip/')))
-            .slice(0, 4)
+            .filter(a => a.text.length > 15 && a.href.includes('/dp/')) // Example for Amazon
+            .slice(0, 2)
         );
 
         if (relatedLinks.length > 0) {
-           console.log(`    🕸️ Web Expansion: Found ${relatedLinks.length} related items.`);
            const relatedSeeds = relatedLinks.map(link => ({
               title: link.text.trim(),
               ticker: link.text.trim().substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
               flip_price: 0,
-              last_updated: new Date().toISOString()
+              last_updated: new Date(0).toISOString() // Epoch so it's prioritized
            }));
-
            await supabase.from("items").upsert(relatedSeeds, { onConflict: 'title' });
         }
-      } catch (relatedErr) {
-          // Silently fail
-      }
+      } catch (e) {}
 
       return validPrices; 
     }
@@ -360,8 +338,11 @@ console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try agai
   handleSIGHUP: false,
 });
           
-          const context = await browser.newContext();
-          
+       const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
+const context = await browser.newContext({
+    userAgent: ua, // SET IT HERE
+    viewport: { width: 1280, height: 720 }
+});
           // RUN SCRAPER
           const pricesFromSource = await runScraper(context, scraper, item.item_id, item.keyword, node.tld, node.region);
           
@@ -470,9 +451,9 @@ async function runGlobalMarketScan(item: any, context: BrowserContext) {
 }
 
 async function getItemsToScrape(searchKeyword?: string) {
-  console.log("📡 Oracle Pulse: Checking for unscanned nodes...");
+  console.log("📡 Oracle Pulse: Checking for high-priority nodes...");
 
-  // 1. Manual Search Priority
+  // 1. Manual Search Priority (Keep this as is)
   if (searchKeyword && searchKeyword !== "undefined") {
     const { data: created, error: manualError } = await supabase.from("items").upsert({ 
       title: searchKeyword, 
@@ -484,20 +465,20 @@ async function getItemsToScrape(searchKeyword?: string) {
     if (created) return [{ item_id: created.id, keyword: created.title, title: created.title, ticker: created.ticker }];
   }
 
-  // 2. Fetch existing items that need updates
-  let { data: existingData } = await supabase
-    .from("items")
-    .select("id, title, ticker")
-    .or('flip_price.eq.0,flip_price.is.null')
-    .limit(5);
-
-  // 3. Brain Trigger: Get fresh seeds from file
-  console.log("🧠 Brain Triggered: Generating fresh seeds...");
+  // 2. FETCH STALE OR UNSET ITEMS
+  // We look for items with $0 OR items that haven't been updated in 24 hours
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   
+  let { data: priorityItems } = await supabase
+    .from("items")
+    .select("id, title, ticker, last_updated")
+    .or(`flip_price.eq.0,flip_price.is.null,last_updated.lt.${twentyFourHoursAgo}`)
+    .order('last_updated', { ascending: true }) // Oldest updates first
+    .limit(10); // Batch size
+
+  // 3. SEED GENERATION (Keep database growing)
   const nextSeeds: any[] = [];
-  // Pull 5 lines from the seed generator
   for (let i = 0; i < 5; i++) {
-    // Note: seedStream must be defined in the global scope (which it is in your file)
     const { value, done } = await seedStream.next();
     if (done) break;
     if (value) {
@@ -505,37 +486,28 @@ async function getItemsToScrape(searchKeyword?: string) {
         title: value,
         ticker: generateUniqueTicker(value),
         flip_price: 0,
-        last_updated: new Date().toISOString()
+        last_updated: new Date(0).toISOString() // Set to epoch so it's marked as "stale"
       });
     }
   }
 
-  // 4. Save new seeds to Database
   if (nextSeeds.length > 0) {
-    const { data: insertedData, error: seedError } = await supabase
+    const { data: insertedData } = await supabase
       .from("items")
       .upsert(nextSeeds, { onConflict: 'title' })
       .select();
-
-    if (seedError) {
-      console.error("❌ BRAIN ERROR:", seedError.message);
-    } else {
-      // Add newly created items to our processing pool
-      if (insertedData) {
-         // Map to the format the scraper expects
-         const newItems = insertedData.map(d => ({ item_id: d.id, keyword: d.title, title: d.title, ticker: d.ticker }));
-         // Add them to existing data
-         existingData = existingData ? [...existingData, ...insertedData] : insertedData;
-      }
+    
+    if (insertedData) {
+      priorityItems = priorityItems ? [...priorityItems, ...insertedData] : insertedData;
     }
   }
 
-  // 5. Finalize Queue
-  const finalQueue = (existingData || [])
-    .sort(() => 0.5 - Math.random()) // Shuffle
-    .slice(0, 5); // Process 5 at a time to stay safe
+  // 4. Finalize Queue and Shuffle
+  const finalQueue = (priorityItems || [])
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 10); 
 
-  console.log(`✅ Queueing ${finalQueue.length} nodes.`);
+  console.log(`✅ Queueing ${finalQueue.length} nodes (Mixed fresh and stale).`);
   
   return finalQueue.map(item => ({
     item_id: item.id,
