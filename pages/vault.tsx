@@ -13,6 +13,8 @@ import { supabase } from '../lib/supabaseClient';
 import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
 import SellerDashboard from "../components/SellerDashboard";
 import { motion, AnimatePresence } from "framer-motion";
+import CameraScanner from '../components/vault/CameraScanner';
+import { uploadImage } from '../lib/uploadImage'; // <-- Check this path!
 
 export default function VaultPage() {
   const [assets, setAssets] = useState<VaultAsset[]>([]);
@@ -22,7 +24,65 @@ export default function VaultPage() {
   const [profile, setProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"inventory" | "sales" | "stats">("inventory");
   const [showSettings, setShowSettings] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
+const handleOracleScan = async (file: File) => {
+  setIsScannerOpen(false);
+  setIsScanning(true);
+  
+  try {
+    // 1. Authenticate Request
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("AUTH_REQUIRED");
+
+    // 2. Upload to Supabase Storage
+    const url = await uploadImage(file);
+    if (!url) throw new Error("UPLOAD_FAILED");
+
+    // 3. Analyze with Google Vision AI
+    const res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl: url })
+    });
+    
+    const scanResult = await res.json();
+    
+    // 4. Secure in Vault (Insert into Database)
+    const newItem = {
+      user_id: user.id,
+      title: scanResult.suggestion || 'Unknown Asset',
+      sku: scanResult.probableSku || 'PENDING',
+      image_url: url,
+      condition_score: scanResult.conditionScore || 1.0,
+      current_value: 0, // Value can be updated later by a pricing job
+    };
+
+    const { data: insertedAsset, error } = await supabase
+      .from('items')
+      .insert(newItem)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // 5. Instantly update the UI (Injects to the top of the list)
+    if (insertedAsset) {
+      setAssets(prev => [insertedAsset as VaultAsset, ...prev]);
+    }
+
+    // 6. Feedback
+    console.log("ORACLE_ANALYSIS:", scanResult);
+    alert(`ASSET SECURED: ${scanResult.suggestion} locked in Vault.`);
+    
+  } catch (err: any) {
+    console.error("ORACLE_FAILURE:", err);
+    alert(`SYSTEM_ERROR: ${err.message || "Could not complete scan."}`);
+  } finally {
+    setIsScanning(false);
+  }
+};
   // Address State for Shippo
   const [address, setAddress] = useState({
     full_name: '',
@@ -231,12 +291,28 @@ export default function VaultPage() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-24 right-6 z-50">
-        <label className="flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-[0_10px_40px_rgba(37,99,235,0.4)] cursor-pointer active:scale-90 transition-all">
-          <Camera className="text-white" size={24} />
-          <input type="file" accept="image/*" capture="environment" className="hidden" />
-        </label>
-      </div>
+      {/* AI ORACLE TRIGGER */}
+<div className="fixed bottom-24 right-6 z-50">
+  <button 
+    onClick={() => setIsScannerOpen(true)}
+    disabled={isScanning}
+    className="flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-[0_10px_40px_rgba(37,99,235,0.4)] active:scale-90 transition-all disabled:opacity-50"
+  >
+    {isScanning ? (
+      <Loader2 className="animate-spin text-white" size={24} />
+    ) : (
+      <Camera className="text-white" size={24} />
+    )}
+  </button>
+</div>
+
+{/* CAMERA OVERLAY */}
+{isScannerOpen && (
+  <CameraScanner 
+    onClose={() => setIsScannerOpen(false)} 
+    onCapture={handleOracleScan} 
+  />
+)}
 
       <BottomNav />
     </div>
