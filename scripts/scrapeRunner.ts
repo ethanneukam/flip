@@ -175,105 +175,86 @@ const wait = (min = 1500, max = 4000) => new Promise((res) => setTimeout(res, Ma
 
 async function runScraper(context: BrowserContext, scraper: any, item_id: string, keyword: string, tld: string = ".com", region: string = "US") {
   const page = await context.newPage();
-  
-  // Stealth needs to be applied to the page before navigation
   await applyStealthAndOptimization(page);
   page.setDefaultTimeout(40000); 
 
   try {
-    console.log(`    🔍 [${scraper.source} ${region}] Initializing: "${keyword}" on ${tld}`);
+    console.log(`🔍 [${scraper.source} ${region}] Initializing: "${keyword}" on ${tld}`);
     
     const results = await Promise.race([
       scraper.scrape(page, keyword, tld), 
       new Promise((_, reject) => setTimeout(() => reject(new Error("ORACLE_TIMEOUT")), 60000))
     ]) as ScraperResult[] | null;
 
-    if (results && results.length > 0) {
-      console.log(`    ✅ [${scraper.source}] Found ${results.length} items.`);
-      
-      let validPrices: number[] = [];
+    let validPrices: number[] = [];
 
+    if (results && results.length > 0) {
+      console.log(`✅ [${scraper.source}] Found ${results.length} items.`);
+      
       for (const result of results) {
-        // Validation check
         if (!result.title || result.title.includes('Unknown') || result.title.length < 8) continue; 
-        
         validPrices.push(result.price);
 
-        // LOG INDIVIDUAL HIT (This goes to price_logs, NOT items)
         await supabase.from("price_logs").insert([{ 
           item_id, 
           price: result.price, 
           source: scraper.source, 
           url: result.url || ''
         }]);
-
-        // AI GRADING
-        if (result.title.length > 10) {
-          const grading = await gradeItemCondition(result.title, result.condition || "");
-          
-          // CRITICAL: Only update the main item if the grading says it's real 
-          // AND it matches your current search. 
-          // Don't upsert random results into the main 'items' table here.
-          if (grading.is_real) {
-             console.log(`    ✨ Rated [${grading.grade}] for hit: ${result.title.substring(0, 20)}`);
-          }
-        }
       }
-
-      // --- 🕸️ WEB EXPANSION (Keep this for finding NEW items) ---
-      try {
-        const relatedLinks = await page.$$eval('a', (anchors: any[]) => 
-          anchors
-            .map(a => ({ text: a.innerText, href: a.href }))
-            .filter(a => a.text.length > 15 && a.href.includes('/dp/')) // Example for Amazon
-            .slice(0, 2)
-        );
-
-        if (relatedLinks.length > 0) {
-           const relatedSeeds = relatedLinks.map(link => ({
-              title: link.text.trim(),
-              ticker: link.text.trim().substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
-              flip_price: 0,
-              last_updated: new Date(0).toISOString() // Epoch so it's prioritized
-           }));
-           await supabase.from("items").upsert(relatedSeeds, { onConflict: 'title' });
-        }
-      } catch (e) {}
-
-      return validPrices; 
     }
-    return [];
+
+    // --- 🕸️ WEB EXPANSION ---
+    try {
+      const relatedLinks = await page.$$eval('a', (anchors: any[]) => 
+        anchors
+          .map(a => ({ text: a.innerText, href: a.href }))
+          .filter(a => a.text.length > 15 && a.href.includes('/dp/')) 
+          .slice(0, 2)
+      );
+
+      if (relatedLinks.length > 0) {
+         const relatedSeeds = relatedLinks.map(link => ({
+            title: link.text.trim(),
+            ticker: link.text.trim().substring(0, 8).toUpperCase().replace(/[^A-Z]/g, ''),
+            flip_price: 0,
+            last_updated: new Date(0).toISOString()
+         }));
+         await supabase.from("items").upsert(relatedSeeds, { onConflict: 'title' });
+      }
+    } catch (e) {}
+
+    return validPrices; 
   } catch (err: any) {
-    console.error(`    ❌ [${scraper.source}] Error: ${err.message}`);
+    console.error(`❌ [${scraper.source}] Error: ${err.message}`);
     return [];
   } finally {
-    await page.close();
+    await page.close(); // FIX: Use lowercase 'page', not 'Page'
   }
 }
-
 export async function main(searchKeyword?: string) {
   console.log("🚀 Starting Market Oracle...");
   const items = await getItemsToScrape(searchKeyword);
    
-  if (!items || items.length === 0) {
-    console.log("⚠️ No items found to scrape. Check your 'items' table.");
-    return;
-  }
+  if (!items || items.length === 0) return;
 
-  // Process items one by one
+  // --- 1. BATCH AUTHENTICATION (The Token Saver) ---
+  console.log(`🧠 Authenticating batch of ${items.length} items...`);
+  // Note: Ensure your aiGrader.ts exports 'gradeBatch' as we discussed
+ const gradedBatch = await gradeItemCondition(items.map(i => ({ title: i.title, id: i.item_id })));
+
   for (const item of items) {
-    console.log(`\n--- Market Scan: ${item.title} ---`);
-
-    // 1. Sanity Check
-    const sanityCheck = await gradeItemCondition(item.title);
-    if (!sanityCheck.is_real) {
-      console.log(`🗑️ Skipping "${item.title}": Hallucination.`);
-      // await supabase.from("items").delete().eq("id", item.item_id);
-await supabase.from("items").update({ last_updated: new Date().toISOString() }).eq("id", item.item_id);
-console.log(`⚠️ Data empty for ${item.ticker}. Skipping deletion to try again next cycle.`);
-      continue; 
+    // FIX: Match the variable name to the search result
+    const itemGrading = gradedBatch.find((g: any) => g.title === item.title);
+    
+    // If AI says it's fake and it's NOT a system error, skip it
+    if (itemGrading && !itemGrading.is_real && !itemGrading.error) {
+      console.log(`🗑️ Hallucination Filter: Skipping "${item.title}"`);
+      await supabase.from("items").update({ last_updated: new Date().toISOString() }).eq("id", item.item_id);
+      continue;
     }
 
+    console.log(`\n--- Market Scan: ${item.title} ---`);
     let itemPrices: number[] = [];
 
     // 2. Cycle through Regions (Nodes)

@@ -1,24 +1,25 @@
-// scripts/aiGrader.ts
 import env from "dotenv";
 env.config();
 
 const systemPrompt = `You are a professional product authenticator. 
-Your job is to identify if a product is REAL or a "Hallucination" (a physically impossible product).
-Examples of Hallucinations: "DeWalt GPU", "Canon Camping Tent", "Lego Headphones".
-You must return a JSON object with:
+Analyze the provided list of products. Identify if they are REAL or "Hallucinations" (physically impossible or brand-mismatched).
+Return a JSON object with a "results" key containing an array of objects:
 {
-  "is_real": boolean,
-  "grade": "NEW" | "USED" | "VINTAGE" | "FAKE",
-  "score": number (0-100),
-  "notes": "Brief explanation",
-  "reasoning": "Why you think it is real or fake"
+  "results": [
+    {
+      "title": "string",
+      "is_real": boolean,
+      "grade": "NEW" | "USED" | "VINTAGE" | "FAKE",
+      "score": number,
+      "reasoning": "string"
+    }
+  ]
 }`;
 
-export async function gradeItemCondition(title: string, condition: string = "") {
-  // Debug: Ensure the key is actually being read by the process
+export async function gradeItemCondition(items: { title: string, id: string }[]) {
   if (!process.env.GROQ_API_KEY) {
-    console.error("❌ GROQ_API_KEY is missing from process.env!");
-    return { is_real: false, grade: "FAKE", score: 0, notes: "No API Key" };
+    console.error("❌ GROQ_API_KEY is missing!");
+    return items.map(item => ({ ...item, is_real: true, error: true })); // Assume real if we can't check
   }
 
   try {
@@ -29,33 +30,30 @@ export async function gradeItemCondition(title: string, condition: string = "") 
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant", 
+        model: "llama-3.1-8b-instant",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Asset: "${title}". Reported Condition: "${condition}"` }
+          { role: "user", content: `Grade these products: ${JSON.stringify(items.map(i => i.title))}` }
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        temperature: 0.1 // Keep it deterministic
       })
     });
 
     const result = await response.json();
-    
-    // Check if Groq returned an error (like 401 Unauthorized)
+
     if (result.error) {
-       console.error("🚫 Groq API Error:", result.error.message);
-       return { is_real: false, grade: "FAKE", score: 0, notes: "API Error" };
+        // If we hit a rate limit, return a "skip_check" signal rather than "is_real: false"
+        console.error(`🚫 Groq API ${result.error.code}: ${result.error.message}`);
+        return items.map(item => ({ title: item.title, is_real: true, error: true })); 
     }
 
-    const data = JSON.parse(result.choices[0].message.content);
+    const parsed = JSON.parse(result.choices[0].message.content);
+    return parsed.results;
 
-    if (!data.is_real) {
-      console.log(`🚫 HALLUCINATION FILTERED: ${title} (${data.reasoning})`);
-    }
-
-    return data;
   } catch (err: any) {
-    // This now logs the REAL error (e.g., "systemPrompt is not defined")
     console.error("🚨 AI Layer Crash:", err.message);
-    return { is_real: false, grade: "FAKE", score: 0, notes: "System Crash", confidence: 0 };
+    // Safety fallback: Treat as real so we don't delete data during crashes
+    return items.map(item => ({ title: item.title, is_real: true, error: true }));
   }
 }
