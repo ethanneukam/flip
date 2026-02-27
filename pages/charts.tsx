@@ -427,29 +427,40 @@ return (
               {/* MIDDLE: Price Chart & Arbitrage Section */}
               <div className="lg:col-span-3 space-y-4">
                 
-                {/* Chart Card */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
-                  <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
-                    <div>
-                      <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
-                        {loading ? "LOADING ASSET..." : (data?.name || (ticker ? `${ticker}_NOT_FOUND` : "SELECT_TICKER"))}
-                      </h2>
-                      <p className="text-gray-500 text-xs font-mono">{ticker}</p>
-                    </div>
-                    <div className="text-left md:text-right">
-                      <p className="text-3xl font-black text-green-500">
-                        ${data?.flip_price ? data.flip_price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                      </p>
-                      <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
-                        <Activity size={10} className="animate-pulse" />
-                        +LIVE_UPDATE
-                      </div>
-                    </div>
-                  </div>
-                  <div className="h-64 md:h-80 w-full">
-                    <MarketChart itemId={data?.id} ticker={ticker} />
-                  </div>
-                </div>
+ {/* Chart Card */}
+<div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
+  <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+    <div>
+      <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+        {loading ? (
+          "LOADING ASSET..."
+        ) : (
+          // Prioritize the full title, fallback to the ticker string
+          data?.title || ticker || "SELECT_ASSET"
+        )}
+      </h2>
+      <p className="text-gray-500 text-xs font-mono tracking-widest">
+        {/* Ticker always shows here as the secondary ID */}
+        {ticker ? `// ${ticker}` : "---"}
+      </p>
+    </div>
+    
+    <div className="text-left md:text-right">
+      <p className="text-3xl font-black text-green-500">
+        ${data?.flip_price ? data.flip_price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+      </p>
+      <div className="flex items-center md:justify-end gap-1 text-[10px] font-bold text-green-500/50 uppercase tracking-widest">
+        <Activity size={10} className="animate-pulse" />
+        +LIVE_UPDATE
+      </div>
+    </div>
+  </div>
+  
+  <div className="h-64 md:h-80 w-full">
+    {/* Pass the UUID (data.id) to the chart, not the ticker string */}
+    <MarketChart itemId={data?.id} ticker={ticker} />
+  </div>
+</div>
 
                 {/* Global Arbitrage Radar */}
                 <div className="bg-gradient-to-br from-blue-900/20 to-black border border-blue-500/30 rounded-2xl p-4 shadow-xl">
