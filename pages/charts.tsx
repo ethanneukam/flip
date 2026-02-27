@@ -9,7 +9,6 @@ import { UpgradeModal } from "@/components/UpgradeModel";
 import { toast, Toaster } from 'react-hot-toast';
 import { uploadImage } from "@/lib/uploadImage";
 import CameraScanner from '@/components/vault/CameraScanner'; // Adjust path if your file is named differently
-import { StripeEscrow } from "@/lib/stripe-escrow";
 import router from "next/router";
 
 function GlobalTicker() {
@@ -277,18 +276,25 @@ const handleQuickOrder = async (type: 'buy' | 'sell') => {
       .limit(1)
       .maybeSingle();
 
-    if (matchingOrder) {
-      toast.loading("MATCH_FOUND: Initializing Escrow...");
-      try {
-        // Import your new StripeEscrow logic here
-        await StripeEscrow.initializeEscrow(matchingOrder.id, user.id);
-        toast.success("TRADE_LOCKED: Proceed to Ops Center for payment.");
-        router.push('/ops'); // Send them straight to the logistics page
-        return;
-      } catch (err) {
-        return toast.error("EXECUTION_ERROR: Could not lock trade.");
-      }
-    }
+ if (matchingOrder) {
+  toast.loading("MATCH_FOUND: Initializing Escrow...");
+  try {
+    // Call our new API instead of the library directly
+    const res = await fetch('/api/escrow/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: matchingOrder.id, userId: user.id })
+    });
+
+    if (!res.ok) throw new Error("Escrow initialization failed");
+
+    toast.success("TRADE_LOCKED: Proceed to Ops Center.");
+    router.push('/ops');
+    return;
+  } catch (err) {
+    return toast.error("EXECUTION_ERROR: Could not lock trade.");
+  }
+}
   }
 
   // 3. FALLBACK: If no match is found, or if it's a sell order, post to board
