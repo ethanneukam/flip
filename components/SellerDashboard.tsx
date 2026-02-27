@@ -28,30 +28,30 @@ export default function SellerDashboard({ userId }: { userId: string }) {
     setLoading(false);
   };
 
-  const handleUpdateTracking = async (txId: string) => {
-    const carrier = (document.getElementById(`carrier-${txId}`) as HTMLInputElement).value;
-    const tracking = (document.getElementById(`track-${txId}`) as HTMLInputElement).value;
+  const [isLabelLoading, setIsLabelLoading] = useState<string | null>(null);
 
-    if (!carrier || !tracking) return alert("Please enter both carrier and tracking number");
-
-    setUpdatingId(txId);
-    const { error } = await supabase
-      .from("transactions")
-      .update({ 
-        status: 'shipped', 
-        shipping_carrier: carrier,
-        tracking_number: tracking,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", txId);
-
-    if (error) {
-      alert("Error updating tracking: " + error.message);
+const handleGenerateLabel = async (txId: string) => {
+  setIsLabelLoading(txId);
+  try {
+    const res = await fetch('/api/shipping/create-label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId: txId })
+    });
+    
+    const data = await res.json();
+    if (data.url) {
+      window.open(data.url, '_blank'); // Opens the PDF shipping label
+      await fetchSales(); // Refresh to show "Shipped" status
     } else {
-      await fetchSales(); // Refresh list
+      throw new Error(data.error || "Failed to generate label");
     }
-    setUpdatingId(null);
-  };
+  } catch (err: any) {
+    alert("Shipping Error: " + err.message);
+  } finally {
+    setIsLabelLoading(null);
+  }
+};
 
   if (loading) return (
     <div className="flex justify-center py-10">
@@ -93,33 +93,20 @@ export default function SellerDashboard({ userId }: { userId: string }) {
             </div>
           </div>
 
-          {tx.status === 'escrow_locked' ? (
-            <div className="space-y-3 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
-              <div className="flex items-center gap-2 text-[9px] font-black text-blue-700 uppercase">
-                <AlertCircle size={14} /> Funds Secured in Escrow
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Carrier (e.g. UPS)" 
-                  className="bg-white border border-blue-100 rounded-xl p-3 text-[10px] font-bold focus:ring-2 ring-blue-500 outline-none"
-                  id={`carrier-${tx.id}`}
-                />
-                <input 
-                  type="text" 
-                  placeholder="Tracking #" 
-                  className="bg-white border border-blue-100 rounded-xl p-3 text-[10px] font-bold focus:ring-2 ring-blue-500 outline-none"
-                  id={`track-${tx.id}`}
-                />
-              </div>
-              <button 
-                disabled={updatingId === tx.id}
-                onClick={() => handleUpdateTracking(tx.id)}
-                className="w-full bg-black text-white py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all flex justify-center items-center"
-              >
-                {updatingId === tx.id ? <Loader2 className="animate-spin" size={16} /> : "Submit Tracking & Ship"}
-              </button>
-            </div>
+        <button 
+  onClick={() => handleGenerateLabel(tx.id)}
+  disabled={!!isLabelLoading}
+  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex justify-center items-center shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+>
+  {isLabelLoading === tx.id ? <Loader2 className="animate-spin" /> : "Generate Shippo Label (Prepaid)"}
+</button>
+
+<div className="relative py-2 flex items-center">
+    <div className="flex-grow border-t border-gray-200"></div>
+    <span className="flex-shrink mx-4 text-[8px] text-gray-400 font-bold uppercase">OR MANUAL ENTRY</span>
+    <div className="flex-grow border-t border-gray-200"></div>
+</div>
+{/* Keep your manual input fields below this for fallback */}
           ) : (
             <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex items-center justify-between">
                <div className="flex items-center gap-3">
@@ -131,7 +118,7 @@ export default function SellerDashboard({ userId }: { userId: string }) {
                </div>
                <PackageCheck size={20} className="text-green-300" />
             </div>
-          )}
+          )
         </div>
       ))}
     </div>

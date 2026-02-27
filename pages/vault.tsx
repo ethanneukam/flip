@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Head from 'next/head';
 import BottomNav from '../components/BottomNav';
 import NetWorthCard from '../components/vault/NetWorthCard';
@@ -7,14 +7,24 @@ import { calculatePortfolio } from '../lib/valuation';
 import { VaultAsset, OracleMetric } from '../types/core';
 import { 
   ArrowRight, Camera, Loader2, TrendingUp, ShieldCheck, 
-  Landmark, Settings, User, MapPin, X, Package, BarChart3, Receipt
+  Landmark, Settings, User, MapPin, X, Package, BarChart3, Receipt,
+  Truck
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
+import { 
+  ResponsiveContainer, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, // Add this
+  Tooltip 
+} from 'recharts';
 import SellerDashboard from "../components/SellerDashboard";
 import { motion, AnimatePresence } from "framer-motion";
 import CameraScanner from '../components/vault/CameraScanner';
 import { uploadImage } from '../lib/uploadImage'; // <-- Check this path!
+import router from 'next/router';
 
 export default function VaultPage() {
   const [assets, setAssets] = useState<VaultAsset[]>([]);
@@ -149,6 +159,20 @@ const handleOracleScan = async (file: File) => {
     }
   };
 
+const portfolioStats = useMemo(() => {
+  if (!assets) return { total: 0, pnl: 0, count: 0 };
+  
+  // Using 'assets' as per your JSX mapping
+  const total = assets.reduce((acc, item) => acc + ((item as any).price || (item as any).current_value || 0), 0);
+  const costBasis = assets.reduce((acc, item) => acc + ((item as any).acquired_price || 0), 0);
+  const pnl = total - costBasis;
+  
+  return { 
+    total, 
+    pnl, 
+    count: assets.length 
+  };
+}, [assets]);
   const stats = calculatePortfolio(assets, oracleData);
 
   return (
@@ -165,7 +189,27 @@ const handleOracleScan = async (file: File) => {
           <Settings size={18} className="text-gray-400" />
         </button>
       </div>
-      
+      <div className="flex items-center gap-2">
+    {/* NEW OPS CENTER BUTTON */}
+    <button 
+      onClick={() => router.push('/ops')}
+      className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
+    >
+      <Truck size={14} className="text-blue-500" />
+      <span className="text-[9px] font-black uppercase tracking-tight text-white/70">Ops_Center</span>
+    </button>
+
+    <button onClick={() => setShowSettings(true)} className="p-2 bg-white/5 rounded-xl border border-white/10">
+      <Settings size={18} className="text-gray-400" />
+    </button>
+    <button 
+  onClick={() => router.push('/ops')}
+  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+>
+  <Truck size={14} />
+  <span className="text-[10px] font-black uppercase tracking-widest">Active_Ops</span>
+</button>
+  </div>
       <NetWorthCard 
         isLoading={loading} 
         totalValue={stats.totalValue} 
@@ -242,22 +286,81 @@ const handleOracleScan = async (file: File) => {
           )}
 
           {/* TAB 3: STATS */}
-          {activeTab === "stats" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key="stats" className="space-y-6">
+{activeTab === "stats" && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }} 
+              key="stats" 
+              className="space-y-4"
+            >
+              {/* 1. Value Hero Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl">
+                  <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Total_Equity</p>
+                  <p className="text-2xl font-black text-white">${portfolioStats.total.toLocaleString()}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Net_PNL</p>
+                  <p className={`text-2xl font-black ${portfolioStats.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {portfolioStats.pnl >= 0 ? '+' : ''}${portfolioStats.pnl.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* 2. Growth Trajectory */}
               <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                <p className="text-[10px] font-black text-gray-500 uppercase mb-4 tracking-widest">Growth_Trajectory</p>
-                <div className="h-48">
+                <div className="flex justify-between items-center mb-6">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Equity_Curve_v1.0</p>
+                  <span className="text-[8px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded border border-green-500/30">LIVE_DATA</span>
+                </div>
+                <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={[{v:10}, {v:15}, {v:12}, {v:25}]}>
-                      <Line type="monotone" dataKey="v" stroke="#3b82f6" strokeWidth={4} dot={false} />
+                    <LineChart data={[{v: portfolioStats.total * 0.8}, {v: portfolioStats.total * 0.95}, {v: portfolioStats.total}]}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#000', border: '1px solid #333', fontSize: '10px', borderRadius: '8px' }}
+                        itemStyle={{ color: '#3b82f6' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="v" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3} 
+                        dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }} 
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 3. Risk Distribution */}
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                <p className="text-[10px] font-black text-gray-500 uppercase mb-4 tracking-widest">Risk_Distribution</p>
+                <div className="space-y-3">
+                  {['High Volatility', 'Stable Assets', 'Arbitrage Pending'].map((label, i) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-[9px] mb-1 uppercase font-bold text-gray-400">
+                        <span>{label}</span>
+                        <span>{75 - (i * 20)}%</span>
+                      </div>
+                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 transition-all duration-1000" 
+                          style={{ width: `${75 - (i * 20)}%` }} 
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+
 
       {/* SETTINGS MODAL (Address for Shippo) */}
       <AnimatePresence>

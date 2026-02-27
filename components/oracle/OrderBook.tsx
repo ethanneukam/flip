@@ -29,7 +29,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
     fetchBook();
     
     const subscription = supabase
-      .channel('order_book_changes')
+      .channel(`order_book_${ticker}`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -68,7 +68,6 @@ export default function OrderBook({ ticker }: { ticker: string }) {
   const checkAddressAndProceed = async (type: 'buy' | 'sell', order?: Order) => {
     if (!currentUserId) return alert("AUTH_REQUIRED: Please login.");
 
-    // SELF-TRADE PREVENTION CHECK
     if (order && order.user_id === currentUserId) {
       alert("INVALID_ACTION: You cannot trade against your own order.");
       return;
@@ -129,9 +128,16 @@ export default function OrderBook({ ticker }: { ticker: string }) {
   const handleBuy = async (order: Order) => {
     setIsProcessing(true);
     try {
-      // FINAL GATE: Self-trade prevention at execution level
-      if (order.user_id === currentUserId) throw new Error("Self-trading is prohibited.");
+      // 1. Optimistic Lock: Mark as pending so no double-buys
+      const { error: lockError } = await supabase
+        .from('market_orders')
+        .update({ status: 'pending' })
+        .eq('id', order.id)
+        .eq('status', 'open');
 
+      if (lockError) throw new Error("This order is no longer available.");
+
+      // 2. Create Checkout Session
       const response = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,23 +145,26 @@ export default function OrderBook({ ticker }: { ticker: string }) {
           orderId: order.id,
           price: order.price,
           ticker: ticker,
-          buyerId: currentUserId
+          buyerId: currentUserId,
+          sellerId: order.user_id
         }),
       });
 
-      const { url, error } = await response.json();
-      if (error) throw new Error(error);
-      if (url) window.location.href = url;
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      if (data.url) window.location.href = data.url;
       
     } catch (err: any) {
       alert("TRANSACTION_FAILED: " + err.message);
       setIsProcessing(false);
+      // Reset status to open if it failed
+      await supabase.from('market_orders').update({ status: 'open' }).eq('id', order.id);
+      fetchBook();
     }
   };
 
   const lowestAsk = asks[0]?.price || 0;
   const highestBid = bids[0]?.price || 0;
-  const spread = lowestAsk > 0 && highestBid > 0 ? lowestAsk - highestBid : 0;
 
   return (
     <div className="flex flex-col h-full bg-[#0A0A0A] border border-white/10 rounded-xl overflow-hidden font-mono text-[10px] shadow-2xl relative">
@@ -193,7 +202,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
         </div>
       )}
 
-      {/* Order List: ASKS */}
+      {/* ASKS SECTION */}
       <div className="flex-1 overflow-y-auto flex flex-col-reverse justify-end p-2 space-y-1 space-y-reverse custom-scrollbar">
         {asks.map((ask) => (
           <div key={ask.id} className="flex justify-between items-center p-2 rounded hover:bg-white/5 group relative">
@@ -206,6 +215,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
             ) : (
               <button 
                 onClick={() => checkAddressAndProceed('buy', ask)}
+                disabled={isProcessing}
                 className="opacity-0 group-hover:opacity-100 absolute right-2 bg-green-600 text-white px-3 py-1 rounded text-[8px] font-black transition-all"
               >
                 {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'BUY_NOW'}
@@ -219,7 +229,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
         <span className="text-lg font-black text-white italic tracking-tighter">${lowestAsk || '---'}</span>
       </div>
 
-      {/* Order List: BIDS */}
+      {/* BIDS SECTION */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
         {bids.map((bid) => (
           <div key={bid.id} className="flex justify-between items-center p-2 rounded hover:bg-white/5 group relative">
@@ -232,6 +242,7 @@ export default function OrderBook({ ticker }: { ticker: string }) {
             ) : (
               <button 
                 onClick={() => checkAddressAndProceed('buy', bid)}
+                disabled={isProcessing}
                 className="opacity-0 group-hover:opacity-100 absolute right-2 bg-red-600 text-white px-3 py-1 rounded text-[8px] font-black transition-all"
               >
                 {isProcessing ? <Loader2 size={10} className="animate-spin" /> : 'FILL_BID'}

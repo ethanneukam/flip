@@ -30,34 +30,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const buf = await getRawBody(req);
   const sig = req.headers["stripe-signature"];
-
-  let event;
+let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      buf,
-      sig!,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(buf, sig!, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
-    console.error("❌ Stripe webhook error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Initialize Supabase
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  );
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  // 👉 Handle events
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
+    const session = event.data.object as Stripe.Checkout.Session;
+    const { orderId, buyerId, sellerId } = session.metadata || {};
 
-    await supabase.from("orders").update({
-      payment_status: "paid",
-    }).eq("checkout_session_id", session.id);
+    // IMPORTANT: Grab the Payment Intent ID to capture funds later
+    const paymentIntentId = session.payment_intent as string;
+
+    // 1. Create/Update Transaction record
+    const { error: txError } = await supabase.from("transactions").insert({
+      order_id: orderId,
+      buyer_id: buyerId,
+      seller_id: sellerId,
+      amount: session.amount_total! / 100,
+      stripe_payment_intent_id: paymentIntentId,
+      status: 'escrow_locked' 
+    });
+
+    if (txError) console.error("TX Error:", txError.message);
+
+    // 2. Close Market Order
+    await supabase.from("market_orders").update({ status: 'filled' }).eq("id", orderId);
+
+    // 3. Mark Asset as Sold
+    const { data: order } = await supabase.from("market_orders").select("ticker").eq("id", orderId).single();
+    if (order) {
+       await supabase.from("items").update({ status: "sold" }).eq("user_id", sellerId).eq("ticker", order.ticker).limit(1);
+    }
   }
 
-  res.status(200).json({ received: true });
+  res.json({ received: true });
 }

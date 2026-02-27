@@ -66,6 +66,7 @@ export default async function handler(req: any, res: any) {
 
     // 4. Calculate Oracle Condition Score
     const score = calculateConditionScore(labels, text);
+    const lowerText = (text || "").toLowerCase();
 
     // 5. Return the Terminal Analysis
     res.status(200).json({

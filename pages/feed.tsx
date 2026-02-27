@@ -4,11 +4,12 @@ import { supabase } from "@/lib/supabaseClient";
 import BottomNav from "@/components/BottomNav";
 import { Zap, ShieldCheck, Clock, Activity, ArrowUpRight } from "lucide-react";
 import MarketChart from "@/components/oracle/MarketChart";
+import { useRouter } from "next/router";
 
 export default function PulseFeed() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+const router = useRouter();
   useEffect(() => {
     const fetchFeed = async () => {
       // Fetch the initial 20 events
@@ -69,7 +70,28 @@ export default function PulseFeed() {
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Live</span>
         </div>
       </header>
+{/* GLOBAL TICKER BAR */}
+      <div className="bg-blue-600 py-1 overflow-hidden whitespace-nowrap border-y border-blue-400/30 sticky top-[61px] z-40">
+        <div className="inline-block animate-marquee">
+          {[1, 2, 3, 4].map((i) => (
+            <span key={i} className="text-[9px] font-black text-white uppercase tracking-[0.2em] mx-8">
+              SYSTEM_PULSE: ACTIVE // TOTAL_VOL_24H: $2,450,890 // ARBITRAGE_DETECTED: {events.length > 0 ? events[0].metadata?.ticker || 'NULL' : 'SCANNING'} //
+            </span>
+          ))}
+        </div>
+      </div>
 
+      {/* STANDARD STYLE TAG */}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: inline-block;
+          animation: marquee 20s linear infinite;
+        }
+      `}</style>
       <main className="divide-y divide-white/5">
         {loading ? (
           <div className="p-10 text-center text-xs font-bold text-white/20 animate-pulse uppercase tracking-widest">
@@ -138,7 +160,28 @@ export default function PulseFeed() {
                         <span>STABILITY: 99.8%</span>
                       </div>
                     </div>
+{/* ACTION DOCK */}
+<div className="px-6 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
+  <div className="flex -space-x-2">
+    {/* Visual fluff to show "Market Interest" */}
+    {[1, 2, 3].map((i) => (
+      <div key={i} className="w-6 h-6 rounded-full border-2 border-black bg-gray-800 flex items-center justify-center text-[8px] font-bold text-white/40">
+        {i}
+      </div>
+    ))}
+    <div className="pl-4 text-[9px] font-black text-white/20 uppercase self-center tracking-tighter">
+      +14 Agents Monitoring
+    </div>
+  </div>
 
+  <button 
+    onClick={() => router.push(`/charts?ticker=${event.metadata?.ticker || ''}`)}
+    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all group"
+  >
+    Interrogate_Asset
+    <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+  </button>
+</div>
                     {/* Chart Container - Massive Visibility */}
                     <div className="h-72 md:h-96 w-full p-6 relative">
                       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 

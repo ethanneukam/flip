@@ -125,7 +125,12 @@ if (chartData.length === 0) {
                 cursor={{ stroke: themeColor, strokeWidth: 1 }}
                 contentStyle={{ backgroundColor: '#111', border: '1px solid #222', borderRadius: '12px', fontSize: '10px' }}
                 itemStyle={{ color: themeColor, fontWeight: 'bold' }}
-              />
+              /><ReferenceLine 
+  y={data?.flip_price} 
+  label={{ value: 'ORACLE_VAL', fill: '#3b82f6', fontSize: 8, position: 'left' }} 
+  stroke="#3b82f6" 
+  strokeDasharray="3 3" 
+/>
               <Area 
                 type="stepAfter" // Makes it look more like a technical "tick" chart
                 dataKey="value" 

@@ -7,6 +7,10 @@ import BottomNav from '../components/BottomNav';
 import OrderBook from '@/components/oracle/OrderBook';
 import { UpgradeModal } from "@/components/UpgradeModel";
 import { toast, Toaster } from 'react-hot-toast';
+import { uploadImage } from "@/lib/uploadImage";
+import CameraScanner from '@/components/vault/CameraScanner'; // Adjust path if your file is named differently
+import { StripeEscrow } from "@/lib/stripe-escrow";
+import router from "next/router";
 
 function GlobalTicker() {
     return (
@@ -31,7 +35,8 @@ export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isScanning, setIsScanning] = useState(false); // For AI Scan state
+const [isScanning, setIsScanning] = useState(false); // For AI Scan state
+const [showScanner, setShowScanner] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   // Ticker Menu State
   const [marketItems, setMarketItems] = useState<any[]>([]);
@@ -184,7 +189,8 @@ const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
       
       reader.onload = async () => {
         const base64Image = (reader.result as string).split(',')[1];
-
+const publicUrl = await uploadImage(file); // Upload to Supabase Storage
+// Now pass this publicUrl into your state or the next step of the chain
         // 3. Identify via AI
         const aiRes = await fetch('/api/ai-scan', {
           method: 'POST',
@@ -215,30 +221,91 @@ const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
   };
 const handleAcquireAsset = async (scannedItem: any) => {
   setLoading(true);
-  
-  // We assume 'scannedItem' contains the data from your /api/ai-scan and current price logs
-  const { data, error } = await supabase
-    .from('inventory')
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return toast.error("Auth Required");
+
+  // Calculate Landed Cost (Price + Shipping + Duty)
+  const landedCost = (data?.flip_price * 1.12) + 45;
+
+  const { error } = await supabase
+    .from('user_assets') // Standardized table name
     .insert([{
-      title: scannedItem.title,
-      ticker: scannedItem.ticker,
-      acquired_price: scannedItem.currentPrice, // The "Landed Cost" we calculated
-      market_value: scannedItem.currentPrice,
-      condition_grade: scannedItem.grade || 'A',
-      image_url: scannedItem.image,
-      status: 'held'
+      user_id: user.id,
+      title: data?.title,
+      sku: ticker,
+      acquired_price: landedCost,
+      current_value: data?.flip_price,
+      status: 'in_vault',
+      image_url: data?.image_url
     }]);
 
   if (error) {
-    console.error("❌ Acquisition Failed:", error.message);
-    toast.error("Asset acquisition failed.");
+    toast.error("Vault sequence failed.");
   } else {
-    toast.success(`${scannedItem.ticker} added to your vault!`);
-    // Optionally trigger a refresh of the inventory list
+    toast.success(`${ticker} locked in Vault.`);
   }
   setLoading(false);
 };
-    
+const handleQuickOrder = async (type: 'buy' | 'sell') => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return toast.error("AUTH_REQUIRED");
+  if (!data?.flip_price) return toast.error("PRICE_NOT_INDEXED");
+
+  // 1. If selling, verify ownership (Keep your existing check)
+  if (type === 'sell') {
+    const { data: vaultItem } = await supabase
+      .from('user_assets')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('sku', ticker)
+      .limit(1)
+      .maybeSingle();
+
+    if (!vaultItem) return toast.error("VAULT_ERROR: Asset not found in inventory.");
+  }
+
+  // 2. THE MATCH-MAKER: If buying, try to find an active seller immediately
+  if (type === 'buy') {
+    const { data: matchingOrder } = await supabase
+      .from('market_orders')
+      .select('*')
+      .eq('ticker', ticker)
+      .eq('order_type', 'sell')
+      .eq('status', 'open')
+      .lte('price', data.flip_price) // Price is at or below Oracle rate
+      .order('price', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (matchingOrder) {
+      toast.loading("MATCH_FOUND: Initializing Escrow...");
+      try {
+        // Import your new StripeEscrow logic here
+        await StripeEscrow.initializeEscrow(matchingOrder.id, user.id);
+        toast.success("TRADE_LOCKED: Proceed to Ops Center for payment.");
+        router.push('/ops'); // Send them straight to the logistics page
+        return;
+      } catch (err) {
+        return toast.error("EXECUTION_ERROR: Could not lock trade.");
+      }
+    }
+  }
+
+  // 3. FALLBACK: If no match is found, or if it's a sell order, post to board
+  const { error } = await supabase.from('market_orders').insert({
+    ticker,
+    order_type: type,
+    price: data.flip_price,
+    quantity: 1,
+    user_id: user.id,
+    status: 'open',
+    item_id: data.id // CRITICAL: Make sure your terminal data includes the item UUID
+  });
+
+  if (error) toast.error(error.message);
+  else toast.success(`MARKET_SYNC: ${type.toUpperCase()} order posted to Order Book.`);
+};
+
  const handleInstantSell = async (inventoryItem: any) => {
      // 1. Get the current user session
   const { data: { user } } = await supabase.auth.getUser();
@@ -288,21 +355,12 @@ return (
           </div>
           
           <div className="flex items-center space-x-2">
-            <label className="cursor-pointer p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-blue-600/20 hover:border-blue-500/50 transition-all flex items-center justify-center">
-              {isScanning ? (
-                <Loader2 size={14} className="animate-spin text-blue-500" />
-              ) : (
-                <Camera size={14} className="text-gray-400" />
-              )}
-              <input 
-                type="file" 
-                accept="image/*" 
-                capture="environment" 
-                className="hidden" 
-                onChange={handleCameraScan} 
-                disabled={isScanning}
-              />
-            </label>
+          <button 
+  onClick={() => setShowScanner(true)}
+  className="p-2 bg-white/5 border border-white/10 rounded-lg hover:bg-blue-600/20 transition-all"
+>
+  {isScanning ? <Loader2 size={14} className="animate-spin text-blue-500" /> : <Camera size={14} className="text-gray-400" />}
+</button>
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
@@ -468,6 +526,30 @@ return (
                   <ArrowUpRight size={18} />
                   Acquire Asset
                 </button>
+                {/* Quick Market Alignment */}
+<div className="bg-blue-600/5 border border-blue-500/20 rounded-xl p-3 space-y-2">
+  <div className="flex justify-between items-center">
+    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Oracle_Execution</span>
+    <TrendingUp size={12} className="text-blue-500" />
+  </div>
+  <p className="text-[9px] text-gray-500 leading-tight">
+    Align internal liquidity with global <span className="text-white">${data?.flip_price?.toLocaleString()}</span>.
+  </p>
+  <div className="grid grid-cols-2 gap-2">
+    <button 
+      onClick={() => handleQuickOrder('buy')}
+      className="py-2 bg-green-500/20 hover:bg-green-500/30 text-green-500 border border-green-500/20 rounded-lg text-[9px] font-black uppercase transition-all"
+    >
+      Insta_Bid
+    </button>
+    <button 
+      onClick={() => handleQuickOrder('sell')}
+      className="py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/20 rounded-lg text-[9px] font-black uppercase transition-all"
+    >
+      Insta_List
+    </button>
+  </div>
+</div>
                 <button 
                   onClick={() => {
                     if (userTier === 'market_maker' || userTier === 'syndicate') {
@@ -534,28 +616,37 @@ return (
             </div> {/* End Grid */}
           </div> {/* End Right Main Content Scroll Area */}
         </div> {/* End Flex Layout Wrapper */}
-        
+        {showScanner && (
+        <CameraScanner 
+          onClose={() => setShowScanner(false)} 
+          onCapture={async (file) => {
+            setShowScanner(false);
+            const fakeEvent = { target: { files: [file] } } as any;
+            await handleCameraScan(fakeEvent);
+          }} 
+        />
+      )}
         <BottomNav />
       </main>
 
-      {/* Global Marquee CSS */}
-      <style jsx global>{`
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          display: inline-block;
-          animation: marquee 30s linear infinite;
-        }
-        .animate-spin-slow {
-          animation: spin 8s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+    {/* Global Marquee CSS */}
+<style>{`
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    display: inline-block;
+    animation: marquee 30s linear infinite;
+  }
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`}</style>
 
       {/* PRICE ALERT MODAL */}
       {isAlertModalOpen && data && (

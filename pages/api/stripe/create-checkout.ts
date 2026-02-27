@@ -8,9 +8,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  const { orderId, price, ticker, buyerId } = req.body;
+  const { orderId, price, ticker, buyerId, sellerStripeConnectId, sellerId } = req.body;
 
-  // FIX: Dynamic Origin Detection to prevent "Invalid URL" error
   const protocol = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers.host;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
@@ -26,18 +25,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               name: `${ticker.toUpperCase()} Asset`,
               description: `Order ID: ${orderId}`,
             },
-            unit_amount: Math.round(price * 100), // Stripe expects cents
+            unit_amount: Math.round(price * 100),
           },
           quantity: 1,
         },
       ],
       mode: 'payment',
+      payment_intent_data: {
+        transfer_data: {
+          destination: sellerStripeConnectId, 
+        },
+        capture_method: 'manual', // Funds held in Escrow
+      },
       metadata: {
         orderId: orderId,
         buyerId: buyerId,
+        sellerId: sellerId,
         type: 'market_purchase'
       },
-      // Uses the fixed siteUrl with explicit scheme
       success_url: `${siteUrl}/vault?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/charts?ticker=${ticker}`,
     });
