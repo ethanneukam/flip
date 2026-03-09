@@ -193,6 +193,7 @@ const router = useRouter();
                     </div>
                   </div>
                 )}
+                  id="global-feed"
               </div>
             </article>
           ))
@@ -203,6 +204,7 @@ const router = useRouter();
         )}
       </main>
       <BottomNav />
+     <BottomNav />
     </div>
   );
 }

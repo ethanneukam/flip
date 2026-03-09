@@ -376,6 +376,7 @@ return (
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value.toUpperCase())}
               />
+              id="ticker-input"
             </div>
           </div>
         </div>
@@ -454,6 +455,7 @@ return (
         +LIVE_UPDATE
       </div>
     </div>
+    id="arb-card"
   </div>
   
   <div className="h-64 md:h-80 w-full">

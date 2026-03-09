@@ -79,3 +79,26 @@
     user-select: text;
   }
 }
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.terminal-loader-bar {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes loading-slide {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-progress {
+  animation: loading-slide 2s infinite ease-in-out;
+}
+
+/* Kills the white flash by forcing the HTML background to black immediately */
+html, body {
+  background-color: #080808 !important;
+}

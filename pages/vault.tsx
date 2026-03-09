@@ -236,6 +236,7 @@ const portfolioStats = useMemo(() => {
             <tab.icon size={12} /> {tab.label}
           </button>
         ))}
+        id="net-worth-card"
       </div>
 
       <div className="px-4 mt-6">

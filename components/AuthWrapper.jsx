@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useRouter } from "next/router";
+import LoadingScreen from "./LoadingScreen";
 
 export default function AuthWrapper({ children }) {
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,7 @@ export default function AuthWrapper({ children }) {
     return () => listener.subscription.unsubscribe();
   }, [router]);
 
-  if (loading) return <p>Loading...</p>;
-
+ if (loading) return <LoadingScreen />;
+ 
   return <>{children}</>;
 }

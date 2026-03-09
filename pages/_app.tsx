@@ -2,8 +2,9 @@ import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import Header from "../components/Header";
 import AuthWrapper from "../components/AuthWrapper";
+import LoadingScreen from "../components/LoadingScreen"; // We'll create this
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react"; // Added useState
 import { useRouter } from "next/router";
 import posthog from "posthog-js";
 
@@ -13,7 +14,7 @@ import { initAnalytics, track } from "../lib/analytics";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
-
+const [loading, setLoading] = useState(false); // New loading state
   // --- Initialize PostHog once ---
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -64,8 +65,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     }
   }, [pageProps?.user]);
 
-  return (
+ return (
     <AuthWrapper>
+      {/* If the router is changing pages, show the Terminal Loader */}
+      {loading && <LoadingScreen />}
+      
       <Header />
       <Component {...pageProps} />
     </AuthWrapper>
