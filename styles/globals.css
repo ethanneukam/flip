@@ -100,5 +100,8 @@
 
 /* Kills the white flash by forcing the HTML background to black immediately */
 html, body {
-  background-color: #080808 !important;
+  background-color: #080808 !important;margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Only hide horizontal scroll */
+  /* DO NOT put overflow-y: hidden or max-height: 100vh here */
 }
