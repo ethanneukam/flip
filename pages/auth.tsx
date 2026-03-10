@@ -212,7 +212,6 @@ export default function AuthPage() {
   const tickerFull = tickerStr + "  " + tickerStr;
 
   return (
-    return (
   <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#080808", color: "white" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;0,900;1,900&family=DM+Mono:wght@400;500&display=swap');
