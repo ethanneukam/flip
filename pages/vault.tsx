@@ -210,7 +210,7 @@ const portfolioStats = useMemo(() => {
   <span className="text-[10px] font-black uppercase tracking-widest">Active_Ops</span>
 </button>
   </div>
-      <NetWorthCard 
+      <NetWorthCard id="net-worth-card"
         isLoading={loading} 
         totalValue={stats.totalValue} 
         dayChangeAbs={stats.dayChangeAbs} 
@@ -236,7 +236,7 @@ const portfolioStats = useMemo(() => {
             <tab.icon size={12} /> {tab.label}
           </button>
         ))}
-        id="net-worth-card"
+        
       </div>
 
       <div className="px-4 mt-6">

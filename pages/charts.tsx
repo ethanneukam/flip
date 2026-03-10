@@ -368,7 +368,7 @@ return (
   {isScanning ? <Loader2 size={14} className="animate-spin text-blue-500" /> : <Camera size={14} className="text-gray-400" />}
 </button>
 
-            <div className="relative">
+            <div id="ticker-input" className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
               <input 
                 className="bg-white/5 border border-white/10 rounded-lg py-2 pl-9 pr-4 text-xs focus:ring-1 focus:ring-blue-500 outline-none w-48 transition-all"
@@ -376,7 +376,7 @@ return (
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value.toUpperCase())}
               />
-              id="ticker-input"
+        
             </div>
           </div>
         </div>
@@ -429,7 +429,7 @@ return (
               <div className="lg:col-span-3 space-y-4">
                 
  {/* Chart Card */}
-<div className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
+<div id="arb-card" className="bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-2xl shadow-blue-500/5">
   <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
     <div>
       <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
@@ -455,7 +455,6 @@ return (
         +LIVE_UPDATE
       </div>
     </div>
-    id="arb-card"
   </div>
   
   <div className="h-64 md:h-80 w-full">

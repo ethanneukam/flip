@@ -212,7 +212,7 @@ export default function AuthPage() {
   const tickerFull = tickerStr + "  " + tickerStr;
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#080808", color: "white", minHeight: "100vh" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#080808", color: "white", minHeight: "100vh", overflowY: "auto" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;0,900;1,900&family=DM+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
@@ -366,7 +366,7 @@ export default function AuthPage() {
         {/* RIGHT – Auth form */}
         <div
           id="auth-panel"
-          style={{ width: "min(500px, 44vw)", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 52px", background: "white", color: "black", borderRadius: "40px 0 0 40px", position: "relative", overflow: "hidden" }}
+          style={{ width: "min(500px, 44vw)", display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 52px", background: "white", color: "black", borderRadius: "40px 0 0 40px", position: "relative", overflowY: "visible" }}
         >
           <div style={{ position: "absolute", bottom: -24, right: -16, fontFamily: "Bebas Neue, sans-serif", fontSize: 190, color: "rgba(0,0,0,0.028)", lineHeight: 1, pointerEvents: "none", userSelect: "none", transition: "all 0.4s" }}>
             {isSignUp ? "02" : "01"}
