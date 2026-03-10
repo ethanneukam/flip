@@ -279,7 +279,7 @@ export default function AuthPage() {
       </nav>
 
       {/* ── HERO / AUTH SPLIT ── */}
-      <div style={{ display: "flex", minHeight: "100vh", paddingTop: 60 }}>
+      <div style={{ display: "flex", minHeight: "100dvh", paddingTop: 70 }}>
 
         {/* LEFT */}
         <div style={{

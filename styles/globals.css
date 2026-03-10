@@ -100,8 +100,20 @@
 
 /* Kills the white flash by forcing the HTML background to black immediately */
 html, body {
-  background-color: #080808 !important;margin: 0;
+  background-color: #080808 !important;
+  margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Only hide horizontal scroll */
-  /* DO NOT put overflow-y: hidden or max-height: 100vh here */
+  overflow-x: hidden;
+  /* This kills the bounce on both mobile and desktop elastic scrolling */
+  overscroll-behavior-y: none; 
+  /* Ensures the height is always the actual visible screen */
+  height: 100%;
+}
+
+@layer base {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    /* Helps prevent text-size jumping on orientation change */
+    -webkit-text-size-adjust: 100%;
+  }
 }
