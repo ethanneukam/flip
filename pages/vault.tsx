@@ -209,7 +209,7 @@ const portfolioStats = useMemo(() => {
   <Truck size={14} />
   <span className="text-[10px] font-black uppercase tracking-widest">Active_Ops</span>
 </button>
-  </div id="net-worth-card">
+  </div>
       <NetWorthCard
         isLoading={loading} 
         totalValue={stats.totalValue} 
