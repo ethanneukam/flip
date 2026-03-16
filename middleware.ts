@@ -25,6 +25,16 @@ export async function middleware(req: NextRequest) {
     redirectUrl.pathname = '/login';
     return NextResponse.redirect(redirectUrl);
   }
+  // 1. If they hit the root, send them to Auth/Landing
+  if (req.nextUrl.pathname === '/') {
+    return NextResponse.redirect(new URL('/auth', req.url));
+  }
+
+  // 2. If they are logged in and try to go to Auth, send them to the Monitor
+  if (session && req.nextUrl.pathname === '/auth') {
+    return NextResponse.redirect(new URL('/vault', req.url));
+  }
+  
 // FIX: If user is logged in and tries to go to /login, send them to /vault (Asset Monitor)
   if (session && req.nextUrl.pathname === '/login') {
     const redirectUrl = req.nextUrl.clone();
