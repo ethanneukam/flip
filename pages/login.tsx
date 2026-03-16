@@ -13,9 +13,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
+ // Inside your LoginPage handleAuth function:
+const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     setLoading(true);
     setMessage("");
 
@@ -26,25 +26,20 @@ export default function LoginPage() {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo:
-              typeof window !== "undefined"
-                ? `${window.location.origin}/vault`
-                : undefined,
-          },
+          options: { emailRedirectTo: `${window.location.origin}/terminal` },
         });
-
         error = signUpError;
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-
         error = signInError;
-
+        
+        // SUCCESS: Redirect to Terminal immediately
         if (!error) {
-          router.push("/vault");
+          router.push("/terminal"); 
+          return; // Prevent further execution
         }
       }
 
@@ -58,7 +53,7 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
+};
 
   return (
     <div className="min-h-screen bg-[#080808] text-white flex flex-col items-center justify-center p-6 font-mono">
