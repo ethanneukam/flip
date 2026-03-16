@@ -154,13 +154,6 @@ if (chartData.length === 0) {
           </ResponsiveContainer>
         </div>
       </div>
-
-      <button 
-        onClick={() => data?.url && window.open(data.url, '_blank')}
-        className="w-full mt-6 py-4 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
-      >
-        Execute Purchase on {data?.source || 'MARKET'}
-      </button>
     </div>
   );
 }

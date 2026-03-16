@@ -14,6 +14,7 @@ export async function middleware(req: NextRequest) {
   const isPublicRoute = 
     req.nextUrl.pathname === '/' || 
     req.nextUrl.pathname === '/charts' || 
+    req.nextUrl.pathname === '/scan' || 
      req.nextUrl.pathname === '/auth' || 
      req.nextUrl.pathname === '/feed' || 
     req.nextUrl.pathname === '/login';
@@ -34,7 +35,7 @@ export async function middleware(req: NextRequest) {
   if (session && req.nextUrl.pathname === '/auth') {
     return NextResponse.redirect(new URL('/vault', req.url));
   }
-  
+
 // FIX: If user is logged in and tries to go to /login, send them to /vault (Asset Monitor)
   if (session && req.nextUrl.pathname === '/login') {
     const redirectUrl = req.nextUrl.clone();
