@@ -14,7 +14,8 @@ export default function AuthWrapper({ children }) {
 
       if (!data.session) {
         setLoading(false);
-        router.push("/auth");
+        
+        
         return;
       }
 
