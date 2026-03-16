@@ -56,7 +56,6 @@ export default function EditItemPage() {
   if (loading) return <p>Loading item...</p>;
 
   return (
-    <AuthWrapper>
       <main className="max-w-md mx-auto p-6 space-y-4">
         <h1 className="text-2xl font-bold">Edit Item</h1>
         <form onSubmit={handleUpdate} className="space-y-4">
@@ -94,6 +93,5 @@ export default function EditItemPage() {
         </form>
         {message && <p>{message}</p>}
       </main>
-    </AuthWrapper>
   );
 }1

@@ -73,7 +73,6 @@ const handleStripeOnboarding = async () => {
 };
 
   return (
-    <AuthWrapper>
       <main className="max-w-md mx-auto pb-24 bg-[#F9FAFB] min-h-screen">
         <div className="bg-black text-white p-8 pt-12 rounded-b-[40px] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -mr-16 -mt-16 blur-3xl" />
@@ -235,6 +234,5 @@ const handleStripeOnboarding = async () => {
 
         <BottomNav />
       </main>
-    </AuthWrapper>
   );
 }

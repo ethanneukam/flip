@@ -32,7 +32,6 @@ export default function OrdersPage() {
   if (loading) return <p>Loading...</p>;
 
   return (
-    <AuthWrapper>
       <main className="max-w-md mx-auto p-6 space-y-4">
         <h1 className="text-2xl font-bold">Orders</h1>
 
@@ -88,6 +87,5 @@ export default function OrdersPage() {
           ))
         )}
       </main>
-    </AuthWrapper>
   );
 }
