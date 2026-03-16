@@ -2,7 +2,7 @@
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
-import AuthWrapper from "../../components/AuthWrapper";
+//import AuthWrapper from "../../components/AuthWrapper";
 
 export default function EditItemPage() {
   const router = useRouter();

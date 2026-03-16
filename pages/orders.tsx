@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import AuthWrapper from "../components/AuthWrapper";
+//import AuthWrapper from "../components/AuthWrapper";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);

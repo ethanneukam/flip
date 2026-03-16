@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import AuthWrapper from "../components/AuthWrapper";
+//import AuthWrapper from "../components/AuthWrapper";
 import BottomNav from "../components/BottomNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "@supabase/auth-helpers-react";
