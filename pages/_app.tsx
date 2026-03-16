@@ -1,7 +1,6 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import Header from "../components/Header";
-import AuthWrapper from "../components/AuthWrapper";
 import LoadingScreen from "../components/LoadingScreen"; // We'll create this
 
 import { useEffect, useState } from "react"; // Added useState
@@ -65,13 +64,11 @@ const [loading, setLoading] = useState(false); // New loading state
     }
   }, [pageProps?.user]);
 
- return (
-    <AuthWrapper>
-      {/* If the router is changing pages, show the Terminal Loader */}
+return (
+    <>
       {loading && <LoadingScreen />}
-      
       <Header />
       <Component {...pageProps} />
-    </AuthWrapper>
+    </>
   );
 }

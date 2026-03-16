@@ -129,7 +129,7 @@ export default function AuthPage() {
     e.preventDefault();
     if (!searchQuery.trim()) return;
     // Infinite free searches - Direct to the chart/terminal feed
-    router.push(`/terminal?q=${encodeURIComponent(searchQuery)}`);
+    router.push(`/charts?q=${encodeURIComponent(searchQuery)}`);
   };
 
   const tickerStr  = TICKER_ITEMS.map(t => `  ${t.label}  ${t.up ? "▲" : "▼"} ${t.val}  ·`).join("  ");
@@ -219,7 +219,7 @@ export default function AuthPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="terminal-input"
-              placeholder="SEARCH_ASSET_DNA..."
+              placeholder=" search anything "
               style={{
                 width: "100%",
                 padding: "26px 26px 26px 50px",
