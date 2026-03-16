@@ -88,7 +88,7 @@ export default function ItemDetail() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] pb-40">
       <Head>
-        <title>{item.title} | Flip Oracle</title>
+        <title>{item.title} | Flip Terminal</title>
       </Head>
 
       {/* Top Navigation */}
@@ -117,7 +117,7 @@ export default function ItemDetail() {
           <div className="absolute bottom-6 left-6">
             <div className="bg-black text-white px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center space-x-1.5 shadow-xl">
               <ShieldCheck size={12} className="text-blue-400" />
-              <span className="tracking-widest">VERIFIED ORACLE DATA</span>
+              <span className="tracking-widest">VERIFIED Terminal DATA</span>
             </div>
           </div>
         </section>

@@ -12,7 +12,7 @@ export default function SignalCard({ event }: { event: any }) {
             <Activity size={14} className="text-blue-400" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Oracle Signal</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Flip Signal</p>
             <p className="text-xs font-bold font-mono">{event.metadata.sku}</p>
           </div>
         </div>

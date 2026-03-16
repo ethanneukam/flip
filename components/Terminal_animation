@@ -1,0 +1,83 @@
+import { motion } from "framer-motion";
+
+export const DataHarvestTransition = ({ ticker }: { ticker: string }) => {
+  const nodes = [
+    { name: "AMZN_NODE", color: "#FF9900" },
+    { name: "EBAY_NODE", color: "#E53238" },
+    { name: "ETSY_NODE", color: "#F1641E" },
+    { name: "STKX_NODE", color: "#00FF41" }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#080808] flex flex-col items-center justify-center font-mono overflow-hidden">
+      {/* Scanning Grid Background */}
+      <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
+      
+      <div className="relative flex items-center justify-center w-full max-w-md h-64">
+        {/* Central Flip Terminal Logo */}
+        <motion.div 
+          animate={{ 
+            boxShadow: ["0 0 20px #3b82f644", "0 0 60px #3b82f666", "0 0 20px #3b82f644"],
+            scale: [1, 1.02, 1] 
+          }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="z-10 bg-blue-600 px-6 py-4 rounded-xl border border-blue-400 flex flex-col items-center"
+        >
+          <span className="text-white font-black text-xl italic tracking-tighter uppercase">Flip_Terminal</span>
+          <span className="text-[8px] text-blue-200 font-bold tracking-[0.3em] mt-1">CORE_RECEIVER</span>
+        </motion.div>
+
+        {/* Streaming Data Nodes */}
+        {nodes.map((node, i) => (
+          <motion.div
+            key={node.name}
+            initial={{ x: i % 2 === 0 ? -250 : 250, y: (i - 1.5) * 50, opacity: 0 }}
+            animate={{ 
+              x: 0, 
+              y: 0, 
+              opacity: [0, 1, 0],
+              scale: [0.8, 1, 0.4] 
+            }}
+            transition={{ 
+              duration: 1.5, 
+              repeat: Infinity, 
+              delay: i * 0.3,
+              ease: "circIn" 
+            }}
+            className="absolute flex flex-col items-center gap-2"
+          >
+            <div 
+              className="w-8 h-8 rounded-lg border flex items-center justify-center bg-black/50" 
+              style={{ borderColor: `${node.color}44` }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: node.color }} />
+            </div>
+            <span className="text-[7px] font-black uppercase tracking-widest" style={{ color: node.color }}>
+              {node.name}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Status Text */}
+      <div className="mt-12 text-center space-y-2">
+        <h2 className="text-white font-black uppercase tracking-[0.5em] text-xs">
+          Initializing_Oracle: <span className="text-blue-500">{ticker}</span>
+        </h2>
+        <p className="text-gray-600 text-[9px] uppercase tracking-[0.2em] animate-pulse">
+          Scraping_Global_Indices // Verifying_Market_Depth
+        </p>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mt-8 w-48 h-[2px] bg-white/5 rounded-full overflow-hidden">
+        <motion.div 
+          initial={{ x: "-100%" }}
+          animate={{ x: "100%" }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          className="w-1/2 h-full bg-blue-600"
+        />
+      </div>
+    </div>
+  );
+};

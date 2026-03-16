@@ -148,7 +148,7 @@ export default function SecureAssetPage() {
       <nav className="border-b border-green-500/20 bg-black/80 backdrop-blur-md p-4 sticky top-0 z-30 flex items-center justify-between">
         <button onClick={() => router.back()} className="p-2 hover:text-white transition-colors"><ArrowLeft size={20} /></button>
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-widest text-green-700">Vault Entry</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-green-700">Watchlist Entry</p>
           <h1 className="text-xs font-bold uppercase tracking-wider">NEW_ASSET_SECURE</h1>
         </div>
         <div className="w-10 flex justify-end">

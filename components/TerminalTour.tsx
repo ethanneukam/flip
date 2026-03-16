@@ -13,7 +13,7 @@ const TOUR_STEPS = [
   { title: "LANDED_COSTS", body: "We factor in customs, duties, and shipping. The 'Net Profit' you see is real, not a guess.", route: "/charts", selector: "#profit-calc" },
   { title: "THE_SECURE_VAULT", body: "Now, let's look at your inventory. Everything you own is a tradable asset.", route: "/vault" },
   { title: "AI_VISION_SCAN", body: "Don't type. Just aim your camera. Our Google Vision integration IDs the item and pulls the SKU.", route: "/vault", selector: "#scan-trigger" },
-  { title: "NET_WORTH_TRACKER", body: "Your vault value updates as the market moves. Total transparency on your physical equity.", route: "/vault", selector: "#net-worth-card" },
+  { title: "NET_WORTH_TRACKER", body: "Your Watchlist value updates as the market moves. Total transparency on your physical equity.", route: "/vault", selector: "#net-worth-card" },
   { title: "EXECUTE_OPS", body: "Ready to move an item? The Ops Center handles the escrow and shipping logistics.", route: "/ops" },
   { title: "SYSTEM_READY", body: "The Terminal is yours. Go find the margin.", route: "/feed" }
 ];

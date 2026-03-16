@@ -36,7 +36,7 @@ export default function AdminTerminal() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-mono pb-24">
-      <Head><title>Admin Terminal | Flip Oracle</title></Head>
+      <Head><title>Admin Terminal | Flip </title></Head>
       
       <div className="p-6 border-b border-white/10 bg-black">
         <h1 className="text-red-500 font-black text-xs uppercase tracking-[0.3em]">Master_Control_v1.0</h1>

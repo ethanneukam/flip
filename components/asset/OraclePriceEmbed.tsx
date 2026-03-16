@@ -24,7 +24,7 @@ export default function OraclePriceEmbed({ sku }: { sku: string }) {
     <div className="bg-black text-white p-5 rounded-2xl shadow-xl">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Oracle Price</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Flip Price</p>
           <h2 className="text-3xl font-black italic tracking-tighter">
             ${data.current_price.toLocaleString()}
           </h2>

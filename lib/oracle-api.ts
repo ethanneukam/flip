@@ -14,7 +14,7 @@ export async function getOracleDataBySKU(sku: string): Promise<OracleMetric | nu
     .single();
 
   if (error || !data) {
-    console.error('Oracle Lookup Failed:', error);
+    console.error('Flip Lookup Failed:', error);
     return null;
   }
 

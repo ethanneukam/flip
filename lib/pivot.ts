@@ -2,20 +2,20 @@
 
 /**
  * FLIP PIVOT MANIFEST - FEB 28 LAUNCH
- * * IDENTITY: Physical Asset Oracle.
+ * * IDENTITY: Physical Asset Terminal.
  * * CORE TENETS:
  * 1. Flip is NOT transactional.
  * 2. Flip does NOT host listings.
  * 3. Flip does NOT escrow, ship, or mediate.
  * * PILLARS:
  * - VAULT: Private inventory (The User's Net Worth).
- * - ORACLE: Global price truth (The Data).
+ * - Terminal: Global price truth (The Data).
  * - PULSE: Social intelligence (The Feed).
  */
 
 export const PIVOT_CONFIG = {
   appName: 'Flip',
-  tagline: 'Physical Asset Oracle',
+  tagline: 'Physical Asset Terminal',
   
   // Guardrails: Hard disable legacy marketplace features
   features: {
@@ -24,7 +24,7 @@ export const PIVOT_CONFIG = {
     enableShipping: false,
     enableEscrow: false,
     enableVault: true,
-    enableOracle: true,
+    enableTerminal: true,
     enablePulse: true,
   },
 
@@ -32,7 +32,7 @@ export const PIVOT_CONFIG = {
   semantics: {
     feed: 'Pulse',
     inventory: 'Vault',
-    charts: 'Oracle',
+    charts: 'Terminal',
     search: 'Lookup',
     seller: 'Source',
     listing: 'Asset',
