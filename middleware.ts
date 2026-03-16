@@ -14,6 +14,7 @@ export async function middleware(req: NextRequest) {
   const isPublicRoute = 
     req.nextUrl.pathname === '/' || 
     req.nextUrl.pathname === '/charts' || 
+     req.nextUrl.pathname === '/auth' || 
      req.nextUrl.pathname === '/feed' || 
     req.nextUrl.pathname === '/login';
 
