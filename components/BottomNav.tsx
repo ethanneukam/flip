@@ -20,7 +20,7 @@ export default function BottomNav() {
       <div className="flex items-center justify-between h-16 px-6 max-w-md mx-auto">
         
         {/* TERMINAL (Oracle + Pulse) */}
-        <Link href="/chartsl" className={navItemClass('/charts')}>
+        <Link href="/charts" className={navItemClass('/charts')}>
           <LineChart 
             size={24} 
             className={isActive('/charts') ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} 
@@ -29,19 +29,20 @@ export default function BottomNav() {
           <span className="text-[9px] font-black uppercase tracking-widest">Terminal</span>
         </Link>
 
-        {/* SCAN (AI Vision) - The Hero Action */}
+         {/* SCAN (AI Vision) - The Hero Action */}
         <div className="flex justify-center -translate-y-4">
             <button 
               onClick={() => {
                 // If on terminal, trigger the scanner state
                 // If elsewhere, route to terminal and then trigger scanner
-                router.push('/charts?scan=true');
+                router.push('/add');
               }}
               className="bg-blue-600 rounded-2xl p-4 shadow-[0_0_25px_rgba(37,99,235,0.4)] transform active:scale-90 transition-all border-4 border-[#0A0A0A]"
             >
               <Camera size={28} className="text-white" strokeWidth={2.5} />
             </button>
         </div>
+
 
         {/* VAULT (Gated Portfolio) */}
         <Link href="/vault" className={navItemClass('/vault')}>

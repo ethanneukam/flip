@@ -38,7 +38,7 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
         
         // SUCCESS: Redirect to Terminal immediately
         if (!error) {
-          router.push("/terminal"); 
+          router.push("/charts"); 
           return; // Prevent further execution
         }
       }
@@ -149,7 +149,7 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
       </div>
 
       <button
-        onClick={() => router.push("/terminal")}
+        onClick={() => router.push("/charts")}
         className="mt-8 text-[9px] text-gray-600 uppercase tracking-[0.4em] hover:text-white transition-colors"
       >
         Return_To_Terminal
