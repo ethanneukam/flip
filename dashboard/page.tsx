@@ -2,64 +2,81 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Fallback to empty strings if env is missing so it doesn't crash the build
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize inside the component or check for window to avoid SSR issues
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-export default function DebugDashboard() {
+export default function StableDashboard() {
   const [data, setData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mount, setMount] = useState(false);
 
+  // Fix for Error #310: Ensure we only render content on the client
   useEffect(() => {
-    async function testFetch() {
+    setMount(true);
+    
+    async function fetchData() {
       try {
-        if (!supabaseUrl) {
-           setError("MISSING_ENV_VARS: Check your .env.local file!");
-           setLoading(false);
-           return;
-        }
-
-        const { data: result, error: sbError } = await supabase
+        const { data: apiKey, error } = await supabase
           .from('api_keys')
           .select('*')
           .eq('key_value', 'FLIP_DEV_TEST_123')
           .single();
 
-        if (sbError) {
-          setError(sbError.message);
-        } else {
-          setData(result);
-        }
-      } catch (err: any) {
-        setError(err.message);
+        if (error) console.error("Supabase Error:", error.message);
+        if (apiKey) setData(apiKey);
+      } catch (err) {
+        console.error("Critical Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     }
-    testFetch();
+
+    fetchData();
   }, []);
 
-  if (loading) return <div style={{color: '#e8ff47', background: 'black', height: '100vh', padding: '20px'}}>SYSTEM_CHECK_IN_PROGRESS...</div>;
-  
-  if (error) return (
-    <div style={{color: 'red', background: 'black', height: '100vh', padding: '20px'}}>
-      <h1>CRITICAL_ERROR</h1>
-      <pre>{error}</pre>
-      <p>Tip: Ensure you have a table named 'api_keys' with a column 'key_value'</p>
-    </div>
-  );
+  if (!mount) return null; 
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center font-mono text-[#e8ff47]">
+        [ LOADING_SYSTEM_DATA... ]
+      </div>
+    );
+  }
 
   return (
-    <div style={{color: 'white', background: '#050505', minHeight: '100vh', padding: '40px', fontFamily: 'monospace'}}>
-      <h1 style={{borderBottom: '1px solid #333', paddingBottom: '10px'}}>TERMINAL_DASHBOARD</h1>
-      <div style={{marginTop: '20px', border: '1px solid #e8ff47', padding: '20px'}}>
-        <p><strong>ENTITY:</strong> {data?.company_name}</p>
-        <p><strong>KEY:</strong> {data?.key_value}</p>
-        <p><strong>USAGE:</strong> {data?.request_count} / 10,000</p>
+    <div className="min-h-screen bg-[#050505] text-white font-mono p-10">
+      <div className="max-w-2xl mx-auto border border-white/10 p-8 rounded-lg bg-[#0a0a0a]">
+        <h1 className="text-xl font-bold mb-6 border-b border-white/10 pb-4 text-[#e8ff47]">
+          TERMINAL // DASHBOARD_V1
+        </h1>
+        
+        <div className="space-y-4">
+          <div>
+            <p className="text-gray-500 text-xs uppercase tracking-widest">Active_Key</p>
+            <code className="text-blue-400 block bg-black p-3 rounded mt-1 border border-white/5">
+              {data?.key_value || "NO_KEY_FOUND"}
+            </code>
+          </div>
+
+          <div className="pt-4">
+            <p className="text-gray-500 text-xs uppercase tracking-widest">Request_Usage</p>
+            <p className="text-3xl font-black mt-1">
+              {data?.request_count || 0} <span className="text-sm text-gray-600">/ 10,000</span>
+            </p>
+          </div>
+          
+          <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+             <div 
+               className="bg-[#e8ff47] h-full transition-all duration-500" 
+               style={{ width: `${((data?.request_count || 0) / 10000) * 100}%` }}
+             />
+          </div>
+        </div>
       </div>
-      <p style={{fontSize: '10px', color: '#666', marginTop: '20px'}}>READY_FOR_UPGRADE_TO_UI_V2</p>
     </div>
   );
 }
