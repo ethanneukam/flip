@@ -32,7 +32,15 @@ export default function OracleTerminal() {
   const [ticker, setTicker] = useState("RLX-SUB-126610"); // Default, will be overridden by search
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [user, setUser] = useState<any>(null);
+
+useEffect(() => {
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+  };
+  checkUser();
+}, []);
   // AI Scan State
   const [isScanning, setIsScanning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -241,17 +249,19 @@ export default function OracleTerminal() {
                 </div>
               </div>
 
-              {/* Call to Action for Auth Wall */}
-              <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 text-center mt-8">
-                <h3 className="text-lg font-black uppercase text-white mb-2">Want to trade, track, or arbitrage this asset?</h3>
-                <p className="text-sm text-gray-400 mb-6">Create a free Vault account to access Order Books, Portfolio Tracking, and Instant Liquidity routing.</p>
-                <button 
-                  onClick={() => router.push('/login')} // Or wherever your login page is
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs transition-all"
-                >
-                  Initialize Vault Identity
-                </button>
-              </div>
+            {/* Call to Action for Auth Wall - ONLY SHOW IF NO USER */}
+    {!user && (
+      <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-6 text-center mt-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        <h3 className="text-lg font-black uppercase text-white mb-2">Want to trade, track, or arbitrage this asset?</h3>
+        <p className="text-sm text-gray-400 mb-6">Create a free Vault account to access Order Books, Portfolio Tracking, and Instant Liquidity routing.</p>
+        <button 
+          onClick={() => router.push('/auth')} 
+          className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs transition-all"
+        >
+          Initialize Vault Identity
+        </button>
+      </div>
+    )}
 
             </div>
           </div>

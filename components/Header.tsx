@@ -70,8 +70,9 @@ useEffect(() => {
 
   return () => { supabase.removeChannel(channel); };
 }, []);
-  return (
+ return (
     <header className="w-full bg-[#0B0E11] border-b border-white/10 p-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-[#0B0E11]/90">
+      {/* LEFT SIDE: LOGO */}
       <Link href="/charts">
         <div className="flex items-center cursor-pointer group space-x-2">
           <img 
@@ -84,50 +85,45 @@ useEffect(() => {
         </div>
       </Link>
 
+      {/* RIGHT SIDE: ACTIONS */}
       <div className="flex items-center space-x-3 sm:space-x-6">
+        
+        {/* UPGRADE BUTTON: Only shows if user is logged in AND on free tier */}
+        {user && (tier.toLowerCase() === "free" || !tier) && (
+          <button 
+            onClick={() => router.push('/pricing')}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#e8ff47]/5 border border-[#e8ff47]/20 rounded-lg group hover:border-[#e8ff47]/50 hover:bg-[#e8ff47]/10 transition-all shadow-[0_0_15px_rgba(232,255,71,0.05)]"
+          >
+            <Terminal size={14} className="text-[#e8ff47]" />
+            <span className="text-[10px] font-black text-[#e8ff47] uppercase tracking-tighter hidden sm:inline">
+              DEV/API UPGRADE
+            </span>
+          </button>
+        )}
 
-   {/* DEV/API UPGRADE ACTION */}
-{/* NEW: UPGRADE ACTION (Visible if Free or not yet subscribed) */}
-{user && (tier === "free" || !tier) && (
-  <button 
-    onClick={() => router.push('/pricing')}
-    className="flex items-center space-x-2 px-3 py-1.5 bg-[#e8ff47]/5 border border-[#e8ff47]/20 rounded-lg group hover:border-[#e8ff47]/50 hover:bg-[#e8ff47]/10 transition-all shadow-[0_0_15px_rgba(232,255,71,0.05)]"
-  >
-    <Terminal size={14} className="text-[#e8ff47]" />
-    <span className="text-[10px] font-black text-[#e8ff47] uppercase tracking-tighter hidden sm:inline">
-      DEV/API UPGRADE
-    </span>
-  </button>
-)}
-
+        {/* STATUS INDICATOR */}
         <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
           <span className="text-[9px] font-mono text-white/60 uppercase">Market_Open</span>
         </div>
 
-  
-
         {user ? (
           <div ref={dropdownRef} className="relative">
-          <button 
-  onClick={() => setDropdownOpen((prev) => !prev)}
-  className="flex items-center focus:outline-none group"
->
-  <div className="w-10 h-10 rounded-xl p-0.5 bg-[#111] border border-white/10 group-hover:border-[#e8ff47]/50 group-hover:shadow-[0_0_15px_rgba(232,255,71,0.1)] transition-all relative overflow-visible">
-    {/* FIXED LOGO: Ensure /logo.png exists in your /public folder */}
-    <img
-      src="/logo.png" 
-      alt="Flip Logo"
-      className="w-full h-full rounded-[10px] object-contain"
-    />
-    
-    {/* Tier Indicator Dot */}
-    {/* Green for any paid tier, Gray for free */}
-    <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#050505] 
-      ${(tier?.toLowerCase() === 'free' || !tier) ? 'bg-zinc-600' : 'bg-[#e8ff47] shadow-[0_0_8px_#e8ff47]'}`} 
-    />
-  </div>
-</button>
+            <button 
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="flex items-center focus:outline-none group"
+            >
+              <div className="w-10 h-10 rounded-xl p-0.5 bg-[#111] border border-white/10 group-hover:border-[#e8ff47]/50 group-hover:shadow-[0_0_15px_rgba(232,255,71,0.1)] transition-all relative overflow-visible">
+                <img
+                  src="/logo.png" 
+                  alt="Flip Logo"
+                  className="w-full h-full rounded-[10px] object-contain"
+                />
+                <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#050505] 
+                  ${(tier?.toLowerCase() === 'free' || !tier) ? 'bg-zinc-600' : 'bg-[#e8ff47] shadow-[0_0_8px_#e8ff47]'}`} 
+                />
+              </div>
+            </button>
 
             {dropdownOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#161A1E] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-slideDown">
