@@ -12,7 +12,7 @@ export async function middleware(req: NextRequest) {
 
   // 1. Define Public Routes
   // Notice: '/scan' and '/vault' are NOT here. They are strictly private.
-  const publicPaths = ['/terminal', '/auth', '/login', '/feed', '/charts', '/item'];
+  const publicPaths = ['/terminal', '/auth', '/login', '/feed', '/charts', '/item', '/pricing'];
   
   // Allows sub-routes like /charts/123 to be public as well
   const isPublicRoute = publicPaths.some(p => path.startsWith(p));
@@ -27,6 +27,11 @@ export async function middleware(req: NextRequest) {
   if (session && (path === '/login' || path === '/auth')) {
     url.pathname = '/vault';
     return NextResponse.redirect(url);
+  }
+
+// 3. If Logged In: Don't let them stay on auth/login pages
+  if (session && (path === '/login' || path === '/auth')) {
+    return NextResponse.redirect(new URL('/vault', req.nextUrl));
   }
 
   // 4. If Not Logged In: Block access to Private Routes (/scan, /vault)

@@ -53,20 +53,20 @@ export default function PricingPage() {
     setLoadingId(priceId);
     
     try {
-      // 2. Use getSession first - it's faster and more reliable for client-side clicks
+      // 1. Get the session first (much more reliable on client-side)
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // 2. If no session, do a "hard check" with getUser just in case
       let user = session?.user;
-
-      // 3. Fallback to getUser only if session check is ambiguous
       if (!user) {
         const { data: { user: verifiedUser } } = await supabase.auth.getUser();
         user = verifiedUser;
       }
 
+      // 3. ONLY redirect if both checks fail
       if (!user) {
-        // Only redirect if BOTH checks failed
-        const currentPath = window.location.pathname;
-        window.location.href = `/login?next=${currentPath}`; // Using /auth based on your previous messages
+        // IMPORTANT: Make sure this matches your login route (/auth or /login?)
+        window.location.href = '/login?next=/pricing'; 
         return;
       }
 
