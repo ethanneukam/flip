@@ -7,7 +7,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Flip Terminal Oracle API")
+app = FastAPI(
+    title="Flip Terminal Oracle API",
+    description="High-throughput pricing data for the Quant-Trade ecosystem.",
+    version="1.0.0",
+    docs_url="/developer/playground" # Rename it to something cooler
+)
 
 # Setup the API Key Header definition
 API_KEY_NAME = "X-API-KEY"
@@ -18,20 +23,34 @@ supabase: Client = create_client(os.environ.get("SUPABASE_URL"), os.environ.get(
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- THE GATEKEEPER FUNCTION ---
+# --- THE GATEKEEPER FUNCTION (PRO VERSION) ---
 async def validate_api_key(api_key: str = Depends(api_key_header)):
     if not api_key:
         raise HTTPException(status_code=403, detail="API Key Missing. Authentication Required.")
     
-    # Check if key exists in Supabase
-    result = supabase.table("api_keys").select("*").eq("key_value", api_key).eq("is_active", True).execute()
+    # 1. Look up the key and JOIN with profiles to get the user's Tier and Current Count
+    # We use .select("*, profiles(*)") to get the linked profile data in one go
+    result = supabase.table("api_keys").select("user_id, profiles(tier, request_count)").eq("key_value", api_key).execute()
     
     if not result.data:
-        raise HTTPException(status_code=403, detail="Invalid or Inactive API Key.")
+        raise HTTPException(status_code=403, detail="Invalid API Key.")
     
-    # Optional: Update usage count (Increment)
-    current_count = result.data[0]['request_count']
-    supabase.table("api_keys").update({"request_count": current_count + 1}).eq("key_value", api_key).execute()
+    key_data = result.data[0]
+    user_id = key_data['user_id']
+    profile = key_data['profiles']
+    
+    # 2. Hard-cap for FREE tier users (e.g., 100 calls)
+    if profile['tier'] == 'free' and profile['request_count'] >= 100:
+        raise HTTPException(
+            status_code=429, 
+            detail="Free Tier Limit Reached. Upgrade at https://flip-black-two.vercel.app/auth"
+        )
+    
+    # 3. Increment usage on the PROFILES table
+    # This ensures our Next.js Cron job sees the increment and bills Stripe
+    supabase.table("profiles").update({
+        "request_count": profile['request_count'] + 1
+    }).eq("id", user_id).execute()
     
     return api_key
 

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { NotificationBell } from "./NotificationBell";
 import { useRouter } from "next/router";
-import { Settings, User, LogOut, Activity, Crown, Zap } from "lucide-react";
+import { Settings, User, LogOut, Activity, Crown, Zap, Terminal } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
@@ -85,45 +85,49 @@ useEffect(() => {
       </Link>
 
       <div className="flex items-center space-x-3 sm:space-x-6">
-        {/* NEW: UPGRADE ACTION (Visible if Free/Base) */}
-        {user && tier !== "BUSINESS" && (
-          <button 
-            onClick={() => router.push('/pricing')}
-            className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg group hover:border-amber-500/40 transition-all"
-          >
-            <Crown size={14} className="text-amber-500 animate-pulse" />
-            <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter hidden sm:inline">Upgrade</span>
-          </button>
-        )}
+
+   {/* DEV/API UPGRADE ACTION */}
+{/* NEW: UPGRADE ACTION (Visible if Free or not yet subscribed) */}
+{user && (tier === "free" || !tier) && (
+  <button 
+    onClick={() => router.push('/pricing')}
+    className="flex items-center space-x-2 px-3 py-1.5 bg-[#e8ff47]/5 border border-[#e8ff47]/20 rounded-lg group hover:border-[#e8ff47]/50 hover:bg-[#e8ff47]/10 transition-all shadow-[0_0_15px_rgba(232,255,71,0.05)]"
+  >
+    <Terminal size={14} className="text-[#e8ff47]" />
+    <span className="text-[10px] font-black text-[#e8ff47] uppercase tracking-tighter hidden sm:inline">
+      DEV/API UPGRADE
+    </span>
+  </button>
+)}
 
         <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
           <span className="text-[9px] font-mono text-white/60 uppercase">Market_Open</span>
         </div>
 
-        <div className="hover:bg-white/5 p-2 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-white/10">
-          <NotificationBell
-            className="text-white"
-            onClick={() => router.push("/notifications")}
-          />
-        </div>
+  
 
         {user ? (
           <div ref={dropdownRef} className="relative">
-            <button 
-              onClick={() => setDropdownOpen((prev) => !prev)}
-              className="flex items-center focus:outline-none"
-            >
-              <div className="w-10 h-10 rounded-xl p-0.5 bg-gradient-to-tr from-blue-600 to-indigo-900 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all relative">
-                <img
-                  src={user.user_metadata?.avatar_url || defaultAvatar}
-                  alt="Profile"
-                  className="w-full h-full rounded-[10px] border border-black/20 object-cover"
-                />
-                {/* Tier Indicator Dot */}
-                <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#0B0E11] ${tier === 'FREE' ? 'bg-gray-500' : 'bg-amber-500'}`}></div>
-              </div>
-            </button>
+          <button 
+  onClick={() => setDropdownOpen((prev) => !prev)}
+  className="flex items-center focus:outline-none group"
+>
+  <div className="w-10 h-10 rounded-xl p-0.5 bg-[#111] border border-white/10 group-hover:border-[#e8ff47]/50 group-hover:shadow-[0_0_15px_rgba(232,255,71,0.1)] transition-all relative overflow-visible">
+    {/* FIXED LOGO: Ensure /logo.png exists in your /public folder */}
+    <img
+      src="/logo.png" 
+      alt="Flip Logo"
+      className="w-full h-full rounded-[10px] object-contain"
+    />
+    
+    {/* Tier Indicator Dot */}
+    {/* Green for any paid tier, Gray for free */}
+    <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#050505] 
+      ${(tier?.toLowerCase() === 'free' || !tier) ? 'bg-zinc-600' : 'bg-[#e8ff47] shadow-[0_0_8px_#e8ff47]'}`} 
+    />
+  </div>
+</button>
 
             {dropdownOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-[#161A1E] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden py-2 animate-slideDown">
@@ -184,7 +188,7 @@ useEffect(() => {
         )}
       </div>
 
-      <style jsx>{`
+      {`
         .animate-slideDown {
           animation: slideDown 0.2s cubic-bezier(0, 0, 0.2, 1) forwards;
         }
@@ -198,7 +202,7 @@ useEffect(() => {
             transform: translateY(0) scale(1);
           }
         }
-      `}</style>
+      `}
     </header>
   );
 }
