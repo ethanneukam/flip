@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Zap, Terminal, ShieldCheck, Globe, Cpu } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
@@ -37,22 +37,40 @@ const PRICING_TIERS = [
 
 export default function PricingPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const supabase = createClientComponentClient();
+
+  // 1. Pre-check auth on mount to "warm up" the session
+  useEffect(() => {
+    const checkUser = async () => {
+      await supabase.auth.getSession();
+      setIsAuthReady(true);
+    };
+    checkUser();
+  }, [supabase]);
 
   const handleSubscription = async (priceId: string, tierName: string) => {
     setLoadingId(priceId);
     
     try {
-      // 1. Get the current logged-in user
-      const { data: { user } } = await supabase.auth.getUser();
+      // 2. Use getSession first - it's faster and more reliable for client-side clicks
+      const { data: { session } } = await supabase.auth.getSession();
+      let user = session?.user;
+
+      // 3. Fallback to getUser only if session check is ambiguous
+      if (!user) {
+        const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+        user = verifiedUser;
+      }
 
       if (!user) {
-        // Redirect to login if not authenticated
-        window.location.href = '/login?next=/pricing';
+        // Only redirect if BOTH checks failed
+        const currentPath = window.location.pathname;
+        window.location.href = `/auth?next=${currentPath}`; // Using /auth based on your previous messages
         return;
       }
 
-      // 2. Call your existing /api/checkout endpoint
+      // 4. Proceed to checkout
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -68,13 +86,13 @@ export default function PricingPage() {
       const data = await response.json();
 
       if (data.url) {
-        window.location.href = data.url; // Redirect to Stripe
+        window.location.href = data.url;
       } else {
         throw new Error(data.error || 'Checkout failed');
       }
     } catch (err) {
       console.error('Subscription error:', err);
-      alert('Could not initialize checkout. Please try again.');
+      alert('Checkout initialization failed. Please refresh and try again.');
     } finally {
       setLoadingId(null);
     }
