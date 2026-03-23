@@ -66,7 +66,7 @@ export default function PricingPage() {
       if (!user) {
         // Only redirect if BOTH checks failed
         const currentPath = window.location.pathname;
-        window.location.href = `/auth?next=${currentPath}`; // Using /auth based on your previous messages
+        window.location.href = `/login?next=${currentPath}`; // Using /auth based on your previous messages
         return;
       }
 
