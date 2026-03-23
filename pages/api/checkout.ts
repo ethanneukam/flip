@@ -1,23 +1,42 @@
-// pages/api/checkout.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { supabase } from "@/lib/supabaseClient";
 
-// I aligned the Stripe version with your webhook version so they match perfectly
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-11-20.acacia" as any, 
+  apiVersion: "2024-11-20.acacia" as any,
 });
+
+// Single helper — no more scattered URL logic
+function getBaseUrl(req: NextApiRequest): string {
+  // 1. Explicit env var is the most reliable (set this in Vercel)
+  if (process.env.NEXT_PUBLIC_BASE_URL) return process.env.NEXT_PUBLIC_BASE_URL;
+
+  // 2. Vercel forwards these headers on all serverless invocations
+  const proto = req.headers["x-forwarded-proto"] ?? "https";
+  const host = req.headers["x-forwarded-host"] ?? req.headers["host"];
+
+  if (!host) throw new Error("Cannot determine base URL: no host header found");
+
+  const base = `${proto}://${host}`;
+
+  // Catch leftover "null" / "undefined" strings before they reach Stripe
+  if (base.includes("null") || base.includes("undefined")) {
+    throw new Error(`Resolved base URL looks broken: "${base}"`);
+  }
+
+  return base;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end("Method Not Allowed");
 
   try {
-    // We check what type of purchase this is from the frontend
+    const baseUrl = getBaseUrl(req); // derived once, used everywhere
+    console.log("[checkout] baseUrl:", baseUrl);
+
     const { purchase_type } = req.body;
 
-    // =========================================================
-    // BRANCH 1: API DEVELOPER SUBSCRIPTION (The New Stuff)
-    // =========================================================
+    // ── BRANCH 1: API DEVELOPER SUBSCRIPTION ──────────────────────────
     if (purchase_type === "subscription") {
       const { price_id, user_id, user_email, tier } = req.body;
 
@@ -26,29 +45,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const session = await stripe.checkout.sessions.create({
-        customer_email: user_email, 
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: price_id, // The frontend passes the specific Stripe Price ID here
-          },
-        ],
-        mode: 'subscription', // Crucial for recurring billing
-        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?success=true`,
-        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
-        client_reference_id: user_id, // Let's the webhook know who paid
-        metadata: {
-          tier: tier, // Passes the tier name (e.g., "Starter") to the webhook
-          userId: user_id
-        }
+        customer_email: user_email,
+        payment_method_types: ["card"],
+        line_items: [{ price: price_id, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${baseUrl}/dashboard?success=true`,
+        cancel_url: `${baseUrl}/pricing?canceled=true`,
+        client_reference_id: user_id,
+        metadata: { tier, userId: user_id },
       });
 
       return res.status(200).json({ url: session.url });
     }
 
-    // =========================================================
-    // BRANCH 2: P2P MARKETPLACE PURCHASE (Your Existing Code)
-    // =========================================================
+    // ── BRANCH 2: P2P MARKETPLACE PURCHASE ────────────────────────────
     else {
       const { item_id, buyer_email } = req.body;
 
@@ -56,7 +66,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Missing required fields for marketplace" });
       }
 
-      // 1. Fetch item
       const { data: item, error: itemError } = await supabase
         .from("items")
         .select("id, title, price, user_id")
@@ -65,7 +74,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (itemError || !item) return res.status(400).json({ error: "Item not found" });
 
-      // 2. Fetch seller Stripe account
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("stripe_account_id")
@@ -74,35 +82,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (profileError || !profile) return res.status(400).json({ error: "Seller not found" });
 
-      // 3. Create Stripe Session for P2P
       const session = await stripe.checkout.sessions.create({
         customer_email: buyer_email,
-        payment_method_types: ['card'],
+        payment_method_types: ["card"],
         line_items: [
           {
             price_data: {
-              currency: 'usd',
+              currency: "usd",
               product_data: { name: item.title },
-              unit_amount: Math.round(item.price * 100), // Stripe expects cents
+              unit_amount: Math.round(item.price * 100),
             },
             quantity: 1,
           },
         ],
-        mode: 'payment',
-        // Assuming you handle escrow/transfers via PaymentIntents in your webhook
-        metadata: {
-          orderId: item.id,
-          buyerId: buyer_email // Or pass the actual UUID if you have it
-        },
-        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/marketplace?success=true`,
-        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/marketplace?canceled=true`,
+        mode: "payment",
+        metadata: { orderId: item.id, buyerId: buyer_email },
+        success_url: `${baseUrl}/marketplace?success=true`,
+        cancel_url: `${baseUrl}/marketplace?canceled=true`,
       });
 
-      // 4. Insert pending transaction in DB
       await supabase.from("transactions").insert([
         {
           item_id: item.id,
-          buyer_email: buyer_email,
+          buyer_email,
           seller_id: item.user_id,
           amount: item.price,
           status: "pending",
@@ -112,7 +114,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({ url: session.url });
     }
-
   } catch (err: any) {
     console.error("Checkout error:", err);
     return res.status(500).json({ error: err.message });
