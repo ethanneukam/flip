@@ -3,9 +3,11 @@ import type { FormEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import { Shield, ArrowRight } from "lucide-react";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function LoginPage() {
   const router = useRouter();
+const supabase = createClientComponentClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,40 +22,30 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     setMessage("");
 
     try {
-      let error: { message: string } | null = null;
-
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/terminal` },
         });
-        error = signUpError;
+        if (error) throw error;
+        setMessage("PROTOCOL_INITIATED: Check email to verify identity.");
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        error = signInError;
+        if (error) throw error;
         
-        // SUCCESS: Redirect to Terminal immediately
-        if (!error) {
-          router.push("/charts"); 
-          return; // Prevent further execution
-        }
+        // Use window.location.href for a "hard" redirect to ensure cookies sync
+        window.location.href = "/charts"; 
       }
-
-      if (error) {
-        setMessage(`ERROR: ${error.message}`);
-      } else if (isSignUp) {
-        setMessage("PROTOCOL_INITIATED: Check email to verify identity.");
-      }
-    } catch {
-      setMessage("SYSTEM_CRITICAL: Authentication service unreachable.");
+    } catch (err: any) {
+      setMessage(`ERROR: ${err.message}`);
     } finally {
       setLoading(false);
     }
-};
+  };
 
   return (
     <div className="min-h-screen bg-[#080808] text-white flex flex-col items-center justify-center p-6 font-mono">
