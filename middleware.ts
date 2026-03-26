@@ -1,34 +1,38 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server'; // Changed from 'next/request'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  // Refresh session and set cookies
+  // This is the heartbeat: it checks the actual Supabase Auth session
   const { data: { session } } = await supabase.auth.getSession();
   const path = req.nextUrl.pathname;
 
-  // Define strictly public routes (/auth is just the landing page now)
-  const publicPaths = ['/auth', '/login', '/feed', '/charts', '/item', '/pricing'];
-  const isPublicRoute = publicPaths.some(p => path.startsWith(p));
+  // 1. PUBLIC ROUTES (Anyone can see these)
+  const isPublicRoute = [
+    '/auth',    // Landing Page
+    '/login',   // Login Portal
+    '/pricing', 
+    '/feed', 
+    '/charts', 
+    '/admin'
+  ].some(p => path.startsWith(p));
 
-  // 1. Handle Root: Send unauthenticated users to the Landing Page (/auth)
+  // 2. LOGIC: If on the Root URL (/)
   if (path === '/') {
-    // If they are logged in, send them to the app. If not, to the landing page.
-    if (session) {
-      return NextResponse.redirect(new URL('/charts', req.url));
-    }
-    return NextResponse.redirect(new URL('/auth', req.url));
+    return session 
+      ? NextResponse.redirect(new URL('/charts', req.url)) 
+      : NextResponse.redirect(new URL('/auth', req.url));
   }
 
-  // 2. If Logged In: Block the login page AND the landing page, send straight to app
+  // 3. LOGIC: If logged in, don't let them go back to Login or Landing
   if (session && (path === '/login' || path === '/auth')) {
-    return NextResponse.redirect(new URL('/charts', req.url));
+    return NextResponse.redirect(new URL('/vault', req.url));
   }
 
-  // 3. If Not Logged In: Block strictly private routes and force them to the actual Login portal
+  // 4. LOGIC: If NOT logged in and trying to access private stuff (Vault, Dashboard, etc.)
   if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
