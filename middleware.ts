@@ -29,7 +29,7 @@ export async function middleware(req: NextRequest) {
 
   // 3. LOGIC: If logged in, don't let them go back to Login or Landing
   if (session && (path === '/login' || path === '/auth')) {
-    return NextResponse.redirect(new URL('/vault', req.url));
+    return NextResponse.redirect(new URL('/charts', req.url));
   }
 
   // 4. LOGIC: If NOT logged in and trying to access private stuff (Vault, Dashboard, etc.)
