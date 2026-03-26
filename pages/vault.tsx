@@ -1,12 +1,17 @@
 import { useEffect, useState, useMemo } from 'react';
 import Head from 'next/head';
 import BottomNav from '../components/BottomNav';
-import { supabase } from '../lib/supabaseClient';
+// 1. DELETE: import { supabase } from '../lib/supabaseClient';
+// 2. ADD:
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, ShieldAlert, Loader2, ArrowUpRight, ArrowDownRight, Smartphone, Settings } from 'lucide-react';
-import router from 'next/router';
+import { useRouter } from 'next/router'; // Fixed import
 
 export default function VaultPage() {
+  const router = useRouter();
+  const supabase = createClientComponentClient(); // 3. Initialize the correct client
+  
   const [session, setSession] = useState<any>(null);
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,17 +21,26 @@ export default function VaultPage() {
   }, []);
 
   async function checkUser() {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSession(session);
-    if (session) {
-      loadVaultData(session.user.id);
-    } else {
+    // 4. This now checks the COOKIES, matching your Middleware logic
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error || !session) {
+      setSession(null);
       setLoading(false);
+      return;
     }
+
+    setSession(session);
+    loadVaultData(session.user.id);
   }
 
   async function loadVaultData(userId: string) {
-    const { data } = await supabase.from('items').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
     setAssets(data || []);
     setLoading(false);
   }
@@ -35,23 +49,16 @@ export default function VaultPage() {
     return assets.reduce((acc, item) => acc + (item.current_value || 0), 0);
   }, [assets]);
 
-  if (loading) return (
+if (loading) return (
     <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
       <Loader2 className="animate-spin text-blue-500" size={32} />
     </div>
   );
 
-  // LOCKED STATE: Secure Connection Lost
   if (!session) return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-8 font-mono">
-      <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
-        <ShieldAlert className="text-red-500" size={32} />
-      </div>
-      <h1 className="text-xl font-black uppercase tracking-[0.2em] text-center">Connection_Lost</h1>
-      <p className="text-gray-500 text-[10px] uppercase mt-2 tracking-widest text-center max-w-[240px] leading-relaxed">
-        Vault access requires an initialized identity session.
-      </p>
-      <button 
+       {/* (Keep your Connection_Lost UI here) */}
+       <button 
         onClick={() => router.push('/login')}
         className="mt-8 bg-white text-black px-8 py-4 rounded-sm font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-600 hover:text-white transition-all"
       >
