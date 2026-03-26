@@ -6,26 +6,30 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
 
-  // This is crucial: it refreshes the session and sets the cookies correctly
+  // Refresh session and set cookies
   const { data: { session } } = await supabase.auth.getSession();
   const path = req.nextUrl.pathname;
 
-  const publicPaths = ['/terminal', '/auth', '/login', '/feed', '/charts', '/item', '/pricing'];
+  // Define strictly public routes (/auth is just the landing page now)
+  const publicPaths = ['/auth', '/login', '/feed', '/charts', '/item', '/pricing'];
   const isPublicRoute = publicPaths.some(p => path.startsWith(p));
 
-  // 1. Handle Root
+  // 1. Handle Root: Send unauthenticated users to the Landing Page (/auth)
   if (path === '/') {
+    // If they are logged in, send them to the app. If not, to the landing page.
+    if (session) {
+      return NextResponse.redirect(new URL('/charts', req.url));
+    }
     return NextResponse.redirect(new URL('/auth', req.url));
   }
 
-  // 2. If Logged In: Block Auth/Login pages and send to Vault
+  // 2. If Logged In: Block the login page AND the landing page, send straight to app
   if (session && (path === '/login' || path === '/auth')) {
-    return NextResponse.redirect(new URL('/vault', req.url));
+    return NextResponse.redirect(new URL('/charts', req.url));
   }
 
-  // 3. If Not Logged In: Block strictly private routes
+  // 3. If Not Logged In: Block strictly private routes and force them to the actual Login portal
   if (!session && !isPublicRoute) {
-    // Standardize to /login since that is where your file is
     return NextResponse.redirect(new URL('/login', req.url));
   }
 

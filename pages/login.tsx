@@ -1,13 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import { Shield, ArrowRight } from "lucide-react";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function LoginPage() {
   const router = useRouter();
-const supabase = createClientComponentClient();
+  const supabase = createClientComponentClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,8 +14,7 @@ const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
- // Inside your LoginPage handleAuth function:
-const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
+  const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
@@ -26,7 +24,10 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/terminal` },
+          options: { 
+            // Ensure they land in the vault after confirming email
+            emailRedirectTo: `${window.location.origin}/vault` 
+          },
         });
         if (error) throw error;
         setMessage("PROTOCOL_INITIATED: Check email to verify identity.");
@@ -37,7 +38,7 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
         });
         if (error) throw error;
         
-        // Use window.location.href for a "hard" redirect to ensure cookies sync
+        // Hard redirect to ensure cookies sync and middleware catches it
         window.location.href = "/charts"; 
       }
     } catch (err: any) {
@@ -70,12 +71,10 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-
           <div className="space-y-1">
             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
               Network_Email
             </label>
-
             <input
               type="email"
               required
@@ -90,7 +89,6 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
             <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
               Security_Key
             </label>
-
             <input
               type="password"
               required
@@ -123,7 +121,6 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
               ? "Already recognized? Login"
               : "No Identity? Request Access"}
           </button>
-
         </form>
 
         {message && (
@@ -137,7 +134,6 @@ const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
             {message}
           </div>
         )}
-
       </div>
 
       <button
