@@ -1,10 +1,12 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { 
-  Terminal, Key, Activity, Copy, Check, Zap, 
-  AlertCircle, FileSpreadsheet, Share2, Rocket, X, Code2
+import {
+  Terminal, Key, Activity, Copy, Check, Zap,
+  AlertCircle, FileSpreadsheet, Share2, Rocket, X, Code2,
+  BookOpen
 } from 'lucide-react';
+
 
 export default function DeveloperDashboard() {
   const [profile, setProfile] = useState<any>(null);
@@ -12,21 +14,25 @@ export default function DeveloperDashboard() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showSheetModal, setShowSheetModal] = useState(false);
-  
+ 
   const supabase = createClientComponentClient();
 
+
   // Replace this with your actual API domain when ready
-  const API_URL = "https://api.flip-terminal.com"; 
+  const API_URL = "https://flip-black-two.vercel.app/api/v1/price";
+
 
   useEffect(() => {
     async function loadDevData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+
       const [pRes, kRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('api_keys').select('*').eq('user_id', user.id).single()
       ]);
+
 
       setProfile(pRes.data);
       setApiKey(kRes.data);
@@ -35,11 +41,13 @@ export default function DeveloperDashboard() {
     loadDevData();
   }, []);
 
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
 
   if (loading) return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center font-mono text-[#e8ff47]">
@@ -50,8 +58,10 @@ export default function DeveloperDashboard() {
     </div>
   );
 
+
   const limit = profile?.tier === 'Starter' ? 10000 : profile?.tier === 'Growth' ? 50000 : 150000;
   const usagePercent = Math.min(((profile?.request_count || 0) / limit) * 100, 100);
+
 
   // The code for the Google Apps Script
   const googleScript = `function FETCH_CARD_VALUE(cardName) {
@@ -60,7 +70,7 @@ export default function DeveloperDashboard() {
     'headers': { 'X-API-KEY': apiKey },
     'muteHttpExceptions': true
   };
-  
+ 
   try {
     const response = UrlFetchApp.fetch("${API_URL}/v1/price/" + encodeURIComponent(cardName), options);
     const data = JSON.parse(response.getContentText());
@@ -70,10 +80,11 @@ export default function DeveloperDashboard() {
   }
 }`;
 
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-mono p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+       
         {/* --- HEADER --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/10 pb-6 gap-4">
           <div>
@@ -87,23 +98,33 @@ export default function DeveloperDashboard() {
               Operator: <span className="text-white">{profile?.email || 'Authenticated_User'}</span>
             </p>
           </div>
-          <div className="text-right">
-             <span className="text-[10px] text-gray-500 block uppercase mb-1">Current_Plan</span>
-             <span className="px-3 py-1 bg-[#e8ff47]/10 border border-[#e8ff47]/20 text-[#e8ff47] text-xs font-bold rounded-full">
-               {profile?.tier?.toUpperCase() || 'SANDBOX'}
-             </span>
+         <div className="flex flex-col items-end gap-3">
+             <div className="text-right">
+               <span className="text-[10px] text-gray-500 block uppercase mb-1">Current_Plan</span>
+               <span className="px-3 py-1 bg-[#e8ff47]/10 border border-[#e8ff47]/20 text-[#e8ff47] text-xs font-bold rounded-full">
+                 {profile?.tier?.toUpperCase() || 'SANDBOX'}
+               </span>
+             </div>
+             
+             {/* NEW API DOCS BUTTON */}
+             <a
+               href="/docs"
+               className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:border-white/20 transition-all text-white/80 hover:text-white"
+             >
+               <BookOpen size={14} />
+               <span className="text-[10px] font-bold uppercase tracking-widest">Read API Docs</span>
+             </a>
           </div>
         </div>
-
         {/* --- SUCCESS KIT (THE SHOP OWNER SECTION) --- */}
         <section className="space-y-4">
           <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] flex items-center gap-2">
             <Rocket size={14} className="text-[#e8ff47]" /> Success_Kit_Resources
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
+           
             {/* Google Sheets Trigger */}
-            <button 
+            <button
               onClick={() => setShowSheetModal(true)}
               className="flex items-center gap-4 bg-[#0a0a0a] border border-white/10 p-5 rounded-xl hover:border-green-500/50 transition-all text-left group"
             >
@@ -116,8 +137,9 @@ export default function DeveloperDashboard() {
               </div>
             </button>
 
+
             {/* Shopify / Zapier */}
-            <button 
+            <button
               onClick={() => window.open('https://zapier.com/apps/shopify/integrations', '_blank')}
               className="flex items-center gap-4 bg-[#0a0a0a] border border-white/10 p-5 rounded-xl hover:border-blue-500/50 transition-all text-left group"
             >
@@ -130,8 +152,9 @@ export default function DeveloperDashboard() {
               </div>
             </button>
 
+
             {/* White Glove Email */}
-            <a 
+            <a
               href={`mailto:support@flip-terminal.com?subject=White Glove Setup Request&body=Hi, I am on the ${profile?.tier} tier and would like help setting up my custom inventory sync.`}
               className="flex items-center gap-4 bg-[#e8ff47] p-5 rounded-xl hover:scale-[1.02] transition-all text-black group"
             >
@@ -146,9 +169,10 @@ export default function DeveloperDashboard() {
           </div>
         </section>
 
+
         {/* --- API KEY & USAGE --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+         
           {/* Key Card */}
           <div className="lg:col-span-2 bg-[#0a0a0a] border border-white/10 p-8 rounded-2xl relative overflow-hidden">
              <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Master_Access_Key</h2>
@@ -156,8 +180,8 @@ export default function DeveloperDashboard() {
                 <code className="text-[#e8ff47] text-lg font-bold tracking-wider">
                   {apiKey?.key_value || 'GENERATING_KEY...'}
                 </code>
-                <button 
-                  onClick={() => copyToClipboard(apiKey?.key_value)} 
+                <button
+                  onClick={() => copyToClipboard(apiKey?.key_value)}
                   className="ml-auto p-2 hover:bg-white/5 rounded transition-colors text-gray-500"
                 >
                   {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} />}
@@ -168,6 +192,7 @@ export default function DeveloperDashboard() {
              <Key className="absolute -bottom-4 -right-4 text-white/[0.02]" size={140} />
           </div>
 
+
           {/* Usage Stats Card */}
           <div className="bg-[#0a0a0a] border border-white/10 p-8 rounded-2xl flex flex-col justify-between">
             <div>
@@ -175,21 +200,22 @@ export default function DeveloperDashboard() {
               <p className="text-3xl font-black italic">{profile?.request_count?.toLocaleString() || 0}</p>
               <p className="text-[10px] text-gray-600 uppercase tracking-tighter">Requests used this cycle</p>
             </div>
-            
+           
             <div className="mt-6 space-y-2">
               <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest">
                 <span className="text-gray-500">Tier_Limit</span>
                 <span className="text-[#e8ff47]">{limit.toLocaleString()}</span>
               </div>
               <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                <div 
-                  className="h-full bg-[#e8ff47] shadow-[0_0_10px_#e8ff47] transition-all duration-1000" 
-                  style={{ width: `${usagePercent}%` }} 
+                <div
+                  className="h-full bg-[#e8ff47] shadow-[0_0_10px_#e8ff47] transition-all duration-1000"
+                  style={{ width: `${usagePercent}%` }}
                 />
               </div>
             </div>
           </div>
         </div>
+
 
         {/* --- PYTHON SNIPPET --- */}
         <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
@@ -219,7 +245,9 @@ export default function DeveloperDashboard() {
           </div>
         </div>
 
+
       </div>
+
 
       {/* --- GOOGLE SHEETS SCRIPT MODAL --- */}
       {showSheetModal && (
@@ -232,14 +260,14 @@ export default function DeveloperDashboard() {
                 </h3>
                 <p className="text-[10px] text-gray-500 uppercase mt-1">Version 1.0.4 | Optimized for TCG Shops</p>
               </div>
-              <button 
+              <button
                 onClick={() => setShowSheetModal(false)}
                 className="p-2 hover:bg-white/5 rounded-full text-gray-400 transition-colors"
               >
                 <X size={24} />
               </button>
             </div>
-            
+           
             <div className="p-8 space-y-6">
               <div className="space-y-3">
                 <p className="text-sm font-bold flex items-center gap-2 text-[#e8ff47]">
@@ -253,17 +281,19 @@ export default function DeveloperDashboard() {
                 </p>
               </div>
 
+
               <div className="relative group">
                 <pre className="bg-black p-6 rounded-xl text-[11px] text-green-500 border border-white/5 overflow-y-auto max-h-48 font-mono leading-normal">
                   {googleScript}
                 </pre>
-                <button 
+                <button
                   onClick={() => copyToClipboard(googleScript)}
                   className="absolute top-4 right-4 bg-[#e8ff47] text-black px-3 py-1 text-[10px] font-bold rounded hover:bg-white transition-colors"
                 >
                   {copied ? 'COPIED' : 'COPY_SCRIPT'}
                 </button>
               </div>
+
 
               <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                 <p className="text-[10px] text-gray-400 uppercase font-bold mb-2">Usage in Sheet:</p>
