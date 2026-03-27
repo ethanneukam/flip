@@ -22,26 +22,32 @@ export default function DeveloperDashboard() {
   const API_URL = "https://flip-black-two.vercel.app/api/v1/price";
 
 
-  useEffect(() => {
-    async function loadDevData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-      window.location.href = "/login";
-      return;
-    }
+useEffect(() => {
+  async function loadDevData() {
+    try {
+      // 1. Get the session without forcing a redirect
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
 
-      const [pRes, kRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('api_keys').select('*').eq('user_id', user.id).single()
-      ]);
+      if (user) {
+        // 2. Use .maybeSingle() so it doesn't crash if the user is new/has no key
+        const [pRes, kRes] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          supabase.from('api_keys').select('*').eq('user_id', user.id).maybeSingle()
+        ]);
 
-
-      setProfile(pRes.data);
-      setApiKey(kRes.data);
+        setProfile(pRes.data);
+        setApiKey(kRes.data);
+      }
+    } catch (error) {
+      console.error("Vault Error:", error);
+    } finally {
+      // 3. ALWAYS set loading to false so the page actually renders
       setLoading(false);
     }
-    loadDevData();
-  }, []);
+  }
+  loadDevData();
+}, [supabase]);
 
 
   const copyToClipboard = (text: string) => {
