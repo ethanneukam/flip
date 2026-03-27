@@ -18,7 +18,8 @@ export async function middleware(req: NextRequest) {
     '/feed', 
     '/charts', 
     '/admin',
-    '/docs'
+    '/docs',
+    '/dashboard'
   ].some(p => path.startsWith(p));
 
   // 2. LOGIC: If on the Root URL (/)
