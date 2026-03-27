@@ -17,7 +17,8 @@ export async function middleware(req: NextRequest) {
     '/pricing', 
     '/feed', 
     '/charts', 
-    '/admin'
+    '/admin',
+    '/docs'
   ].some(p => path.startsWith(p));
 
   // 2. LOGIC: If on the Root URL (/)
@@ -28,7 +29,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // 3. LOGIC: If logged in, don't let them go back to Login or Landing
-  if (session && (path === '/login' || path === '/auth')) {
+if (session && (path === '/login' || path === '/auth')) {
     return NextResponse.redirect(new URL('/charts', req.url));
   }
 

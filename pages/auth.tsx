@@ -529,10 +529,46 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <footer style={{ padding: "40px 80px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <footer style={{ 
+        padding: "40px 80px", 
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "20px"
+      }}>
         <div style={{ fontFamily: "DM Mono, monospace", fontSize: 10, letterSpacing: "0.2em", color: "rgba(255,255,255,0.2)" }}>
            FLIP_TERMINAL // INFRASTRUCTURE_PROTOCOL_v3.0 // 2026
         </div>
+        
+        <button 
+          onClick={() => router.push('/docs')}
+          style={{
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(255,255,255,0.5)",
+            padding: "8px 16px",
+            fontFamily: "DM Mono, monospace",
+            fontSize: 10,
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = "#e8ff47";
+            e.currentTarget.style.borderColor = "rgba(232,255,71,0.4)";
+            e.currentTarget.style.background = "rgba(232,255,71,0.05)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+            e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+          }}
+        >
+          [ Read_API_Docs ]
+        </button>
       </footer>
     </div>
   );

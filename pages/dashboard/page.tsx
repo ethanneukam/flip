@@ -25,8 +25,10 @@ export default function DeveloperDashboard() {
   useEffect(() => {
     async function loadDevData() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      if (!user) {
+      window.location.href = "/login";
+      return;
+    }
 
       const [pRes, kRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
