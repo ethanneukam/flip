@@ -25,24 +25,26 @@ export default function DeveloperDashboard() {
 useEffect(() => {
   async function loadDevData() {
     try {
-      // 1. Get the session without forcing a redirect
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-
-      if (user) {
-        // 2. Use .maybeSingle() so it doesn't crash if the user is new/has no key
-        const [pRes, kRes] = await Promise.all([
-          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-          supabase.from('api_keys').select('*').eq('user_id', user.id).maybeSingle()
-        ]);
-
-        setProfile(pRes.data);
-        setApiKey(kRes.data);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If no user, we just stop loading and show the "Logged Out" version of the page
+      if (!user) {
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Vault Error:", error);
+
+      // Use .maybeSingle() so it doesn't crash if they haven't paid for a key yet
+      const [pRes, kRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('api_keys').select('*').eq('user_id', user.id).maybeSingle()
+      ]);
+
+      setProfile(pRes.data);
+      setApiKey(kRes.data);
+    } catch (err) {
+      console.error("Vault access error:", err);
     } finally {
-      // 3. ALWAYS set loading to false so the page actually renders
+      // This ensures the loading screen ALWAYS disappears
       setLoading(false);
     }
   }
