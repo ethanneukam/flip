@@ -255,7 +255,7 @@ useEffect(() => {
         <h3 className="text-lg font-black uppercase text-white mb-2">Want to trade, track, or arbitrage this asset?</h3>
         <p className="text-sm text-gray-400 mb-6">Create a free Vault account to access Order Books, Portfolio Tracking, and Instant Liquidity routing.</p>
         <button 
-          onClick={() => router.push('/auth')} 
+          onClick={() => router.push('/login')} 
           className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold uppercase tracking-widest text-xs transition-all"
         >
           Initialize Vault Identity
