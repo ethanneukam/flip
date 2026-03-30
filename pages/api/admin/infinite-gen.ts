@@ -11,7 +11,7 @@ export default async function handler(req: any, res: any) {
     .single();
 
   let currentTicker = lastItem?.ticker || "AAA";
-  const newBatch = [];
+  const newBatch: any[] = [];
 
   // 2. Generate the next 100 possible tickers
   for (let i = 0; i < 100; i++) {
