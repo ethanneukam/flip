@@ -2,19 +2,31 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { NotificationBell } from "./NotificationBell";
-import { useRouter } from "next/router";
-import { Settings, User, LogOut, Activity, Crown, Zap, Terminal } from "lucide-react";
+
+import { useRouter as useNextRouter } from "next/router";
+import { useRouter as useAppRouter, usePathname } from "next/navigation";
+import { Settings, User, LogOut, Activity, Zap, Terminal } from "lucide-react";
 
 export default function Header() {
   const [user, setUser] = useState<any>(null);
   const [tier, setTier] = useState<string>("FREE");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const pagesRouter = useNextRouter();
+  const appRouter = useAppRouter();
+  const pathname = usePathname();
   
   // Initialize the correct Next.js client
   const supabase = createClientComponentClient();
-
+const navigate = (path: string) => {
+    if (pathname) {
+      // We are in the App Router world
+      appRouter.push(path);
+    } else {
+      // We are in the Pages Router world
+      pagesRouter.push(path);
+    }
+  };
   useEffect(() => {
     const fetchUserAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -77,15 +89,14 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* RIGHT SIDE: ACTIONS */}
+      {/* RIGHT SIDE: ACTIONS */}
         <div className="flex items-center space-x-3 sm:space-x-6">
-         
-          {/* LOGIC: SHOW DASHBOARD BUTTON IF PAID, ELSE UPGRADE */}
+          
           {user && (
             <>
               {(tier === "FREE" || !tier) ? (
                 <button
-                  onClick={() => router.push('/pricing')}
+                  onClick={() => navigate('/pricing')}
                   className="flex items-center space-x-2 px-3 py-1.5 bg-[#e8ff47]/5 border border-[#e8ff47]/20 rounded-lg group hover:border-[#e8ff47]/50 hover:bg-[#e8ff47]/10 transition-all shadow-[0_0_15px_rgba(232,255,71,0.05)]"
                 >
                   <Terminal size={14} className="text-[#e8ff47]" />
@@ -95,7 +106,7 @@ export default function Header() {
                 </button>
               ) : (
                 <button
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => navigate('/dashboard')}
                   className="flex items-center space-x-2 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg group hover:border-green-500/60 hover:bg-green-500/20 transition-all shadow-[0_0_15px_rgba(34,197,94,0.1)]"
                 >
                   <Activity size={14} className="text-green-400" />
