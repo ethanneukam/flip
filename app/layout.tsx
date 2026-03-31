@@ -1,3 +1,5 @@
+import '../styles/globals.css'
+
 export const metadata = {
   title: 'FLIP Terminal',
   description: 'TCG Intelligence Vault',
