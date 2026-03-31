@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
 import InstallPrompt from "@/components/InstallPrompt";
+import '../styles/globals.css'
 
 const inter = Inter({ subsets: ["latin"] });
 
