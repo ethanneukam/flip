@@ -22,8 +22,8 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // llama-3.2-11b-vision-preview is the current sweet spot for speed/accuracy
-        model: "llama-3.2-11b-vision-preview",
+        // UPDATE: Using the Llama 4 Scout model (the recommended successor)
+        model: "meta-llama/llama-4-scout-17b-16e-instruct", 
         messages: [
           {
             role: "user",
@@ -35,13 +35,13 @@ export default async function handler(req, res) {
               {
                 type: "image_url",
                 image_url: {
-                  url: image, // Groq likes the full data URI (including the prefix)
+                  url: image, // Still takes the base64 data URI
                 },
               },
             ],
           },
         ],
-        temperature: 0.1, // Low temperature for high accuracy/consistency
+        temperature: 0.1,
         max_tokens: 100,
       }),
     });
