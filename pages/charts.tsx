@@ -96,49 +96,78 @@ useEffect(() => {
   }, [ticker]);
 
   // AI CAMERA SCAN
-  const handleCameraScan = async (e: React.ChangeEvent<HTMLInputElement> | { target: { files: File[] } }) => {
-    const file = e.target.files?.[0];
+// AI CAMERA SCAN
+  const handleCameraScan = async (file: File) => {
     if (!file) return;
 
     setIsScanning(true);
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
+      // 1. Create a promise to handle the image processing
+      const base64Image = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            // COMPRESSION: Resize to max 800px to stay under Vercel's 4.5MB limit
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const max = 800;
+
+            if (width > height && width > max) {
+              height *= max / width;
+              width = max;
+            } else if (height > max) {
+              width *= max / height;
+              height = max;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            // Return as JPEG base64
+            resolve(canvas.toDataURL('image/jpeg', 0.8)); 
+          };
+          img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // 2. Send to our new Groq-powered API
+      const aiRes = await fetch('/api/ai-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image }),
+      });
       
-      reader.onload = async () => {
-        const base64Image = (reader.result as string).split(',')[1];
-        // Optional: uploadImage logic if you need it stored
-        // const publicUrl = await uploadImage(file); 
+      const resData = await aiRes.json();
+      
+      if (!aiRes.ok) throw new Error(resData.details || "Vision failure");
+
+      const productName = resData.productName;
+      
+      if (productName && productName !== "Unknown Item") {
+        toast.success(`SYSTEM_IDENTIFIED: ${productName}`);
         
-        const aiRes = await fetch('/api/ai-scan', {
+        // 3. Trigger Scraper (Optional but good for Day 2)
+        fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Image }),
-        });
-        
-        const resData = await aiRes.json();
-        const productName = resData.productName;
-        
-        if (productName) {
-          toast.success(`Identified: ${productName}`);
-          // Trigger Scraper to ensure market data exists
-          await fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyword: productName }),
-          });
+          body: JSON.stringify({ keyword: productName }),
+        }).catch(err => console.error("Background Scrape Error:", err));
 
-          // Update the ticker to load the new chart
-          setTicker(productName.toUpperCase());
-        } else {
-          toast.error("Could not identify asset.");
-        }
-        setIsScanning(false);
-      };
-    } catch (err) {
+        // 4. Update ticker to load the new chart immediately
+        setTicker(productName.toUpperCase());
+      } else {
+        toast.error("ERROR: Asset DNA not recognized.");
+      }
+
+    } catch (err: any) {
       console.error("Chart AI Scan Error:", err);
-      toast.error("Scan failed.");
+      toast.error(`SCAN_FAILED: ${err.message}`);
+    } finally {
       setIsScanning(false);
     }
   };
@@ -267,16 +296,16 @@ useEffect(() => {
           </div>
         </div> 
 
-        {showScanner && (
-          <CameraScanner 
-            onClose={() => setShowScanner(false)} 
-            onCapture={async (file) => {
-              setShowScanner(false);
-              const fakeEvent = { target: { files: [file] } } as any;
-              await handleCameraScan(fakeEvent);
-            }} 
-          />
-        )}
+      {showScanner && (
+  <CameraScanner 
+    onClose={() => setShowScanner(false)} 
+    onCapture={async (file) => {
+      setShowScanner(false);
+      // Directly pass the file now
+      await handleCameraScan(file);
+    }} 
+  />
+)}
         <BottomNav />
       </main>
 
