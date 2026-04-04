@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+const supabaseUrl = 'YOUR_SUPABASE_URLhttps://eugjprzdksgattiigvnk.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1Z2pwcnpka3NnYXR0aWlndm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MjQxMDIsImV4cCI6MjA3MDUwMDEwMn0.X72FMF_h_9cm1G1uGmMwxsq4XpPx3MpOHCiaGhxZ4LU';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
