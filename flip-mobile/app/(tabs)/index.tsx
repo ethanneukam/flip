@@ -1,59 +1,36 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { supabase } from '../../lib/supabase'; // Make sure this path is correct!
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { supabase } from '../../lib/supabase'; 
 
-export default function AuthScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('› READY_FOR_AUTH');
+export default function HomeScreen() {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  async function signInWithEmail() {
-    setLoading(true);
-    setStatus('› AUTHENTICATING...');
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
+  useEffect(() => {
+    // Check if we can actually talk to Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
     });
-
-    if (error) {
-      setStatus(`› ERROR: ${error.message}`);
-    } else {
-      setStatus('› ACCESS_GRANTED');
-    }
-    setLoading(false);
-  }
+  }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>TERMINAL_AUTH_v1.0</Text>
-      <Text style={styles.status}>{status}</Text>
+      <Text style={styles.glitchText}>› TERMINAL_BOOT_SEQUENCE</Text>
+      
+      <View style={styles.vaultBox}>
+        <Text style={styles.label}>DATABASE_STATUS:</Text>
+        <Text style={styles.value}>[ CONNECTED ]</Text>
+      </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="EMAIL"
-        placeholderTextColor="#444"
-        onChangeText={(text) => setEmail(text)}
-        value={email}
-        autoCapitalize={'none'}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="PASSWORD"
-        placeholderTextColor="#444"
-        secureTextEntry={true}
-        onChangeText={(text) => setPassword(text)}
-        value={password}
-        autoCapitalize={'none'}
-      />
+      <View style={styles.vaultBox}>
+        <Text style={styles.label}>USER_SESSION:</Text>
+        <Text style={styles.value}>
+          {loading ? 'CHECKING...' : session ? 'AUTHENTICATED' : 'ANONYMOUS_ACCESS'}
+        </Text>
+      </View>
 
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={() => signInWithEmail()}
-        disabled={loading}
-      >
-        {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.buttonText}>[ LOGIN ]</Text>}
-      </TouchableOpacity>
+      {loading && <ActivityIndicator color="#e8ff47" style={{ marginTop: 20 }} />}
     </View>
   );
 }
@@ -62,40 +39,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    padding: 40,
+    padding: 30,
     justifyContent: 'center',
   },
-  header: {
+  glitchText: {
     color: '#e8ff47',
-    fontSize: 18,
-    fontFamily: 'Courier',
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontFamily: 'monospace',
+    fontSize: 14,
+    marginBottom: 40,
+    letterSpacing: 2,
   },
-  status: {
+  vaultBox: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#222',
+    paddingLeft: 15,
+    marginBottom: 20,
+  },
+  label: {
     color: '#555',
     fontSize: 10,
-    fontFamily: 'Courier',
-    marginBottom: 30,
+    fontFamily: 'monospace',
+    textTransform: 'uppercase',
   },
-  input: {
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#333',
+  value: {
     color: '#fff',
-    padding: 15,
-    marginBottom: 15,
-    fontFamily: 'Courier',
-  },
-  button: {
-    backgroundColor: '#e8ff47',
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontFamily: 'Courier',
+    fontSize: 18,
+    fontFamily: 'monospace',
+    marginTop: 4,
   },
 });
