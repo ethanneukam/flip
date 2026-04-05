@@ -18,9 +18,24 @@ export default function ScannerScreen() {
     return (
       <View style={styles.container}>
         <Text style={styles.message}>› CAMERA_ACCESS_REQUIRED</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>[ GRANT_ACCESS ]</Text>
-        </TouchableOpacity>
+        <TouchableOpacity 
+  style={styles.button} 
+  onPress={async () => {
+    console.log("› ATTEMPTING_PERMISSION_REQUEST...");
+    try {
+      const result = await requestPermission();
+      console.log("› PERMISSION_RESULT:", result);
+    } catch (err) {
+  // We check if it's actually an Error object before touching .message
+  const errorMessage = err instanceof Error ? err.message : 'UNKNOWN_SYSTEM_ERROR';
+  
+  console.error("› PERMISSION_ERROR:", errorMessage);
+  alert("Camera error: " + errorMessage);
+}
+  }}
+>
+  <Text style={styles.buttonText}>[ GRANT_ACCESS ]</Text>
+</TouchableOpacity>
       </View>
     );
   }
