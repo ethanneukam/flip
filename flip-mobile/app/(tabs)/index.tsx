@@ -1,70 +1,88 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
-import { supabase } from '../../lib/supabase'; 
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { supabase } from '../../lib/supabase';
 
-export default function HomeScreen() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export default function AuthScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [message, setMessage] = useState('› SYSTEM_READY');
 
-  useEffect(() => {
-    // Check if we can actually talk to Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-  }, []);
+  async function handleAuth() {
+    setLoading(true);
+    setMessage(isSignUp ? '› CREATING_ACCOUNT...' : '› VERIFYING_CREDENTIALS...');
+    
+    const { error } = isSignUp 
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setMessage(`› ERROR: ${error.message.toUpperCase()}`);
+    } else {
+      setMessage(isSignUp ? '› CHECK_EMAIL_FOR_LINK' : '› ACCESS_GRANTED');
+    }
+    setLoading(false);
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.glitchText}>› TERMINAL_BOOT_SEQUENCE</Text>
-      
-      <View style={styles.vaultBox}>
-        <Text style={styles.label}>DATABASE_STATUS:</Text>
-        <Text style={styles.value}>[ CONNECTED ]</Text>
-      </View>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.glitchTitle}>TERMINAL_VAULT_v1.0</Text>
+        <Text style={styles.statusText}>{message}</Text>
 
-      <View style={styles.vaultBox}>
-        <Text style={styles.label}>USER_SESSION:</Text>
-        <Text style={styles.value}>
-          {loading ? 'CHECKING...' : session ? 'AUTHENTICATED' : 'ANONYMOUS_ACCESS'}
-        </Text>
-      </View>
+        <View style={styles.form}>
+          <Text style={styles.label}>[ EMAIL_ADDRESS ]</Text>
+          <TextInput
+            style={styles.input}
+            onChangeText={setEmail}
+            value={email}
+            placeholder="user@network.com"
+            placeholderTextColor="#333"
+            autoCapitalize="none"
+          />
 
-      {loading && <ActivityIndicator color="#e8ff47" style={{ marginTop: 20 }} />}
-    </View>
+          <Text style={styles.label}>[ ACCESS_CODE ]</Text>
+          <TextInput
+            style={styles.input}
+            onChangeText={setPassword}
+            value={password}
+            secureTextEntry
+            placeholder="••••••••"
+            placeholderTextColor="#333"
+            autoCapitalize="none"
+          />
+
+          <TouchableOpacity style={styles.mainButton} onPress={handleAuth} disabled={loading}>
+            <Text style={styles.buttonText}>
+              {loading ? 'PROCESSING...' : isSignUp ? 'CREATE_OPERATOR' : 'INITIALIZE_LOGIN'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} style={styles.switchButton}>
+            <Text style={styles.switchText}>
+              {isSignUp ? '› ALREADY_HAVE_ACCESS? LOGIN' : '› NEW_OPERATOR? REGISTER'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 30,
-    justifyContent: 'center',
-  },
-  glitchText: {
-    color: '#e8ff47',
-    fontFamily: 'monospace',
-    fontSize: 14,
-    marginBottom: 40,
-    letterSpacing: 2,
-  },
-  vaultBox: {
-    borderLeftWidth: 2,
-    borderLeftColor: '#222',
-    paddingLeft: 15,
-    marginBottom: 20,
-  },
-  label: {
-    color: '#555',
-    fontSize: 10,
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-  },
-  value: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'monospace',
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
+  glitchTitle: { color: '#e8ff47', fontSize: 24, fontWeight: '900', fontFamily: 'monospace', fontStyle: 'italic' },
+  statusText: { color: '#444', fontSize: 10, fontFamily: 'monospace', marginTop: 5, marginBottom: 40 },
+  form: { gap: 10 },
+  label: { color: '#e8ff47', fontSize: 10, fontFamily: 'monospace', marginBottom: 5, opacity: 0.7 },
+  input: { backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#e8ff4733', color: '#fff', padding: 15, fontFamily: 'monospace', marginBottom: 20 },
+  mainButton: { backgroundColor: '#e8ff47', padding: 18, alignItems: 'center', borderRadius: 2 },
+  buttonText: { color: '#000', fontWeight: 'bold', fontFamily: 'monospace' },
+  switchButton: { marginTop: 20, alignItems: 'center' },
+  switchText: { color: '#555', fontSize: 10, fontFamily: 'monospace' }
 });
