@@ -5,7 +5,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 const { width } = Dimensions.get('window');
 
 export default function ScannerScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  //const [permission, requestPermission] = useCameraPermissions();
+  const permission = { granted: true }; // Force it on
   const cameraRef = useRef(null);
 
   if (!permission) {
