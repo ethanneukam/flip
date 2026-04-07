@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { LineChart } from "react-native-gifted-charts";
 import FadeContent from '../../components/FadeContent';
+import ElectricBorderInput from '@/components/ElectricBorder';
 
 const { width } = Dimensions.get('window');
 
@@ -101,14 +102,12 @@ const handleSaveToVault = async () => {
     <ScrollView style={styles.container}>
       <Text style={styles.terminalHeader}>› TERMINAL_ORACLE_v1.0.2</Text>
       
-      <TextInput 
-        style={styles.searchInput}
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="SCAN_OR_TYPE_ASSET..."
-        placeholderTextColor="#333"
-        onSubmitEditing={() => handleSearch(searchQuery)}
-      />
+      <ElectricBorderInput
+  value={searchQuery}
+  onChangeText={setSearchQuery}
+  placeholder="SCAN_OR_TYPE_ASSET..."
+  onSubmitEditing={() => handleSearch(searchQuery)}
+/>
 
       {loading ? (
         <ActivityIndicator color="#e8ff47" style={{ marginTop: 100 }} />
