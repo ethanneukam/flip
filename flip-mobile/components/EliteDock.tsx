@@ -7,7 +7,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, Ex
 
 export default function EliteDock({ state, descriptors, navigation }: BottomTabBarProps) {
   // Shared value for finger X position
-  const fingerX = useSharedValue(-1000); // offscreen default
+  const fingerX = useSharedValue(0); // start in middle// offscreen default
 
   // PanResponder to track finger movements
   const panResponder = PanResponder.create({
