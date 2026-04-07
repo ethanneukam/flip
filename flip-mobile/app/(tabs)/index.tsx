@@ -1,88 +1,85 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-export default function AuthScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [message, setMessage] = useState('› SYSTEM_READY');
+export default function DashboardScreen() {
+  const { query } = useLocalSearchParams();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [chartData, setChartData] = useState<any>(null);
 
-  async function handleAuth() {
-    setLoading(true);
-    setMessage(isSignUp ? '› CREATING_ACCOUNT...' : '› VERIFYING_CREDENTIALS...');
-    
-    const { error } = isSignUp 
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setMessage(`› ERROR: ${error.message.toUpperCase()}`);
-    } else {
-      setMessage(isSignUp ? '› CHECK_EMAIL_FOR_LINK' : '› ACCESS_GRANTED');
+  // This effect listens for data coming in from the Scanner!
+  useEffect(() => {
+    if (query) {
+      setSearchQuery(query as string);
+      fetchPricingData(query as string);
     }
-    setLoading(false);
-  }
+  }, [query]);
+
+  const fetchPricingData = async (itemName: string) => {
+    setIsSearching(true);
+    console.log(`› PULLING_CHARTS_FOR: ${itemName}`);
+    
+    try {
+      // Connects to your Python API Endpoint
+      const res = await fetch(`https://flip-black-two.vercel.app/api/v1/pricing/${encodeURIComponent(itemName)}`, {
+        // Add your API Key headers here if needed
+      });
+      
+      const data = await res.json();
+      setChartData(data);
+    } catch (error) {
+      console.error("› CHART_FETCH_ERROR", error);
+    }
+    
+    setIsSearching(false);
+  };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.glitchTitle}>TERMINAL_VAULT_v1.0</Text>
-        <Text style={styles.statusText}>{message}</Text>
+    <View style={styles.container}>
+      <Text style={styles.header}>› TERMINAL_DASHBOARD</Text>
+      
+      {/* Search Bar */}
+      <TextInput 
+        style={styles.searchInput}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="ENTER_ASSET_NAME..."
+        placeholderTextColor="#555"
+        onSubmitEditing={() => fetchPricingData(searchQuery)}
+      />
 
-        <View style={styles.form}>
-          <Text style={styles.label}>[ EMAIL_ADDRESS ]</Text>
-          <TextInput
-            style={styles.input}
-            onChangeText={setEmail}
-            value={email}
-            placeholder="user@network.com"
-            placeholderTextColor="#333"
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.label}>[ ACCESS_CODE ]</Text>
-          <TextInput
-            style={styles.input}
-            onChangeText={setPassword}
-            value={password}
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor="#333"
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity style={styles.mainButton} onPress={handleAuth} disabled={loading}>
-            <Text style={styles.buttonText}>
-              {loading ? 'PROCESSING...' : isSignUp ? 'CREATE_OPERATOR' : 'INITIALIZE_LOGIN'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)} style={styles.switchButton}>
-            <Text style={styles.switchText}>
-              {isSignUp ? '› ALREADY_HAVE_ACCESS? LOGIN' : '› NEW_OPERATOR? REGISTER'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {/* Results Area */}
+      <View style={styles.chartArea}>
+        {isSearching ? (
+          <View style={styles.loader}>
+            <ActivityIndicator color="#e8ff47" />
+            <Text style={styles.loaderText}>QUERYING_ORACLE...</Text>
+          </View>
+        ) : chartData ? (
+          <View style={styles.card}>
+            <Text style={styles.assetTitle}>{chartData.title}</Text>
+            <Text style={styles.price}>${chartData.flip_price}</Text>
+            <Text style={styles.status}>[{chartData.status}]</Text>
+          </View>
+        ) : (
+          <Text style={styles.idleText}>› AWAITING_INPUT_OR_SCAN</Text>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
-  glitchTitle: { color: '#e8ff47', fontSize: 24, fontWeight: '900', fontFamily: 'monospace', fontStyle: 'italic' },
-  statusText: { color: '#444', fontSize: 10, fontFamily: 'monospace', marginTop: 5, marginBottom: 40 },
-  form: { gap: 10 },
-  label: { color: '#e8ff47', fontSize: 10, fontFamily: 'monospace', marginBottom: 5, opacity: 0.7 },
-  input: { backgroundColor: '#0a0a0a', borderBottomWidth: 1, borderBottomColor: '#e8ff4733', color: '#fff', padding: 15, fontFamily: 'monospace', marginBottom: 20 },
-  mainButton: { backgroundColor: '#e8ff47', padding: 18, alignItems: 'center', borderRadius: 2 },
-  buttonText: { color: '#000', fontWeight: 'bold', fontFamily: 'monospace' },
-  switchButton: { marginTop: 20, alignItems: 'center' },
-  switchText: { color: '#555', fontSize: 10, fontFamily: 'monospace' }
+  container: { flex: 1, backgroundColor: '#000', padding: 20, paddingTop: 60 },
+  header: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 16, marginBottom: 20 },
+  searchInput: { backgroundColor: '#111', color: '#e8ff47', padding: 15, fontFamily: 'monospace', borderWidth: 1, borderColor: '#333', borderRadius: 4 },
+  chartArea: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+  loader: { alignItems: 'center', gap: 10 },
+  loaderText: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 12 },
+  card: { backgroundColor: '#111', padding: 30, borderWidth: 1, borderColor: '#e8ff47', width: '100%', alignItems: 'center' },
+  assetTitle: { color: '#fff', fontSize: 20, fontFamily: 'monospace', textAlign: 'center', marginBottom: 10 },
+  price: { color: '#e8ff47', fontSize: 40, fontWeight: 'bold', fontFamily: 'monospace', marginBottom: 10 },
+  status: { color: '#555', fontSize: 10, fontFamily: 'monospace' },
+  idleText: { color: '#555', fontFamily: 'monospace' }
 });
