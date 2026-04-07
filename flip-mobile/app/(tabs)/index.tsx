@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TextInput, ActivityIndicator, ScrollView, Dimen
 import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { LineChart } from "react-native-gifted-charts";
+import FadeContent from '../../components/FadeContent';
 
 const { width } = Dimensions.get('window');
 
@@ -124,6 +125,7 @@ const handleSaveToVault = async () => {
           </View>
 
           {/* Mobile Chart Section */}
+          <FadeContent duration={1500} delay={200}>
           <View style={styles.chartWrapper}>
             {history.length > 0 ? (
               <LineChart
@@ -152,6 +154,7 @@ const handleSaveToVault = async () => {
               <Text style={styles.vaultButtonText}>[ SAVE_TO_VAULT ]</Text>
             </TouchableOpacity>
           </View>
+          </FadeContent>
         </View>
       ) : ( 
         <View style={styles.idleState}>

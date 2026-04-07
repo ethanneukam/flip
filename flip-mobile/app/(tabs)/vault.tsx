@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Image, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import DecryptedText from '../../components/DecryptedText';
 
 // --- SUB-COMPONENT FOR INDIVIDUAL ITEMS ---
 function VaultItem({ asset, onDelete }: { asset: any, onDelete: (id: string) => void }) {
@@ -39,15 +40,16 @@ function VaultItem({ asset, onDelete }: { asset: any, onDelete: (id: string) => 
         </TouchableOpacity>
       </View>
 
-      <View style={styles.assetPriceBox}>
-        <Text style={[
-          styles.assetPrice, 
-          flicker && { color: '#e8ff47', textShadowColor: '#e8ff47', textShadowRadius: 10 }
-        ]}>
-          ${asset.flip_price}
-        </Text>
-        <Text style={styles.assetDelta}>+12%</Text>
-      </View>
+     // Inside VaultItem component:
+<View style={styles.assetPriceBox}>
+  <DecryptedText 
+    text={`$${(asset.flip_price || 0).toLocaleString()}`}
+    speed={50}
+    sequential={false} // Use false here for a "random scramble" look on the list
+    style={styles.assetPrice}
+  />
+  <Text style={styles.assetDelta}>+12%</Text>
+</View>
     </View>
   );
 }
@@ -146,15 +148,23 @@ export default function VaultScreen() {
         <Text style={styles.statusText}>› ENCRYPTED_SESSION</Text>
       </View>
 
-      <View style={styles.equitySection}>
-        <Text style={styles.equityLabel}>TOTAL_PERSONAL_EQUITY</Text>
-        <Text style={styles.equityValue}>
-          ${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-        </Text>
-        <View style={styles.deltaPill}>
-          <Text style={styles.deltaText}>+4.2% (24H)</Text>
-        </View>
-      </View>
+     <View style={styles.equitySection}>
+  <Text style={styles.equityLabel}>TOTAL_PERSONAL_EQUITY</Text>
+  
+  {/* REPLACE THE OLD TEXT WITH THIS: */}
+  <DecryptedText 
+    text={`$${totalEquity.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+    speed={40}
+    maxIterations={12}
+    sequential={true}
+    style={styles.equityValue}
+    encryptedStyle={{ color: '#e8ff47' }} // It flashes yellow while calculating
+  />
+
+  <View style={styles.deltaPill}>
+    <Text style={styles.deltaText}>+4.2% (24H)</Text>
+  </View>
+</View>
 
       <View style={styles.ledgerHeader}>
         <Text style={styles.ledgerTitle}>ASSET_LEDGER</Text>
