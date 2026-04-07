@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -63,6 +64,7 @@ export default function ScannerScreen() {
 
         if (productName) {
           console.log(`› IDENTIFIED: ${productName}`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           
           // Route to the Dashboard and pass the scanned item
           router.push({

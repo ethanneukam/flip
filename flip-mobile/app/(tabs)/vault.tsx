@@ -1,13 +1,78 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Image, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
+// --- SUB-COMPONENT FOR INDIVIDUAL ITEMS ---
+function VaultItem({ asset, onDelete }: { asset: any, onDelete: (id: string) => void }) {
+  const [flicker, setFlicker] = useState(false);
+
+  // This handles the "Flicker" specifically when THIS asset's price changes
+  useEffect(() => {
+    if (asset.flip_price) {
+      setFlicker(true);
+      const timer = setTimeout(() => setFlicker(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [asset.flip_price]);
+
+  return (
+    <View style={styles.assetCard}>
+      <View style={styles.imageBox}>
+        {asset.image_url ? (
+          <Image source={{ uri: asset.image_url }} style={styles.image} />
+        ) : (
+          <Text style={styles.imagePlaceholder}>IMG</Text>
+        )}
+      </View>
+      
+      <View style={styles.assetInfo}>
+        <Text style={styles.assetTitle} numberOfLines={1}>{asset.title}</Text>
+        <Text style={styles.assetSku}>QTY: 1 // {asset.id.substring(0,6)}</Text>
+        
+        {/* DELETE BUTTON */}
+        <TouchableOpacity 
+          onPress={() => onDelete(asset.vault_id)}
+          style={styles.deleteButton}
+        >
+          <Text style={styles.deleteText}>[ REMOVE_ASSET ]</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.assetPriceBox}>
+        <Text style={[
+          styles.assetPrice, 
+          flicker && { color: '#e8ff47', textShadowColor: '#e8ff47', textShadowRadius: 10 }
+        ]}>
+          ${asset.flip_price}
+        </Text>
+        <Text style={styles.assetDelta}>+12%</Text>
+      </View>
+    </View>
+  );
+}
+
+// --- MAIN VAULT SCREEN ---
 export default function VaultScreen() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useFocusEffect runs EVERY time you switch to this tab
+  useEffect(() => {
+    const subscription = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'items' }, 
+        (payload) => {
+          console.log('› PRICE_UPDATE_DETECTED', payload.new);
+          loadVaultData();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(subscription); };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadVaultData();
@@ -17,10 +82,8 @@ export default function VaultScreen() {
   async function loadVaultData() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) return;
 
-    // Fetch the user's items and join the global item data
     const { data, error } = await supabase
       .from('user_items')
       .select(`
@@ -36,21 +99,35 @@ export default function VaultScreen() {
       .eq('user_id', user.id);
 
     if (data) {
-      // Flatten the data so it matches your web structure
       const formattedAssets = data.map((row: any) => ({
         vault_id: row.id,
         acquired_price: row.acquired_price,
         ...row.items
       }));
       setAssets(formattedAssets);
-    } else {
-      console.error("› VAULT_FETCH_ERROR", error);
     }
-    
     setLoading(false);
   }
 
-  // Same math as your web code!
+  // DELETE FUNCTION
+  async function handleDelete(vaultId: string) {
+    Alert.alert("TERMINATE_ASSET", "Confirm permanent removal from Vault?", [
+      { text: "CANCEL", style: "cancel" },
+      { 
+        text: "CONFIRM", 
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await supabase
+            .from('user_items')
+            .delete()
+            .eq('id', vaultId);
+          
+          if (!error) loadVaultData();
+        }
+      }
+    ]);
+  }
+
   const totalEquity = useMemo(() => {
     return assets.reduce((acc, item) => acc + (item.flip_price || 0), 0);
   }, [assets]);
@@ -65,12 +142,10 @@ export default function VaultScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Top Header */}
       <View style={styles.header}>
         <Text style={styles.statusText}>› ENCRYPTED_SESSION</Text>
       </View>
 
-      {/* Equity Section */}
       <View style={styles.equitySection}>
         <Text style={styles.equityLabel}>TOTAL_PERSONAL_EQUITY</Text>
         <Text style={styles.equityValue}>
@@ -81,7 +156,6 @@ export default function VaultScreen() {
         </View>
       </View>
 
-      {/* Asset Ledger */}
       <View style={styles.ledgerHeader}>
         <Text style={styles.ledgerTitle}>ASSET_LEDGER</Text>
         <Text style={styles.ledgerCount}>{assets.length} UNITS</Text>
@@ -89,26 +163,7 @@ export default function VaultScreen() {
 
       <View style={styles.grid}>
         {assets.map((asset) => (
-          <View key={asset.vault_id} style={styles.assetCard}>
-            <View style={styles.imageBox}>
-               {/* Fallback if you don't have images yet */}
-               {asset.image_url ? (
-                 <Image source={{ uri: asset.image_url }} style={styles.image} />
-               ) : (
-                 <Text style={styles.imagePlaceholder}>IMG</Text>
-               )}
-            </View>
-            
-            <View style={styles.assetInfo}>
-              <Text style={styles.assetTitle} numberOfLines={1}>{asset.title}</Text>
-              <Text style={styles.assetSku}>QTY: 1 // {asset.id.substring(0,6)}</Text>
-            </View>
-
-            <View style={styles.assetPriceBox}>
-              <Text style={styles.assetPrice}>${(asset.flip_price || 0).toLocaleString()}</Text>
-              <Text style={styles.assetDelta}>+12%</Text>
-            </View>
-          </View>
+          <VaultItem key={asset.vault_id} asset={asset} onDelete={handleDelete} />
         ))}
       </View>
     </ScrollView>
@@ -138,5 +193,8 @@ const styles = StyleSheet.create({
   assetSku: { color: '#666', fontSize: 9, fontFamily: 'monospace', marginTop: 4, fontWeight: 'bold' },
   assetPriceBox: { alignItems: 'flex-end' },
   assetPrice: { color: '#fff', fontSize: 14, fontFamily: 'monospace', fontWeight: '900', fontStyle: 'italic' },
-  assetDelta: { color: '#10b981', fontSize: 10, fontFamily: 'monospace', fontWeight: 'bold', marginTop: 4 }
+  assetDelta: { color: '#10b981', fontSize: 10, fontFamily: 'monospace', fontWeight: 'bold', marginTop: 4 },
+  // NEW STYLES
+  deleteButton: { marginTop: 8 },
+  deleteText: { color: '#ff4444', fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold' }
 });
