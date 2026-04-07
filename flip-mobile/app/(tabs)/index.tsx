@@ -102,11 +102,12 @@ const handleSaveToVault = async () => {
     <ScrollView style={styles.container}>
       <Text style={styles.terminalHeader}>› TERMINAL_ORACLE_v1.0.2</Text>
       
-      <ElectricBorderInput
+     <ElectricBorderInput
   value={searchQuery}
   onChangeText={setSearchQuery}
   placeholder="SCAN_OR_TYPE_ASSET..."
   onSubmitEditing={() => handleSearch(searchQuery)}
+  style={{ width: '100%' }} // Make sure input fills the border wrapper
 />
 
       {loading ? (
@@ -166,7 +167,7 @@ const handleSaveToVault = async () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', padding: 20, paddingTop: 60 },
-  terminalHeader: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 12, marginBottom: 20 },
+  terminalHeader: { color: '#47daff', fontFamily: 'monospace', fontSize: 12, marginBottom: 20 },
   searchInput: { backgroundColor: '#080808', color: '#fff', padding: 15, fontFamily: 'monospace', borderBottomWidth: 1, borderBottomColor: '#e8ff4733' },
   marketContainer: { marginTop: 30, backgroundColor: '#080808', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#111' },
   priceHeader: { marginBottom: 30 },
@@ -179,6 +180,6 @@ const styles = StyleSheet.create({
   noData: { color: '#333', fontFamily: 'monospace', fontSize: 10, marginTop: 50 },
   idleState: { flex: 1, marginTop: 100, alignItems: 'center' },
   idleText: { color: '#222', fontFamily: 'monospace', fontSize: 12 },
-  vaultButton: { backgroundColor: '#e8ff47', padding: 15, borderRadius: 2, marginTop: 20, alignItems: 'center' },
+  vaultButton: { backgroundColor: '#47daff', padding: 15, borderRadius: 2, marginTop: 20, alignItems: 'center' },
   vaultButtonText: { color: '#000', fontFamily: 'monospace', fontWeight: 'bold' }
 });
