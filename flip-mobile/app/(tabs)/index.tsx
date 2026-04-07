@@ -1,85 +1,182 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, TextInput, ActivityIndicator, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { supabase } from '../../lib/supabase';
+import { LineChart } from "react-native-gifted-charts";
+
+const { width } = Dimensions.get('window');
 
 export default function DashboardScreen() {
   const { query } = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [chartData, setChartData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [itemData, setItemData] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
 
-  // This effect listens for data coming in from the Scanner!
   useEffect(() => {
     if (query) {
       setSearchQuery(query as string);
-      fetchPricingData(query as string);
+      handleSearch(query as string);
     }
   }, [query]);
 
-  const fetchPricingData = async (itemName: string) => {
-    setIsSearching(true);
-    console.log(`› PULLING_CHARTS_FOR: ${itemName}`);
-    
+  const handleSearch = async (name: string) => {
+    setLoading(true);
     try {
-      // Connects to your Python API Endpoint
-      const res = await fetch(`https://flip-black-two.vercel.app/api/v1/pricing/${encodeURIComponent(itemName)}`, {
-        // Add your API Key headers here if needed
-      });
-      
-      const data = await res.json();
-      setChartData(data);
-    } catch (error) {
-      console.error("› CHART_FETCH_ERROR", error);
+      // 1. Find the Item ID from the 'items' table
+      const { data: item, error: itemErr } = await supabase
+        .from('items')
+        .select('*')
+        .ilike('title', `%${name}%`)
+        .single();
+
+      if (item) {
+        setItemData(item);
+        
+        // 2. Fetch Price History (Price Logs)
+        const { data: logs } = await supabase
+          .from('price_logs')
+          .select('price, created_at')
+          .eq('item_id', item.id)
+          .order('created_at', { ascending: true })
+          .limit(20); // Last 20 data points
+
+        if (logs) {
+          const formattedData = logs.map(log => ({
+            value: log.price,
+            label: new Date(log.created_at).toLocaleDateString([], { month: 'numeric', day: 'numeric' }),
+            dataPointText: `$${log.price}`
+          }));
+          setHistory(formattedData);
+        }
+      }
+    } catch (err) {
+      console.error("› DATABASE_FETCH_ERROR", err);
     }
-    
-    setIsSearching(false);
+    setLoading(false);
   };
+const handleSaveToVault = async () => {
+  if (!itemData) return;
+  
+  try {
+    // 1. Get the current logged-in user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("› ERROR: UNAUTHORIZED_OPERATOR");
+      return;
+    }
+
+    // 2. Get current price
+    const currentPrice = history.length > 0 ? history[history.length - 1].value : 0;
+
+    // 3. Insert into the vault table
+    const { error } = await supabase
+      .from('user_items')
+      .insert({
+        user_id: user.id,
+        item_id: itemData.id,
+        acquired_price: currentPrice // We'll save it even if you don't use it yet!
+      });
+
+    if (error) throw error;
+    
+    alert("› ASSET_SECURED_IN_VAULT");
+
+  } catch (err) {
+    console.error("› VAULT_INSERTION_ERROR", err);
+    alert("› ERROR_SAVING_ASSET");
+  }
+};
+
+  const change = useMemo(() => {
+    if (history.length < 2) return { val: '0%', up: true };
+    const first = history[0].value;
+    const last = history[history.length - 1].value;
+    const diff = ((last - first) / first) * 100;
+    return { val: `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`, up: diff >= 0 };
+  }, [history]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>› TERMINAL_DASHBOARD</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.terminalHeader}>› TERMINAL_ORACLE_v1.0.2</Text>
       
-      {/* Search Bar */}
       <TextInput 
         style={styles.searchInput}
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="ENTER_ASSET_NAME..."
-        placeholderTextColor="#555"
-        onSubmitEditing={() => fetchPricingData(searchQuery)}
+        placeholder="SCAN_OR_TYPE_ASSET..."
+        placeholderTextColor="#333"
+        onSubmitEditing={() => handleSearch(searchQuery)}
       />
 
-      {/* Results Area */}
-      <View style={styles.chartArea}>
-        {isSearching ? (
-          <View style={styles.loader}>
-            <ActivityIndicator color="#e8ff47" />
-            <Text style={styles.loaderText}>QUERYING_ORACLE...</Text>
+      {loading ? (
+        <ActivityIndicator color="#e8ff47" style={{ marginTop: 100 }} />
+      ) : itemData ? (
+        <View style={styles.marketContainer}>
+          {/* Header Section */}
+          <View style={styles.priceHeader}>
+            <Text style={styles.ticker}>{itemData.title.toUpperCase()} // USD</Text>
+            <Text style={styles.price}>${history.length > 0 ? history[history.length - 1].value.toLocaleString() : '---'}</Text>
+            <View style={styles.deltaRow}>
+              <Text style={[styles.delta, { color: change.up ? '#10b981' : '#ef4444' }]}>{change.val}</Text>
+              <Text style={styles.deltaLabel}>24H_DELTA</Text>
+            </View>
           </View>
-        ) : chartData ? (
-          <View style={styles.card}>
-            <Text style={styles.assetTitle}>{chartData.title}</Text>
-            <Text style={styles.price}>${chartData.flip_price}</Text>
-            <Text style={styles.status}>[{chartData.status}]</Text>
+
+          {/* Mobile Chart Section */}
+          <View style={styles.chartWrapper}>
+            {history.length > 0 ? (
+              <LineChart
+                data={history}
+                width={width - 60}
+                height={200}
+                color={change.up ? '#10b981' : '#ef4444'}
+                thickness={2}
+                hideDataPoints
+                noOfSections={3}
+                yAxisTextStyle={{ color: '#333', fontSize: 10 }}
+                xAxisLabelTextStyle={{ color: '#333', fontSize: 8 }}
+                backgroundColor="#000"
+                hideRules
+                yAxisColor="#111"
+                xAxisColor="#111"
+                areaChart
+                startFillColor={change.up ? '#10b981' : '#ef4444'}
+                startOpacity={0.2}
+                endOpacity={0}
+              />
+            ) : (
+              <Text style={styles.noData}>NO_HISTORICAL_LOGS_FOUND</Text>
+            )}
+                <TouchableOpacity style={styles.vaultButton} onPress={handleSaveToVault}>
+              <Text style={styles.vaultButtonText}>[ SAVE_TO_VAULT ]</Text>
+            </TouchableOpacity>
           </View>
-        ) : (
-          <Text style={styles.idleText}>› AWAITING_INPUT_OR_SCAN</Text>
-        )}
-      </View>
-    </View>
+        </View>
+      ) : ( 
+        <View style={styles.idleState}>
+          <Text style={styles.idleText}>› SYSTEM_IDLE: AWAITING_SCAN_DATA</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', padding: 20, paddingTop: 60 },
-  header: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 16, marginBottom: 20 },
-  searchInput: { backgroundColor: '#111', color: '#e8ff47', padding: 15, fontFamily: 'monospace', borderWidth: 1, borderColor: '#333', borderRadius: 4 },
-  chartArea: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-  loader: { alignItems: 'center', gap: 10 },
-  loaderText: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 12 },
-  card: { backgroundColor: '#111', padding: 30, borderWidth: 1, borderColor: '#e8ff47', width: '100%', alignItems: 'center' },
-  assetTitle: { color: '#fff', fontSize: 20, fontFamily: 'monospace', textAlign: 'center', marginBottom: 10 },
-  price: { color: '#e8ff47', fontSize: 40, fontWeight: 'bold', fontFamily: 'monospace', marginBottom: 10 },
-  status: { color: '#555', fontSize: 10, fontFamily: 'monospace' },
-  idleText: { color: '#555', fontFamily: 'monospace' }
+  terminalHeader: { color: '#e8ff47', fontFamily: 'monospace', fontSize: 12, marginBottom: 20 },
+  searchInput: { backgroundColor: '#080808', color: '#fff', padding: 15, fontFamily: 'monospace', borderBottomWidth: 1, borderBottomColor: '#e8ff4733' },
+  marketContainer: { marginTop: 30, backgroundColor: '#080808', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#111' },
+  priceHeader: { marginBottom: 30 },
+  ticker: { color: '#444', fontSize: 10, fontFamily: 'monospace', letterSpacing: 2 },
+  price: { color: '#fff', fontSize: 42, fontWeight: 'bold', fontFamily: 'monospace' },
+  deltaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 },
+  delta: { fontSize: 14, fontWeight: 'bold', fontFamily: 'monospace' },
+  deltaLabel: { color: '#222', fontSize: 10, fontFamily: 'monospace' },
+  chartWrapper: { alignItems: 'center', marginTop: 20 },
+  noData: { color: '#333', fontFamily: 'monospace', fontSize: 10, marginTop: 50 },
+  idleState: { flex: 1, marginTop: 100, alignItems: 'center' },
+  idleText: { color: '#222', fontFamily: 'monospace', fontSize: 12 },
+  vaultButton: { backgroundColor: '#e8ff47', padding: 15, borderRadius: 2, marginTop: 20, alignItems: 'center' },
+  vaultButtonText: { color: '#000', fontFamily: 'monospace', fontWeight: 'bold' }
 });
