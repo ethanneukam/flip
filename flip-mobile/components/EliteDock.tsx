@@ -75,15 +75,17 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  container: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
+ container: {
+  flexDirection: 'row',
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  borderRadius: 28,
+  overflow: 'hidden',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.1)',
+  minHeight: 60,
+  backgroundColor: 'rgba(255,255,255,0.05)', // subtle glass effect
+},
   itemWrapper: {
     alignItems: 'center',
     marginHorizontal: 14,
