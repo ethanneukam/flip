@@ -40,7 +40,7 @@ function VaultItem({ asset, onDelete }: { asset: any, onDelete: (id: string) => 
         </TouchableOpacity>
       </View>
 
-     // Inside VaultItem component:
+     
 <View style={styles.assetPriceBox}>
   <DecryptedText 
     text={`$${(asset.flip_price || 0).toLocaleString()}`}
