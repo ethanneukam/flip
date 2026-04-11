@@ -99,7 +99,7 @@ function GalleryCard({ item, index, translateX }: CardProps) {
           resizeMode="cover"
         />
       ) : (
-        <Text style={{ color: '#555', fontSize: 12, fontFamily: 'monospace' }}>
+        <Text style={{ color: '#363535', fontSize: 12, fontFamily: 'monospace' }}>
           {item.title}
         </Text>
       )}

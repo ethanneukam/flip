@@ -3,6 +3,9 @@ import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-nati
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Superwall from '@superwall/react-native-superwall';
+import Purchases from 'react-native-purchases';
 
 const { width } = Dimensions.get('window');
 
@@ -42,6 +45,38 @@ export default function ScannerScreen() {
       </View>
     );
   }
+const handleScanRequest = async () => {
+  try {
+    // 1. Ask RevenueCat if this user is a 'premium' member
+    const customerInfo = await Purchases.getCustomerInfo();
+    const isPremium = customerInfo.entitlements.active['premium'] !== undefined;
+
+    if (isPremium) {
+      console.log("› VIP_ACCESS_GRANTED");
+      takePicture();
+      return;
+    }
+
+    // 2. If not premium, proceed to your daily limit check
+    const today = new Date().toDateString();
+    const storageKey = `has_scanned_${today}`;
+    const hasScannedToday = await AsyncStorage.getItem(storageKey);
+
+    if (!hasScannedToday) {
+      await AsyncStorage.setItem(storageKey, 'true');
+      takePicture();
+    } else {
+      Superwall.shared.register({
+        placement: 'scan_limit_reached',
+        feature: () => {
+          takePicture();
+        }
+      });
+    }
+  } catch (e) {
+    takePicture(); // Failsafe
+  }
+};
 
   const takePicture = async () => {
     if (cameraRef.current) {

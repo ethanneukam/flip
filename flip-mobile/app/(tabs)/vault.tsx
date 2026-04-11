@@ -159,7 +159,7 @@ const galleryItems = assets.map(asset => ({
        <CircularGallaryRN 
   items={galleryItems}
   bend={1} 
-  textColor="#ffffff" 
+  textColor="#5a5959" 
   borderRadius={0.05} 
   scrollSpeed={1} 
   scrollEase={0.05} 

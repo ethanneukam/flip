@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import Superwall from '@superwall/react-native-superwall';
+import Purchases from 'react-native-purchases'; // You'll need to npx expo install react-native-purchases
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -10,6 +12,10 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    Purchases.configure({ apiKey: "test_IPhSWnJdocxYfRLAOkXlWdFXZZv" });
+
+   Superwall.configure({apiKey: "sk_8cc80a74f5e19313708d81a78da7b50e5d49c9851f0f4f6d4074400931126abc"})
+    
     // 1. Listen for auth state changes
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
