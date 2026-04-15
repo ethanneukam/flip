@@ -165,7 +165,7 @@ useEffect(() => {
 
             {/* White Glove Email */}
             <a
-              href={`mailto:support@flip-terminal.com?subject=White Glove Setup Request&body=Hi, I am on the ${profile?.tier} tier and would like help setting up my custom inventory sync.`}
+              href={`mailto:flipaiapp@gmail.com?subject=White Glove Setup Request&body=Hi, I am on the ${profile?.tier} tier and would like help setting up my custom inventory sync.`}
               className="flex items-center gap-4 bg-[#e8ff47] p-5 rounded-xl hover:scale-[1.02] transition-all text-black group"
             >
               <div className="p-3 bg-black/10 rounded-lg">
