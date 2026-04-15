@@ -1,5 +1,5 @@
 import { Page } from "playwright";
-import { Scraper } from "../scripts/scrapeRunner"; 
+import { Scraper } from "../lib/scraper-types.js"; // Standardized import to match Walmart
 
 export const ebayScraper: Scraper = {
   source: "eBay",
@@ -14,7 +14,8 @@ export const ebayScraper: Scraper = {
       
       console.log(`    🔍 [eBay] Scanning search results: "${keyword}"`);
 
-      await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+      // FIX: Changed "networkidle" to "domcontentloaded". eBay's trackers prevent networkidle.
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
       
       if (page.isClosed()) return []; // Double check after long navigation
 
@@ -75,7 +76,7 @@ export const ebayScraper: Scraper = {
       return results;
 
     } catch (err: any) {
-      if (err.message.includes("closed")) {
+      if (err.message.includes("closed") || err.message.includes("Target closed")) {
         console.log("    ⚠️ [eBay] Browser closed before scrape finished.");
         return [];
       }

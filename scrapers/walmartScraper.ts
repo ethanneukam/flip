@@ -1,5 +1,5 @@
 import UserAgent from "user-agents";
-import { Scraper } from "../lib/scraper-types";
+import { Scraper } from "../lib/scraper-types.js"; // Standardized import
 
 const wait = (min = 500, max = 1500) =>
   new Promise(res => setTimeout(res, Math.random() * (max - min) + min));
@@ -9,13 +9,9 @@ export const walmartScraper: Scraper = {
 
   scrape: async (page: any, keyword: string) => {
     try {
-      // 1. Setup Stealthier Headers
-      const ua = new UserAgent({ deviceCategory: 'desktop' }).toString();
-      await page.context().setUserAgent(ua);
-
+      // User-Agent is already handled in scrapeRunner.ts via browser.newContext()!
       const searchUrl = `https://www.walmart.com/search?q=${encodeURIComponent(keyword)}&sort=relevance`;
       
-      // 2. Faster Navigation 
       // We use 'domcontentloaded' because Walmart's tracking scripts take forever to 'load'
       const response = await page.goto(searchUrl, {
         waitUntil: "domcontentloaded", 
@@ -24,23 +20,21 @@ export const walmartScraper: Scraper = {
 
       // 3. Immediate Bot Check
       const content = await page.content();
-      if (content.includes("Verify you are human") || response.status() === 403) {
+      if (content.includes("Verify you are human") || (response && response.status() === 403)) {
         console.error("  ⚠️ [Walmart] Blocked by PerimeterX (Captcha).");
         return null;
       }
 
-      // 4. Wait for the Grid (Walmart's grid is usually 'main' or has 'search-result' in it)
+      // 4. Wait for the Grid 
       try {
         await page.waitForSelector('[data-testid="item-stack"]', { timeout: 10000 });
       } catch (e) {
         console.log("  ⚠️ [Walmart] Search grid not found.");
-        // If the grid fails, we check for the most common product tile
         await page.waitForSelector('.mb0', { timeout: 5000 }).catch(() => {});
       }
 
-      // 5. THE PRO MOVE: Execute everything in ONE context switch
+      // 5. Execute everything in ONE context switch
       const results = await page.evaluate((kw: string) => {
-        // Broad selector for product tiles
         const items = Array.from(document.querySelectorAll('[data-testid="variant-tile"], [data-item-id], .mb0'));
         
         return items.slice(0, 15).map(el => {
@@ -58,8 +52,6 @@ export const walmartScraper: Scraper = {
 
       // 6. Clean data in Node.js
       const filteredResults = results.map((item: any) => {
-        // Walmart prices come in as "Now $12.99" or "Current price $15.00"
-        // This regex finds the actual number
         const priceMatch = item.priceRaw.match(/\$([0-9,]+\.[0-9]{2})/);
         const cleanPrice = priceMatch 
           ? parseFloat(priceMatch[1].replace(/,/g, '')) 
