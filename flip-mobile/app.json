@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.flipmobile" 
+      "bundleIdentifier": "com.yourname.flipmobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +24,11 @@
       },
       "package": "com.flip.flipmobile",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "single",
@@ -30,10 +37,6 @@
     "plugins": [
       "expo-router",
       "expo-camera",
-      [
-        "@superwall/react-native-superwall",
-        {}
-      ],
       [
         "expo-splash-screen",
         {
@@ -50,6 +53,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f4afe53c-06ab-4d12-a2f4-6370972d2060"
+      }
     }
   }
 }

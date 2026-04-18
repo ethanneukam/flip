@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { View, TextInput, StyleSheet, TextInputProps } from 'react-native';
+import { View, TextInput, StyleSheet, TextInputProps, ViewStyle, StyleProp } from 'react-native'; // Added ViewStyle and StyleProp
 import Animated, { useSharedValue, withTiming, withRepeat, useAnimatedStyle, interpolate } from 'react-native-reanimated';
 
-interface ElectricBorderInputProps extends TextInputProps {
+interface ElectricBorderInputProps extends Omit<TextInputProps, 'style'> {
   color?: string;
   thickness?: number;
   borderRadius?: number;
+  style?: StyleProp<ViewStyle>; // Explicitly define style as ViewStyle for the container
+  inputStyle?: StyleProp<any>;  // Optional: add this if you want to style the text inside separately
 }
 
 export default function ElectricBorderInput({
@@ -21,7 +23,6 @@ export default function ElectricBorderInput({
     anim.value = withRepeat(withTiming(1, { duration: 1500 }), -1, true);
   }, []);
 
-  // Animated border glow style
   const glowStyle = useAnimatedStyle(() => {
     const opacity = interpolate(anim.value, [0, 0.5, 1], [0.4, 1, 0.4]);
     return {
@@ -41,7 +42,7 @@ export default function ElectricBorderInput({
           backgroundColor: 'transparent',
         },
         glowStyle,
-        style,
+        style, // Now TypeScript knows this is a ViewStyle!
       ]}
     >
       <View
@@ -56,7 +57,7 @@ export default function ElectricBorderInput({
           {...props}
           style={[
             {
-              backgroundColor: '#080808', // terminal dark look
+              backgroundColor: '#080808',
               color: '#fff',
               padding: 15,
               borderRadius: borderRadius - thickness,
@@ -68,5 +69,3 @@ export default function ElectricBorderInput({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({});
