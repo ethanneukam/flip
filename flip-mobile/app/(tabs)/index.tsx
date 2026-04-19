@@ -4,7 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { LineChart } from "react-native-gifted-charts";
 import FadeContent from '../../components/FadeContent';
-import ElectricBorderInput from '@/components/ElectricBorder';
+import ElectricBorderInput from '../../components/ElectricBorder';
 
 // 1. IMPORT ASYNC STORAGE AND THE STEPPER
 import AsyncStorage from '@react-native-async-storage/async-storage';
