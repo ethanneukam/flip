@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { ChevronLeft, Database, Eye, Lock } from "lucide-react";
+import { ChevronLeft, Database, Eye, Lock } from "lucide-react-native";
 
 export default function PrivacyPolicy() {
   return (

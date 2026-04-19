@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { ChevronLeft, ShieldAlert, Scale, Globe } from "lucide-react";
+import { ChevronLeft, ShieldAlert, Scale, Globe } from "lucide-react-native";
 
 export default function TermsOfService() {
   const lastUpdated = "JANUARY 31, 2026";
