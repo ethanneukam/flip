@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "expo-router";
 import { ChevronLeft, ShieldAlert, Scale, Globe } from "lucide-react";
 
 export default function TermsOfService() {

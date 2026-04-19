@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "expo-router";
 import { ChevronLeft, Database, Eye, Lock } from "lucide-react";
 
 export default function PrivacyPolicy() {
