@@ -7,6 +7,7 @@ interface FadeContentProps {
   delay?: number;
   initialOpacity?: number;
   style?: ViewStyle;
+  slideUp?: boolean;
 }
 
 export default function FadeContent({
@@ -15,6 +16,7 @@ export default function FadeContent({
   delay = 0,
   initialOpacity = 0,
   style,
+  slideUp = false,
 }: FadeContentProps) {
   // Animated value for opacity
   const fadeAnim = useRef(new Animated.Value(initialOpacity)).current;
