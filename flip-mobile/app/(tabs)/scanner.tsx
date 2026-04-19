@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Superwall from '@superwall/react-native-superwall';
+import { usePlacement } from 'expo-superwall';
 import Purchases from 'react-native-purchases';
 
 const { width } = Dimensions.get('window');
@@ -17,6 +17,7 @@ export default function ScannerScreen() {
 
   const cameraRef = useRef<any>(null);
   const router = useRouter();
+const { registerPlacement } = usePlacement();
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -62,11 +63,12 @@ const handleScanRequest = async () => {
     const storageKey = `has_scanned_${today}`;
     const hasScannedToday = await AsyncStorage.getItem(storageKey);
 
-    if (!hasScannedToday) {
+ if (!hasScannedToday) {
       await AsyncStorage.setItem(storageKey, 'true');
       takePicture();
     } else {
-      Superwall.shared.register({
+      // ✅ NEW WAY TO TRIGGER PAYWALL
+      registerPlacement({
         placement: 'scan_limit_reached',
         feature: () => {
           takePicture();

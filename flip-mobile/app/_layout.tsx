@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
-import Superwall from '@superwall/react-native-superwall';
-import Purchases from 'react-native-purchases'; // You'll need to npx expo install react-native-purchases
+import Purchases from 'react-native-purchases'; 
+import { SuperwallProvider } from 'expo-superwall'; // ✅ Only import the Provider
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -13,9 +13,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     Purchases.configure({ apiKey: "test_IPhSWnJdocxYfRLAOkXlWdFXZZv" });
-
-   Superwall.configure({apiKey: "sk_8cc80a74f5e19313708d81a78da7b50e5d49c9851f0f4f6d4074400931126abc"})
     
+    // ❌ REMOVED Superwall.configure() from here!
+
     // 1. Listen for auth state changes
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -30,21 +30,22 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized) return;
 
-    // 2. Logic: If no session and not on Auth page, go to Auth.
-    // If session and on Auth page, go to Tabs.
     const inTabsGroup = segments[0] === '(tabs)';
 
     if (!session && inTabsGroup) {
-      router.replace('/'); // Redirect to Auth
+      router.replace('/'); 
     } else if (session && !inTabsGroup) {
-      router.replace('/(tabs)'); // Redirect to Dashboard
+      router.replace('/(tabs)'); 
     }
   }, [session, initialized, segments]);
 
+  // ✅ WRAP YOUR STACK IN THE PROVIDER
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" /> 
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <SuperwallProvider apiKeys={{ ios: "sk_8cc80a74f5e19313708d81a78da7b50e5d49c9851f0f4f6d4074400931126abc" }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" /> 
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </SuperwallProvider>
   );
 }
