@@ -1,3 +1,14 @@
 scripts/
 scrapers/
 workers/
+# Ignore the mobile app folder
+flip-mobile/
+ios/
+android/
+assets/
+managed/
+
+# Ignore expo/eas config
+app.json
+eas.json
+.expo/
