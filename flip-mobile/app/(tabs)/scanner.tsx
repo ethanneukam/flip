@@ -3,8 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-nati
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePlacement } from 'expo-superwall';
+import AsyncStorage from '@react-native-async-storage/async-storage'; import { usePlacement } from 'expo-superwall';
 import Purchases from 'react-native-purchases';
 
 const { width } = Dimensions.get('window');
@@ -17,7 +16,7 @@ export default function ScannerScreen() {
 
   const cameraRef = useRef<any>(null);
   const router = useRouter();
-const { registerPlacement } = usePlacement();
+ const { registerPlacement } = usePlacement();
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -68,7 +67,7 @@ const handleScanRequest = async () => {
       takePicture();
     } else {
       // ✅ NEW WAY TO TRIGGER PAYWALL
-      registerPlacement({
+       registerPlacement({
         placement: 'scan_limit_reached',
         feature: () => {
           takePicture();
