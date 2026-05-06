@@ -2,7 +2,7 @@
   "expo": {
     "name": "flip-mobile",
     "slug": "flip-mobile",
-    "version": "1.0.1",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "flipmobile",
@@ -10,11 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "12",
+      "buildNumber": "13",
       "bundleIdentifier": "com.yourname.flipmobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Allow Flip to use the camera to identify tactical targets."
+        "NSCameraUsageDescription": "Allow Flip to use the camera to identify tactical targets.",
+        "NSMicrophoneUsageDescription": "Flip uses the microphone for voice-activated scanning commands."
       }
     },
     "android": {
@@ -42,8 +43,10 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Flip to use the camera to identify tactical targets."
+          "cameraPermission": "Allow Flip to use the camera to identify tactical targets.",
+          "microphonePermission": "Allow Flip to use the microphone for scanning."
         }
+        
       ],
       [
         "expo-splash-screen",
