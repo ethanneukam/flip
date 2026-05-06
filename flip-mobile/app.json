@@ -10,8 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "13",
-      "bundleIdentifier": "com.yourname.flipmobile",
+      "buildNumber": "18",
+     "bundleIdentifier": "com.yourname.flipmobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Allow Flip to use the camera to identify tactical targets.",
