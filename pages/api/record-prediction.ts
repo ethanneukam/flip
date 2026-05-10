@@ -62,57 +62,68 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'FlipItem not found' });
     }
 
-    // Check for existing prediction (one per user per item)
-    const { data: existing } = await supabase
-      .from('predictions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('flip_item_id', flipItemId)
-      .eq('status', 'pending')
-      .single();
-
     const resolvesAt = new Date(Date.now() + effectiveHorizon * 24 * 60 * 60 * 1000).toISOString();
 
-    if (existing) {
-      // Update existing pending prediction
-      const { error: updateError } = await supabase
-        .from('predictions')
-        .update({
+    // Attempt INSERT with ON CONFLICT handling for the unique partial index
+    // idx_predictions_unique_pending(user_id, flip_item_id) WHERE status='pending'
+    // If a pending prediction already exists for this user+item, UPDATE it instead.
+    const { data: result, error: upsertError } = await supabase
+      .from('predictions')
+      .upsert(
+        {
+          user_id: user.id,
+          flip_item_id: flipItemId,
           prediction_type: predictionType,
           entry_price: entryPrice,
           target_price: targetPrice ?? null,
           horizon_days: effectiveHorizon,
+          status: 'pending',
           resolves_at: resolvesAt,
-        })
-        .eq('id', existing.id);
-
-      if (updateError) {
-        return res.status(500).json({ error: 'Failed to update prediction', detail: updateError.message });
-      }
-
-      return res.status(200).json({ success: true, predictionId: existing.id, action: 'updated' });
-    }
-
-    // Insert new prediction
-    const { data: newPrediction, error: insertError } = await supabase
-      .from('predictions')
-      .insert({
-        user_id: user.id,
-        flip_item_id: flipItemId,
-        prediction_type: predictionType,
-        entry_price: entryPrice,
-        target_price: targetPrice ?? null,
-        horizon_days: effectiveHorizon,
-        resolves_at: resolvesAt,
-      })
+        },
+        {
+          onConflict: 'user_id,flip_item_id',
+          ignoreDuplicates: false,
+        }
+      )
       .select('id')
       .single();
 
-    if (insertError) {
-      return res.status(500).json({ error: 'Failed to create prediction', detail: insertError.message });
+    if (upsertError) {
+      // If upsert fails due to conflict on the partial index (race condition),
+      // fall back to explicit update of the existing pending prediction
+      if (upsertError.code === '23505') {
+        const { data: existing } = await supabase
+          .from('predictions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('flip_item_id', flipItemId)
+          .eq('status', 'pending')
+          .single();
+
+        if (existing) {
+          const { error: updateError } = await supabase
+            .from('predictions')
+            .update({
+              prediction_type: predictionType,
+              entry_price: entryPrice,
+              target_price: targetPrice ?? null,
+              horizon_days: effectiveHorizon,
+              resolves_at: resolvesAt,
+            })
+            .eq('id', existing.id);
+
+          if (updateError) {
+            return res.status(500).json({ error: 'Failed to update prediction', detail: updateError.message });
+          }
+
+          return res.status(200).json({ success: true, predictionId: existing.id, action: 'updated' });
+        }
+      }
+
+      return res.status(500).json({ error: 'Failed to create prediction', detail: upsertError.message });
     }
 
-    return res.status(201).json({ success: true, predictionId: newPrediction.id, action: 'created' });
+    return res.status(201).json({ success: true, predictionId: result.id, action: 'created' });
 
   } catch (err: any) {
     console.error('record-prediction error:', err);

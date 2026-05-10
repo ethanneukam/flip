@@ -26,6 +26,15 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
+    // RECOVERY: Reset orphaned 'processing' rows that have been stuck for >10 minutes.
+    // This handles edge function crashes or timeouts that leave rows permanently locked.
+    const orphanThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await supabase
+      .from('signal_retry_queue')
+      .update({ status: 'pending' })
+      .eq('status', 'processing')
+      .lt('last_attempt_at', orphanThreshold);
+
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
 
     // Fetch pending retry queue entries older than 2 minutes (gives initial trigger time to succeed)
