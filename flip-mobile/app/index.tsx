@@ -8,28 +8,28 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LoginBoot from '../components/LoginBoot';
-import TextPressureTitle from '../components/TextPressureTitle';
 import FadeContent from '../components/FadeContent';
-import { supabase } from '../lib/supabase'; 
+import { supabase } from '../lib/supabase';
 import { router } from 'expo-router';
 
-export default function LoginScreen() {
+export default function AuthScreen() {
   const [booting, setBooting] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agreed, setAgreed] = useState(false); // New state for TOS
+  const [agreed, setAgreed] = useState(false);
+  const [isSignup, setIsSignup] = useState(false);
 
-  const handleLogin = async () => {
+  const handleAuth = async () => {
     if (!email || !password) {
       setError('MISSING_CREDENTIALS');
       return;
     }
 
-    // Check for agreement before proceeding
     if (!agreed) {
       setError('ACCEPTANCE_REQUIRED');
       return;
@@ -38,24 +38,35 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
-    setLoading(false);
-
-    if (authError) {
-      setError(authError.message.toUpperCase());
+    if (isSignup) {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      setLoading(false);
+      if (signUpError) {
+        setError(signUpError.message.toUpperCase());
+      } else {
+        router.replace('/(tabs)');
+      }
     } else {
-      router.replace('/(tabs)');
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      setLoading(false);
+      if (authError) {
+        setError(authError.message.toUpperCase());
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   };
 
   if (booting) {
     return (
       <>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <StatusBar barStyle="light-content" backgroundColor="#080808" />
         <LoginBoot onComplete={() => setBooting(false)} />
       </>
     );
@@ -66,35 +77,34 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-
-      <FadeContent duration={900} delay={0} slideUp={false}>
-        <View style={styles.scanlines} pointerEvents="none" />
-        <TextPressureTitle value={password} />
-        
-        <View style={styles.cornerTL}><Text style={styles.cornerText}>┌─</Text></View>
-        <View style={styles.cornerTR}><Text style={styles.cornerText}>─┐</Text></View>
-        <View style={styles.cornerBL}><Text style={styles.cornerText}>└─</Text></View>
-        <View style={styles.cornerBR}><Text style={styles.cornerText}>─┘</Text></View>
-      </FadeContent>
+      <StatusBar barStyle="light-content" backgroundColor="#080808" />
 
       <FadeContent duration={800} delay={200} slideUp>
         <View style={styles.formContainer}>
+          {/* Header */}
+          <View style={styles.headerSection}>
+            <Text style={styles.headerTitle}>
+              {isSignup ? 'REGISTER_OPERATOR' : 'IDENTITY_PROTOCOL'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {isSignup ? 'Create new system identity' : 'Authorization required'}
+            </Text>
+          </View>
 
           {/* Email */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>› OPERATOR_ID</Text>
+            <Text style={styles.label}>› NETWORK_EMAIL</Text>
             <View style={styles.inputWrapper}>
               <Text style={styles.inputPrefix}>_</Text>
               <TextInput
                 style={styles.input}
                 placeholder="enter email address"
-                placeholderTextColor="#222"
+                placeholderTextColor="#333"
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
-                selectionColor="#10b981"
+                selectionColor="#00FF87"
               />
             </View>
             <View style={styles.inputLine} />
@@ -102,31 +112,30 @@ export default function LoginScreen() {
 
           {/* Password */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>› ACCESS_KEY</Text>
+            <Text style={styles.label}>› SECURITY_KEY</Text>
             <View style={styles.inputWrapper}>
               <Text style={styles.inputPrefix}>_</Text>
               <TextInput
                 style={styles.input}
                 placeholder="enter password"
-                placeholderTextColor="#222"
+                placeholderTextColor="#333"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
-                selectionColor="#10b981"
+                selectionColor="#00FF87"
               />
             </View>
             <View style={styles.inputLine} />
           </View>
 
-          {/* TOS & Privacy Policy Checkbox */}
+          {/* TOS Agreement */}
           <View style={styles.tosContainer}>
-            <TouchableOpacity 
-              style={[styles.checkbox, agreed && styles.checkboxActive]} 
+            <TouchableOpacity
+              style={[styles.checkbox, agreed && styles.checkboxActive]}
               onPress={() => setAgreed(!agreed)}
             >
               {agreed && <Text style={styles.checkboxCheck}>×</Text>}
             </TouchableOpacity>
-            
             <View style={styles.tosTextWrapper}>
               <Text style={styles.tosText}>I AGREE TO THE </Text>
               <TouchableOpacity onPress={() => router.push('/tos')}>
@@ -139,7 +148,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Error message */}
+          {/* Error */}
           {error ? (
             <Text style={styles.errorText}>⚠ {error}</Text>
           ) : null}
@@ -147,23 +156,35 @@ export default function LoginScreen() {
           {/* Submit */}
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonLoading]}
-            onPress={handleLogin}
+            onPress={handleAuth}
             activeOpacity={0.85}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? '[ AUTHENTICATING... ]' : '[ INITIALIZE_AUTH ]'}
+            {loading ? (
+              <ActivityIndicator color="#080808" size="small" />
+            ) : (
+              <Text style={styles.buttonText}>
+                {isSignup ? '[ CREATE_IDENTITY ]' : '[ INITIALIZE_SESSION ]'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Toggle Login/Signup */}
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={() => {
+              setIsSignup(!isSignup);
+              setError('');
+            }}
+          >
+            <Text style={styles.toggleText}>
+              {isSignup
+                ? 'EXISTING_OPERATOR? → INITIALIZE_SESSION'
+                : 'NEW_OPERATOR? → CREATE_IDENTITY'}
             </Text>
           </TouchableOpacity>
 
-          {/* Footer links */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>FORGOT_KEY</Text>
-            <Text style={styles.footerDivider}>|</Text>
-            <Text style={styles.footerText}>REQUEST_ACCESS</Text>
-          </View>
-
-          <Text style={styles.versionText}>FLIP_OS v1.0.0 · SECURE_CHANNEL</Text>
+          <Text style={styles.versionText}>FLIP_OS v2.0 · SECURE_CHANNEL</Text>
         </View>
       </FadeContent>
     </KeyboardAvoidingView>
@@ -173,33 +194,34 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#080808',
     justifyContent: 'center',
     padding: 30,
   },
-  scanlines: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    opacity: 0.03,
-    zIndex: 0,
-  },
-  cornerTL: { position: 'absolute', top: -40, left: -10 },
-  cornerTR: { position: 'absolute', top: -40, right: -10 },
-  cornerBL: { position: 'absolute', bottom: -10, left: -10 },
-  cornerBR: { position: 'absolute', bottom: -10, right: -10 },
-  cornerText: {
-    color: '#1a1a1a',
-    fontFamily: 'monospace',
-    fontSize: 12,
-  },
   formContainer: {
     width: '100%',
+  },
+  headerSection: {
+    marginBottom: 36,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  headerSubtitle: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    marginTop: 6,
   },
   inputGroup: {
     marginBottom: 28,
   },
   label: {
-    color: '#333',
+    color: '#888888',
     fontFamily: 'monospace',
     fontSize: 9,
     letterSpacing: 3,
@@ -210,15 +232,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   inputPrefix: {
-    color: '#10b981',
+    color: '#00FF87',
     fontFamily: 'monospace',
     fontSize: 14,
     marginRight: 8,
-    marginBottom: 2,
   },
   input: {
     flex: 1,
-    color: '#10b981',
+    color: '#00FF87',
     fontFamily: 'monospace',
     fontSize: 14,
     paddingVertical: 8,
@@ -226,31 +247,29 @@ const styles = StyleSheet.create({
   },
   inputLine: {
     height: 1,
-    backgroundColor: '#111',
+    backgroundColor: '#2A2A2A',
     marginTop: 4,
   },
-  // --- NEW TOS STYLES ---
   tosContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
-    marginTop: -8, // Tighter spacing with password field
   },
   checkbox: {
     width: 18,
     height: 18,
     borderWidth: 1,
-    borderColor: '#333',
-    backgroundColor: '#000',
+    borderColor: '#2A2A2A',
+    backgroundColor: '#080808',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   checkboxActive: {
-    borderColor: '#10b981',
+    borderColor: '#00FF87',
   },
   checkboxCheck: {
-    color: '#10b981',
+    color: '#00FF87',
     fontFamily: 'monospace',
     fontSize: 14,
     fontWeight: 'bold',
@@ -261,60 +280,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tosText: {
-    color: '#333',
+    color: '#888888',
     fontFamily: 'monospace',
     fontSize: 8,
   },
   tosLink: {
-    color: '#10b981',
+    color: '#00FF87',
     fontFamily: 'monospace',
     fontSize: 8,
-    textDecorationLine: 'underline',
   },
-  // ----------------------
   errorText: {
-    color: '#ef4444',
+    color: '#FF4444',
     fontFamily: 'monospace',
     fontSize: 10,
     letterSpacing: 2,
     marginBottom: 16,
   },
   button: {
-    backgroundColor: '#10b981',
+    backgroundColor: '#00FF87',
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+    borderRadius: 2,
+    marginBottom: 16,
   },
   buttonLoading: {
-    backgroundColor: '#064e3b',
+    backgroundColor: '#004d29',
   },
   buttonText: {
-    color: '#000',
+    color: '#080808',
     fontFamily: 'monospace',
     fontWeight: '900',
     fontSize: 12,
     letterSpacing: 2,
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 28,
+  toggleButton: {
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 24,
   },
-  footerText: {
-    color: '#222',
+  toggleText: {
+    color: '#888888',
     fontFamily: 'monospace',
     fontSize: 9,
-    letterSpacing: 2,
-  },
-  footerDivider: {
-    color: '#111',
-    fontFamily: 'monospace',
-    fontSize: 9,
+    letterSpacing: 1,
   },
   versionText: {
-    color: '#111',
+    color: '#2A2A2A',
     fontFamily: 'monospace',
     fontSize: 8,
     textAlign: 'center',
