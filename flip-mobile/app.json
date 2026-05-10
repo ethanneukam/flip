@@ -7,10 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "flipmobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
-      "buildNumber": "18",
+      "buildNumber": "19",
      "bundleIdentifier": "com.yourname.flipmobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
