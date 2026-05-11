@@ -41,9 +41,13 @@ export default function ResultScreen() {
   useEffect(() => {
     if (!id) return;
     loadItem(id);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || signal) return;
     const interval = setInterval(() => pollSignal(id), 3000);
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, signal]);
 
   const loadItem = async (flipItemId: string) => {
     const { data } = await supabase
