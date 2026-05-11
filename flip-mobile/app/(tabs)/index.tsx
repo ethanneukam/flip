@@ -13,7 +13,10 @@ import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import { useOnboarding } from '../../hooks/useOnboarding';
+import { useStreak } from '../../hooks/useStreak';
 import OnboardingOverlay from '../../components/OnboardingOverlay';
+import StreakCard from '../../components/StreakCard';
+import ReengagementBanner from '../../components/ReengagementBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +35,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const { state: onboardingState, isActive: showOnboarding, advanceTo, skip } = useOnboarding();
+  const { streak, recordScan } = useStreak();
+  const [resolvedPredictions, setResolvedPredictions] = useState<any[]>([]);
 
   const loadData = async () => {
     try {
@@ -53,6 +58,18 @@ export default function HomeScreen() {
       if (items) {
         setRecentItems(items);
       }
+
+      const { data: resolved } = await supabase
+        .from('predictions')
+        .select('flip_item_id, prediction_type, outcome, accuracy_delta, resolved_at, flip_items(title)')
+        .eq('user_id', user.id)
+        .eq('status', 'resolved')
+        .order('resolved_at', { ascending: false })
+        .limit(2);
+
+      if (resolved) {
+        setResolvedPredictions(resolved);
+      }
     } catch (err) {
       console.error('Home load error:', err);
     }
@@ -67,6 +84,7 @@ export default function HomeScreen() {
 
   const handleScanPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    recordScan();
     if (onboardingState === 'welcome') {
       advanceTo('camera_prompted');
     }
@@ -132,6 +150,30 @@ export default function HomeScreen() {
             <Text style={styles.quickActionText}>RANKINGS</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Streak + Re-engagement */}
+        <StreakCard
+          currentStreak={streak.currentStreak}
+          longestStreak={streak.longestStreak}
+          todayCompleted={streak.todayCompleted}
+        />
+
+        {resolvedPredictions.length > 0 && (
+          <View style={{ marginBottom: 12 }}>
+            {resolvedPredictions.slice(0, 1).map((pred: any) => (
+              <ReengagementBanner
+                key={pred.flip_item_id}
+                type="prediction_resolved"
+                data={{
+                  itemTitle: pred.flip_items?.title ?? 'Item',
+                  outcome: pred.outcome,
+                  delta: pred.accuracy_delta ? (Number(pred.accuracy_delta) * 100).toFixed(1) : '0',
+                }}
+                onPress={() => router.push(`/(tabs)/result?id=${pred.flip_item_id}`)}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Recent Scans */}
         <View style={styles.recentSection}>

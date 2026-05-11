@@ -12,6 +12,8 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { computeRank, rankProgressPercent, nextTierName, pointsToNextTier } from '../../services/rankEngine';
+import { useStreak } from '../../hooks/useStreak';
+import StreakCard from '../../components/StreakCard';
 import type { RankTier } from '../../types/models';
 
 type UserProfile = {
@@ -49,6 +51,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const { streak } = useStreak();
 
   useFocusEffect(
     useCallback(() => {
@@ -274,6 +277,13 @@ export default function ProfileScreen() {
             <Text style={styles.activityLabel}>PENDING</Text>
           </View>
         </View>
+
+        {/* Streak */}
+        <StreakCard
+          currentStreak={streak.currentStreak}
+          longestStreak={streak.longestStreak}
+          todayCompleted={streak.todayCompleted}
+        />
 
         {/* Scan Limit */}
         <View style={styles.scanLimitSection}>

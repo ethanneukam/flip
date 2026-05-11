@@ -116,12 +116,17 @@ export default function LeaderboardScreen() {
       >
         <Text style={styles.headerLabel}>MARKET_PREDICTION_RANKING</Text>
 
-        {/* Current User Position */}
+        {/* Current User Position + Percentile */}
         {userPosition !== null && (
           <View style={styles.positionBadge}>
             <Text style={styles.positionText}>
               YOUR RANK: #{userPosition} of {entries.length}
             </Text>
+            {entries.length > 1 && (
+              <Text style={styles.percentileText}>
+                Top {Math.max(1, Math.round((userPosition / entries.length) * 100))}% of predictors
+              </Text>
+            )}
           </View>
         )}
 
@@ -205,6 +210,7 @@ const styles = StyleSheet.create({
   headerLabel: { color: '#888888', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, marginBottom: 16 },
   positionBadge: { backgroundColor: '#0a1a0f', borderWidth: 1, borderColor: '#00FF87', borderRadius: 4, padding: 12, marginBottom: 16, alignItems: 'center' },
   positionText: { color: '#00FF87', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  percentileText: { color: '#888888', fontFamily: 'monospace', fontSize: 9, marginTop: 4 },
   errorBanner: { backgroundColor: 'rgba(255,68,68,0.1)', borderWidth: 1, borderColor: '#FF4444', borderRadius: 4, padding: 14, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   errorText: { color: '#FF4444', fontFamily: 'monospace', fontSize: 10, flex: 1 },
   retryText: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold' },

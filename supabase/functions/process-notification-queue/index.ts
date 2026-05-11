@@ -39,36 +39,38 @@ function buildNotificationPayload(
 ): { title: string; message: string } {
   const map: Record<string, { title: string; message: string }> = {
     PRICE_SPIKE: {
-      title: `Price surged +${context.pctChange}%`,
-      message: `Watched item moved from $${context.oldPrice} → $${context.newPrice}`,
+      title: `📈 Price surged +${context.pctChange}%`,
+      message: `Your watched item jumped from $${context.oldPrice} to $${context.newPrice}. Check the market signal now.`,
     },
     PRICE_DROP: {
-      title: `Price dropped ${context.pctChange}%`,
-      message: `Watchlisted item fell to $${context.newPrice}`,
+      title: `📉 Price dropped -${context.pctChange}%`,
+      message: `Watchlisted item fell to $${context.newPrice}. Could be a buy opportunity.`,
     },
     DEMAND_SURGE: {
-      title: 'Demand spike detected',
-      message: `Demand score hit ${context.newDemandScore}`,
+      title: `🔥 Demand spike detected`,
+      message: `Demand score hit ${context.newDemandScore}/100. Market interest is accelerating.`,
     },
     RANK_UP: {
-      title: `You're now ${context.newRank}`,
-      message: 'Prediction accuracy earned a rank upgrade',
+      title: `🏆 You're now ${context.newRank}`,
+      message: `Your prediction accuracy earned a rank upgrade. Keep the streak going.`,
     },
     PREDICTION_RESOLVED: {
-      title: context.outcome === 'correct' ? 'Prediction correct' : 'Prediction missed',
-      message: `Item moved ${context.pctChange}% over ${context.horizonDays} days`,
+      title: context.outcome === 'correct'
+        ? `✓ Prediction correct (+${((Number(context.accuracyDelta) || 0) * 100).toFixed(1)} rep)`
+        : `✗ Prediction missed (${((Number(context.accuracyDelta) || 0) * 100).toFixed(1)} rep)`,
+      message: `Item moved from $${context.entryPrice} to $${context.resolvedPrice} over ${context.horizonDays} days.`,
     },
     PORTFOLIO_GAIN: {
-      title: `Portfolio up ${context.pctChange}%`,
-      message: `Estimated value increased to $${context.newValue}`,
+      title: `💰 Portfolio up +${context.pctChange}%`,
+      message: `Your holdings increased to $${context.newValue}. Review your positions.`,
     },
     PORTFOLIO_LOSS: {
-      title: `Portfolio down ${context.pctChange}%`,
-      message: `Estimated value dropped to $${context.newValue}`,
+      title: `⚠ Portfolio down -${context.pctChange}%`,
+      message: `Holdings dropped to $${context.newValue}. Check low-confidence signals.`,
     },
   };
 
-  return map[eventType] ?? { title: 'Market update', message: 'A signal changed on a watched item' };
+  return map[eventType] ?? { title: 'Market update', message: 'A signal changed on a watched item.' };
 }
 
 async function sendExpoPush(
