@@ -15,6 +15,9 @@ type PortfolioItem = {
     category: string;
     condition: string;
   };
+  market_signals: {
+    recommended_price: number;
+  } | null;
 };
 
 export default function PortfolioScreen() {
@@ -31,7 +34,7 @@ export default function PortfolioScreen() {
 
       const { data } = await supabase
         .from('portfolio_entries')
-        .select('id, flip_item_id, cost_basis, estimated_value, status, added_at, flip_items(title, category, condition)')
+        .select('id, flip_item_id, cost_basis, estimated_value, status, added_at, flip_items(title, category, condition), market_signals:flip_item_id(recommended_price)')
         .eq('user_id', user.id)
         .order('added_at', { ascending: false });
 
@@ -48,7 +51,14 @@ export default function PortfolioScreen() {
     }, [])
   );
 
-  const totalValue = items.reduce((sum, item) => sum + Number(item.estimated_value), 0);
+  const getLiveValue = (item: PortfolioItem): number => {
+    if (item.market_signals?.recommended_price) {
+      return Number(item.market_signals.recommended_price);
+    }
+    return Number(item.estimated_value);
+  };
+
+  const totalValue = items.reduce((sum, item) => sum + getLiveValue(item), 0);
   const totalCost = items.reduce((sum, item) => sum + Number(item.cost_basis), 0);
   const totalChange = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
 
@@ -78,8 +88,9 @@ export default function PortfolioScreen() {
           </View>
         ) : (
           items.map((item) => {
+            const liveValue = getLiveValue(item);
             const change = Number(item.cost_basis) > 0
-              ? ((Number(item.estimated_value) - Number(item.cost_basis)) / Number(item.cost_basis)) * 100
+              ? ((liveValue - Number(item.cost_basis)) / Number(item.cost_basis)) * 100
               : 0;
             return (
               <View key={item.id} style={styles.itemCard}>
@@ -92,7 +103,7 @@ export default function PortfolioScreen() {
                   </Text>
                 </View>
                 <View style={styles.itemRight}>
-                  <Text style={styles.itemValue}>${Number(item.estimated_value).toFixed(2)}</Text>
+                  <Text style={styles.itemValue}>${liveValue.toFixed(2)}</Text>
                   <Text style={[styles.itemChange, { color: change >= 0 ? '#00FF87' : '#FF4444' }]}>
                     {change >= 0 ? '+' : ''}{change.toFixed(1)}%
                   </Text>

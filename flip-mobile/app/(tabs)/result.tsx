@@ -1,7 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import * as Haptics from 'expo-haptics';
+import {
+  deriveRecommendation,
+  recommendationLabel,
+  recommendationColor,
+} from '../../services/marketSignalEngine';
+import {
+  formatScoreLabel,
+  scoreColor,
+  trendColor,
+} from '../../services/marketSignalFormatter';
+
+const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
 type FlipItemRow = {
   id: string;
@@ -25,12 +45,14 @@ type MarketSignalRow = {
   supply_score: number;
   flip_score: number;
   velocity: string;
-  trend_direction: string;
+  trend_direction: 'up' | 'down' | 'stable';
   trend_percent: number;
   low_confidence: boolean;
   confidence_reason: string;
   data_points_used: number;
 };
+
+type PredictionType = 'price_up' | 'price_down' | 'overvalued' | 'undervalued';
 
 export default function ResultScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,9 +60,18 @@ export default function ResultScreen() {
   const [signal, setSignal] = useState<MarketSignalRow | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [predictionSubmitting, setPredictionSubmitting] = useState(false);
+  const [submittedPrediction, setSubmittedPrediction] = useState<PredictionType | null>(null);
+  const [saveSubmitting, setSaveSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
+  const [watched, setWatched] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
     loadItem(id);
+    checkExistingPrediction(id);
   }, [id]);
 
   useEffect(() => {
@@ -58,7 +89,6 @@ export default function ResultScreen() {
 
     if (data) setItem(data);
     setLoading(false);
-
     pollSignal(flipItemId);
   };
 
@@ -69,7 +99,149 @@ export default function ResultScreen() {
       .eq('flip_item_id', flipItemId)
       .single();
 
-    if (data) setSignal(data);
+    if (data) setSignal(data as MarketSignalRow);
+  };
+
+  const checkExistingPrediction = async (flipItemId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('predictions')
+      .select('prediction_type')
+      .eq('user_id', user.id)
+      .eq('flip_item_id', flipItemId)
+      .eq('status', 'pending')
+      .single();
+
+    if (data) setSubmittedPrediction(data.prediction_type as PredictionType);
+  };
+
+  const getAuthToken = async (): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  };
+
+  const handlePrediction = async (type: PredictionType) => {
+    if (predictionSubmitting || !signal || !id) return;
+
+    setPredictionSubmitting(true);
+    setActionError(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setActionError('SESSION_EXPIRED');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/record-prediction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          flipItemId: id,
+          predictionType: type,
+          entryPrice: signal.avg_price,
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || `HTTP ${response.status}`);
+      }
+
+      setSubmittedPrediction(type);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'PREDICTION_FAILED';
+      setActionError(msg);
+    } finally {
+      setPredictionSubmitting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (saveSubmitting || saved || !id) return;
+
+    setSaveSubmitting(true);
+    setActionError(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setActionError('SESSION_EXPIRED');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/save-to-portfolio`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          flipItemId: id,
+          costBasis: signal?.recommended_price ?? 0,
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || `HTTP ${response.status}`);
+      }
+
+      setSaved(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'SAVE_FAILED';
+      setActionError(msg);
+    } finally {
+      setSaveSubmitting(false);
+    }
+  };
+
+  const handleWatchlist = async () => {
+    if (watchlistSubmitting || !id) return;
+
+    setWatchlistSubmitting(true);
+    setActionError(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        setActionError('SESSION_EXPIRED');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/toggle-watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ flipItemId: id }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      setWatched(result.watched);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'WATCHLIST_FAILED';
+      setActionError(msg);
+    } finally {
+      setWatchlistSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -88,6 +260,10 @@ export default function ResultScreen() {
       </View>
     );
   }
+
+  const recommendation = signal
+    ? deriveRecommendation(signal.flip_score, signal.trend_direction)
+    : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -119,63 +295,150 @@ export default function ResultScreen() {
             <Text style={styles.signalLoadingText}>Computing market signal...</Text>
           </View>
         ) : (
-          <View style={styles.signalGrid}>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>AVG_PRICE</Text>
-              <Text style={styles.signalValue}>${signal.avg_price.toFixed(2)}</Text>
+          <>
+            <View style={styles.signalGrid}>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>AVG_PRICE</Text>
+                <Text style={styles.signalValue}>${signal.avg_price.toFixed(2)}</Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>RANGE</Text>
+                <Text style={styles.signalValue}>
+                  ${signal.low_price.toFixed(2)} – ${signal.high_price.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>RECOMMENDED</Text>
+                <Text style={[styles.signalValue, { color: '#00FF87' }]}>
+                  ${signal.recommended_price.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>FLIP_SCORE</Text>
+                <Text style={[styles.signalValue, { color: scoreColor(signal.flip_score) }]}>
+                  {signal.flip_score} · {formatScoreLabel(signal.flip_score)}
+                </Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>TREND</Text>
+                <Text style={[styles.signalValue, { color: trendColor(signal.trend_direction) }]}>
+                  {signal.trend_direction === 'up' ? '↑' : signal.trend_direction === 'down' ? '↓' : '→'} {signal.trend_percent.toFixed(1)}%
+                </Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>DEMAND</Text>
+                <Text style={[styles.signalValue, { color: scoreColor(signal.demand_score) }]}>
+                  {signal.demand_score} · {formatScoreLabel(signal.demand_score)}
+                </Text>
+              </View>
+              <View style={styles.signalRow}>
+                <Text style={styles.signalLabel}>VELOCITY</Text>
+                <Text style={styles.signalValue}>{signal.velocity.toUpperCase()}</Text>
+              </View>
+              {signal.low_confidence && (
+                <View style={styles.confidenceBadge}>
+                  <Text style={styles.confidenceText}>
+                    ⚠ {signal.confidence_reason === 'ai_estimate_only'
+                      ? 'AI estimate — limited market data'
+                      : signal.confidence_reason === 'category_baseline'
+                      ? 'Based on category averages'
+                      : 'Based on verified market data'}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>RANGE</Text>
-              <Text style={styles.signalValue}>
-                ${signal.low_price.toFixed(2)} – ${signal.high_price.toFixed(2)}
-              </Text>
-            </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>RECOMMENDED</Text>
-              <Text style={[styles.signalValue, { color: '#00FF87' }]}>
-                ${signal.recommended_price.toFixed(2)}
-              </Text>
-            </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>FLIP_SCORE</Text>
-              <Text style={[styles.signalValue, { color: signal.flip_score >= 70 ? '#00FF87' : signal.flip_score >= 40 ? '#FFAA00' : '#FF4444' }]}>
-                {signal.flip_score}
-              </Text>
-            </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>TREND</Text>
-              <Text style={[styles.signalValue, { color: signal.trend_direction === 'up' ? '#00FF87' : signal.trend_direction === 'down' ? '#FF4444' : '#888888' }]}>
-                {signal.trend_direction === 'up' ? '↑' : signal.trend_direction === 'down' ? '↓' : '→'} {signal.trend_percent.toFixed(1)}%
-              </Text>
-            </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>DEMAND</Text>
-              <Text style={styles.signalValue}>{signal.demand_score}</Text>
-            </View>
-            <View style={styles.signalRow}>
-              <Text style={styles.signalLabel}>VELOCITY</Text>
-              <Text style={styles.signalValue}>{signal.velocity.toUpperCase()}</Text>
-            </View>
-            {signal.low_confidence && (
-              <View style={styles.confidenceBadge}>
-                <Text style={styles.confidenceText}>
-                  ⚠ {signal.confidence_reason === 'ai_estimate_only'
-                    ? 'AI estimate — limited market data'
-                    : signal.confidence_reason === 'category_baseline'
-                    ? 'Based on category averages'
-                    : 'Based on verified market data'}
+
+            {/* Recommendation Badge */}
+            {recommendation && (
+              <View style={[styles.recommendationBadge, { backgroundColor: recommendationColor(recommendation) }]}>
+                <Text style={styles.recommendationText}>
+                  {recommendationLabel(recommendation)}
                 </Text>
               </View>
             )}
-          </View>
+          </>
         )}
       </View>
 
-      {/* Placeholder for prediction buttons + actions (Phase 6) */}
+      {/* Prediction Buttons */}
+      {signal && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>YOUR_PREDICTION</Text>
+          {submittedPrediction ? (
+            <View style={styles.submittedBadge}>
+              <Text style={styles.submittedText}>
+                ✓ PREDICTION RECORDED: {submittedPrediction.replace('_', ' ').toUpperCase()}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.predictionGrid}>
+              {([
+                { type: 'price_up' as PredictionType, label: 'Price Will Rise', icon: '↑' },
+                { type: 'price_down' as PredictionType, label: 'Price Will Fall', icon: '↓' },
+                { type: 'undervalued' as PredictionType, label: 'Undervalued', icon: '⬆' },
+                { type: 'overvalued' as PredictionType, label: 'Overvalued', icon: '⬇' },
+              ]).map(({ type, label, icon }) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.predictionButton, predictionSubmitting && styles.buttonDisabled]}
+                  onPress={() => handlePrediction(type)}
+                  disabled={predictionSubmitting}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.predictionIcon}>{icon}</Text>
+                  <Text style={styles.predictionLabel}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          {predictionSubmitting && (
+            <ActivityIndicator color="#00FF87" style={{ marginTop: 8 }} />
+          )}
+        </View>
+      )}
+
+      {/* Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>PREDICTION</Text>
-        <Text style={styles.comingSoon}>Prediction recording available after full implementation</Text>
+        <Text style={styles.sectionLabel}>ACTIONS</Text>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.saveButton, saved && styles.actionDone]}
+            onPress={handleSave}
+            disabled={saveSubmitting || saved}
+            activeOpacity={0.7}
+          >
+            {saveSubmitting ? (
+              <ActivityIndicator color="#080808" size="small" />
+            ) : (
+              <Text style={styles.actionButtonText}>
+                {saved ? '✓ SAVED' : 'SAVE TO PORTFOLIO'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.watchButton, watched && styles.watchActive]}
+            onPress={handleWatchlist}
+            disabled={watchlistSubmitting}
+            activeOpacity={0.7}
+          >
+            {watchlistSubmitting ? (
+              <ActivityIndicator color="#00FF87" size="small" />
+            ) : (
+              <Text style={[styles.watchButtonText, watched && { color: '#080808' }]}>
+                {watched ? '✓ WATCHING' : 'ADD TO WATCHLIST'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Error Display */}
+      {actionError && (
+        <View style={styles.actionErrorBanner}>
+          <Text style={styles.actionErrorText}>⚠ {actionError}</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -203,5 +466,23 @@ const styles = StyleSheet.create({
   signalValue: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold' },
   confidenceBadge: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#FFAA00', borderRadius: 2, padding: 8, marginTop: 12 },
   confidenceText: { color: '#FFAA00', fontFamily: 'monospace', fontSize: 10 },
-  comingSoon: { color: '#888888', fontFamily: 'monospace', fontSize: 11, fontStyle: 'italic' },
+  recommendationBadge: { marginTop: 16, padding: 16, borderRadius: 4, alignItems: 'center' },
+  recommendationText: { color: '#080808', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', letterSpacing: 2 },
+  predictionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  predictionButton: { flex: 1, minWidth: '45%', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 14, alignItems: 'center' },
+  buttonDisabled: { opacity: 0.5 },
+  predictionIcon: { color: '#FFFFFF', fontSize: 20, marginBottom: 4 },
+  predictionLabel: { color: '#AAAAAA', fontFamily: 'monospace', fontSize: 9, letterSpacing: 1, textAlign: 'center' },
+  submittedBadge: { backgroundColor: '#0a1a0f', borderWidth: 1, borderColor: '#00FF87', borderRadius: 4, padding: 16, alignItems: 'center' },
+  submittedText: { color: '#00FF87', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold' },
+  actionRow: { flexDirection: 'row', gap: 12 },
+  actionButton: { flex: 1, padding: 14, borderRadius: 4, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  saveButton: { backgroundColor: '#00FF87' },
+  actionDone: { backgroundColor: '#004d29' },
+  actionButtonText: { color: '#080808', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  watchButton: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#00FF87' },
+  watchActive: { backgroundColor: '#00FF87' },
+  watchButtonText: { color: '#00FF87', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  actionErrorBanner: { backgroundColor: 'rgba(255, 68, 68, 0.1)', borderWidth: 1, borderColor: '#FF4444', borderRadius: 4, padding: 12, marginBottom: 20 },
+  actionErrorText: { color: '#FF4444', fontFamily: 'monospace', fontSize: 10, textAlign: 'center' },
 });
