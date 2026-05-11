@@ -12,6 +12,8 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import OnboardingOverlay from '../../components/OnboardingOverlay';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +31,7 @@ export default function HomeScreen() {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
+  const { state: onboardingState, isActive: showOnboarding, advanceTo, skip } = useOnboarding();
 
   const loadData = async () => {
     try {
@@ -64,11 +67,28 @@ export default function HomeScreen() {
 
   const handleScanPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (onboardingState === 'welcome') {
+      advanceTo('camera_prompted');
+    }
     router.push('/(tabs)/scanner');
+  };
+
+  const handleOnboardingNext = () => {
+    if (onboardingState === 'welcome') advanceTo('camera_prompted');
+    else if (onboardingState === 'camera_prompted') advanceTo('first_scan_done');
+    else if (onboardingState === 'first_scan_done') advanceTo('first_save_done');
+    else if (onboardingState === 'first_save_done') advanceTo('complete');
   };
 
   return (
     <View style={styles.container}>
+      {showOnboarding && onboardingState && (
+        <OnboardingOverlay
+          state={onboardingState}
+          onNext={handleOnboardingNext}
+          onSkip={skip}
+        />
+      )}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

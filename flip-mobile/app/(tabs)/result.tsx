@@ -20,6 +20,7 @@ import {
   scoreColor,
   trendColor,
 } from '../../services/marketSignalFormatter';
+import { useOnboarding } from '../../hooks/useOnboarding';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
@@ -67,6 +68,13 @@ export default function ResultScreen() {
   const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
   const [watched, setWatched] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const { state: onboardingState, advanceTo: advanceOnboarding } = useOnboarding();
+
+  useEffect(() => {
+    if (onboardingState === 'camera_prompted') {
+      advanceOnboarding('first_scan_done');
+    }
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -196,6 +204,9 @@ export default function ResultScreen() {
 
       setSaved(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (onboardingState === 'first_scan_done') {
+        advanceOnboarding('first_save_done');
+      }
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'SAVE_FAILED';

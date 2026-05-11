@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../lib/supabase';
+import PaywallModal from '../../components/PaywallModal';
 
 const { width } = Dimensions.get('window');
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
@@ -175,28 +175,11 @@ export default function ScannerScreen() {
         </View>
       </CameraView>
 
-      {/* Paywall Modal (fires on 429 SCAN_LIMIT_REACHED) */}
-      <Modal
+      {/* Paywall Modal (fires ONLY on 429 SCAN_LIMIT_REACHED from server) */}
+      <PaywallModal
         visible={showPaywall}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPaywall(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>SCAN_LIMIT_REACHED</Text>
-            <Text style={styles.modalBody}>
-              You've used all your daily scans. Upgrade to Flip Pro for unlimited scanning.
-            </Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowPaywall(false)}
-            >
-              <Text style={styles.modalButtonText}>[ DISMISS ]</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onDismiss={() => setShowPaywall(false)}
+      />
     </View>
   );
 }
@@ -228,10 +211,4 @@ const styles = StyleSheet.create({
   captureCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: '#00FF87', justifyContent: 'center', alignItems: 'center' },
   captureDisabled: { borderColor: '#888888', opacity: 0.5 },
   captureInner: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#00FF87' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 40 },
-  modalContent: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#FF4444', borderRadius: 4, padding: 32, width: '100%', alignItems: 'center' },
-  modalTitle: { color: '#FF4444', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', letterSpacing: 2, marginBottom: 16 },
-  modalBody: { color: '#AAAAAA', fontFamily: 'monospace', fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 24 },
-  modalButton: { backgroundColor: '#2A2A2A', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 2 },
-  modalButtonText: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold' },
 });
