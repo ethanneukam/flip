@@ -3,11 +3,15 @@
     "outDir": "./dist",
     "rootDir": ".",
     "target": "ESNext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
-    "strictNullChecks": false,      // Specifically stops the "possibly undefined" errors.
+    "strictNullChecks": false, // Specifically stops the "possibly undefined" errors.
     "noImplicitAny": false,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
@@ -21,12 +25,26 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["*"]
-    }
+      "@/*": [
+        "*"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "ts-node": {
     "esm": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
