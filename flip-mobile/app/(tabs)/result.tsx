@@ -21,6 +21,8 @@ import {
   trendColor,
 } from '../../services/marketSignalFormatter';
 import { useOnboarding } from '../../hooks/useOnboarding';
+import Glasscard from '../../components/Glasscard';
+import type { GlasscardData } from '../../types/models';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
@@ -35,6 +37,7 @@ type FlipItemRow = {
   ai_confidence: number;
   image_urls: string[];
   created_at: string;
+  user_id: string;
 };
 
 type MarketSignalRow = {
@@ -69,6 +72,10 @@ export default function ResultScreen() {
   const [watched, setWatched] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const { state: onboardingState, advanceTo: advanceOnboarding } = useOnboarding();
+  const [sellerData, setSellerData] = useState<{
+    id: string; username: string; avatar_url: string | null;
+    rep_score: number; total_predictions: number; correct_predictions: number; scan_count: number;
+  } | null>(null);
 
   useEffect(() => {
     if (onboardingState === 'camera_prompted') {
@@ -91,13 +98,26 @@ export default function ResultScreen() {
   const loadItem = async (flipItemId: string) => {
     const { data } = await supabase
       .from('flip_items')
-      .select('id, title, category, subcategory, brand, model, condition, ai_confidence, image_urls, created_at')
+      .select('id, title, category, subcategory, brand, model, condition, ai_confidence, image_urls, created_at, user_id')
       .eq('id', flipItemId)
       .single();
 
-    if (data) setItem(data);
+    if (data) {
+      setItem(data);
+      loadSeller(data.user_id);
+    }
     setLoading(false);
     pollSignal(flipItemId);
+  };
+
+  const loadSeller = async (userId: string) => {
+    const { data } = await supabase
+      .from('users')
+      .select('id, username, avatar_url, rep_score, total_predictions, correct_predictions, scan_count')
+      .eq('id', userId)
+      .single();
+
+    if (data) setSellerData(data);
   };
 
   const pollSignal = async (flipItemId: string) => {
@@ -276,100 +296,50 @@ export default function ResultScreen() {
     ? deriveRecommendation(signal.flip_score, signal.trend_direction)
     : null;
 
+  const glasscardData: GlasscardData = {
+    id: item.id,
+    title: item.title,
+    category: item.category,
+    condition: item.condition ?? null,
+    image_url: item.image_urls?.[0] ?? null,
+    ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
+    created_at: item.created_at,
+    market: signal ? {
+      fair_market_value: signal.avg_price,
+      recommended_price: signal.recommended_price,
+      price_low: signal.low_price,
+      price_high: signal.high_price,
+      demand_score: signal.demand_score / 100,
+      liquidity_score: signal.supply_score != null ? (100 - signal.supply_score) / 100 : null,
+      volatility_score: signal.trend_percent != null ? Math.min(Math.abs(signal.trend_percent) / 50, 1) : null,
+      confidence_tier: signal.confidence_reason === 'sufficient_history' ? 'exact_match'
+        : signal.confidence_reason === 'category_baseline' ? 'category'
+        : signal.confidence_reason === 'ai_estimate_only' ? 'ai_estimate'
+        : 'baseline',
+      external_comps: null,
+      updated_at: null,
+    } : null,
+    seller: sellerData ?? {
+      id: item.user_id,
+      username: 'loading...',
+      avatar_url: null,
+      rep_score: 0,
+      total_predictions: 0,
+      correct_predictions: 0,
+      scan_count: 0,
+    },
+    isWatched: watched,
+    isSaved: saved,
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Item Identity */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>ITEM_IDENTITY</Text>
-        <Text style={styles.itemTitle}>{item.title}</Text>
-        <Text style={styles.itemMeta}>
-          {item.category.toUpperCase()}
-          {item.subcategory ? ` · ${item.subcategory.toUpperCase()}` : ''}
-          {item.brand ? ` · ${item.brand}` : ''}
-        </Text>
-        <View style={styles.badgeRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.condition.toUpperCase()}</Text>
-          </View>
-          <View style={[styles.badge, styles.badgeAccent]}>
-            <Text style={styles.badgeTextAccent}>{item.ai_confidence}% AI</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Market Signal */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>MARKET_INTELLIGENCE</Text>
-        {!signal ? (
-          <View style={styles.signalLoading}>
-            <ActivityIndicator color="#00FF87" size="small" />
-            <Text style={styles.signalLoadingText}>Computing market signal...</Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.signalGrid}>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>AVG_PRICE</Text>
-                <Text style={styles.signalValue}>${signal.avg_price.toFixed(2)}</Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>RANGE</Text>
-                <Text style={styles.signalValue}>
-                  ${signal.low_price.toFixed(2)} – ${signal.high_price.toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>RECOMMENDED</Text>
-                <Text style={[styles.signalValue, { color: '#00FF87' }]}>
-                  ${signal.recommended_price.toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>FLIP_SCORE</Text>
-                <Text style={[styles.signalValue, { color: scoreColor(signal.flip_score) }]}>
-                  {signal.flip_score} · {formatScoreLabel(signal.flip_score)}
-                </Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>TREND</Text>
-                <Text style={[styles.signalValue, { color: trendColor(signal.trend_direction) }]}>
-                  {signal.trend_direction === 'up' ? '↑' : signal.trend_direction === 'down' ? '↓' : '→'} {signal.trend_percent.toFixed(1)}%
-                </Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>DEMAND</Text>
-                <Text style={[styles.signalValue, { color: scoreColor(signal.demand_score) }]}>
-                  {signal.demand_score} · {formatScoreLabel(signal.demand_score)}
-                </Text>
-              </View>
-              <View style={styles.signalRow}>
-                <Text style={styles.signalLabel}>VELOCITY</Text>
-                <Text style={styles.signalValue}>{signal.velocity.toUpperCase()}</Text>
-              </View>
-              {signal.low_confidence && (
-                <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceText}>
-                    ⚠ {signal.confidence_reason === 'ai_estimate_only'
-                      ? 'AI estimate — limited market data'
-                      : signal.confidence_reason === 'category_baseline'
-                      ? 'Based on category averages'
-                      : 'Based on verified market data'}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Recommendation Badge */}
-            {recommendation && (
-              <View style={[styles.recommendationBadge, { backgroundColor: recommendationColor(recommendation) }]}>
-                <Text style={styles.recommendationText}>
-                  {recommendationLabel(recommendation)}
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-      </View>
+      {/* Glasscard — renders identity, market data, metrics, seller, comps, trading bar */}
+      <Glasscard
+        data={glasscardData}
+        mode="full"
+        isMarketLoading={!signal}
+      />
 
       {/* Prediction Buttons */}
       {signal && (

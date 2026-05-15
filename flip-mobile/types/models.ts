@@ -167,3 +167,48 @@ export type SignalRetryQueueItem = {
 };
 
 export type Recommendation = 'SELL' | 'BUY' | 'HOLD';
+
+// --- Glasscard types (Phase 10) ---
+
+export type GlasscardConfidenceTier = 'exact_match' | 'category' | 'baseline' | 'ai_estimate';
+
+export type GlasscardSellerData = {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  rep_score: number;
+  total_predictions: number;
+  correct_predictions: number;
+  scan_count: number;
+};
+
+export type GlasscardMarketData = {
+  fair_market_value: number | null;
+  recommended_price: number | null;
+  price_low: number | null;
+  price_high: number | null;
+  demand_score: number | null;
+  liquidity_score: number | null;
+  volatility_score: number | null;
+  confidence_tier: GlasscardConfidenceTier | null;
+  external_comps: Array<{
+    source: string;
+    price: number;
+    url: string;
+  }> | null;
+  updated_at: string | null;
+};
+
+export type GlasscardData = {
+  id: string;
+  title: string;
+  category: string;
+  condition: string | null;
+  image_url: string | null;
+  ai_confidence: number | null;
+  created_at: string;
+  market: GlasscardMarketData | null;
+  seller: GlasscardSellerData;
+  isWatched: boolean;
+  isSaved: boolean;
+};

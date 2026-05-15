@@ -17,6 +17,8 @@ import { useStreak } from '../../hooks/useStreak';
 import OnboardingOverlay from '../../components/OnboardingOverlay';
 import StreakCard from '../../components/StreakCard';
 import ReengagementBanner from '../../components/ReengagementBanner';
+import Glasscard from '../../components/Glasscard';
+import type { GlasscardData, GlasscardMarketData, GlasscardSellerData } from '../../types/models';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +29,19 @@ type RecentItem = {
   condition: string;
   ai_confidence: number;
   created_at: string;
+  user_id: string;
+  image_urls: string[];
+};
+
+type FeedSignal = {
+  flip_item_id: string;
+  avg_price: number;
+  recommended_price: number;
+  low_price: number;
+  high_price: number;
+  demand_score: number;
+  supply_score: number;
+  confidence_reason: string;
 };
 
 export default function HomeScreen() {
@@ -37,6 +52,8 @@ export default function HomeScreen() {
   const { state: onboardingState, isActive: showOnboarding, advanceTo, skip } = useOnboarding();
   const { streak, recordScan } = useStreak();
   const [resolvedPredictions, setResolvedPredictions] = useState<any[]>([]);
+  const [feedSignals, setFeedSignals] = useState<Record<string, FeedSignal>>({});
+  const [currentUserSeller, setCurrentUserSeller] = useState<GlasscardSellerData | null>(null);
 
   const loadData = async () => {
     try {
@@ -48,15 +65,37 @@ export default function HomeScreen() {
 
       setUserName(user.email?.split('@')[0] ?? null);
 
+      const { data: sellerRow } = await supabase
+        .from('users')
+        .select('id, username, avatar_url, rep_score, total_predictions, correct_predictions, scan_count')
+        .eq('id', user.id)
+        .single();
+
+      if (sellerRow) setCurrentUserSeller(sellerRow);
+
       const { data: items } = await supabase
         .from('flip_items')
-        .select('id, title, category, condition, ai_confidence, created_at')
+        .select('id, title, category, condition, ai_confidence, created_at, user_id, image_urls')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
 
       if (items) {
         setRecentItems(items);
+
+        const itemIds = items.map((i: RecentItem) => i.id);
+        if (itemIds.length > 0) {
+          const { data: signals } = await supabase
+            .from('market_signals')
+            .select('flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason')
+            .in('flip_item_id', itemIds);
+
+          if (signals) {
+            const map: Record<string, FeedSignal> = {};
+            for (const s of signals) map[s.flip_item_id] = s as FeedSignal;
+            setFeedSignals(map);
+          }
+        }
       }
 
       const { data: resolved } = await supabase
@@ -188,28 +227,54 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            recentItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.recentCard}
-                onPress={() => router.push(`/(tabs)/result?id=${item.id}`)}
-              >
-                <View style={styles.recentCardLeft}>
-                  <Text style={styles.recentTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  <Text style={styles.recentMeta}>
-                    {item.category.toUpperCase()} · {item.condition.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.recentCardRight}>
-                  <Text style={styles.recentConfidence}>
-                    {item.ai_confidence}%
-                  </Text>
-                  <Text style={styles.recentConfidenceLabel}>AI</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+            recentItems.map((item) => {
+              const sig = feedSignals[item.id];
+              const seller = currentUserSeller ?? {
+                id: item.user_id,
+                username: userName ?? 'user',
+                avatar_url: null,
+                rep_score: 0,
+                total_predictions: 0,
+                correct_predictions: 0,
+                scan_count: 0,
+              };
+              const gcData: GlasscardData = {
+                id: item.id,
+                title: item.title,
+                category: item.category,
+                condition: item.condition ?? null,
+                image_url: item.image_urls?.[0] ?? null,
+                ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
+                created_at: item.created_at,
+                market: sig ? {
+                  fair_market_value: sig.avg_price,
+                  recommended_price: sig.recommended_price,
+                  price_low: sig.low_price,
+                  price_high: sig.high_price,
+                  demand_score: sig.demand_score / 100,
+                  liquidity_score: sig.supply_score != null ? (100 - sig.supply_score) / 100 : null,
+                  volatility_score: null,
+                  confidence_tier: sig.confidence_reason === 'sufficient_history' ? 'exact_match'
+                    : sig.confidence_reason === 'category_baseline' ? 'category'
+                    : sig.confidence_reason === 'ai_estimate_only' ? 'ai_estimate'
+                    : 'baseline',
+                  external_comps: null,
+                  updated_at: null,
+                } : null,
+                seller,
+                isWatched: false,
+                isSaved: false,
+              };
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  onPress={() => router.push(`/(tabs)/result?id=${item.id}`)}
+                  activeOpacity={0.8}
+                >
+                  <Glasscard data={gcData} mode="feed" />
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
       </ScrollView>
