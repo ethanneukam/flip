@@ -54,6 +54,7 @@ type MarketSignalRow = {
   low_confidence: boolean;
   confidence_reason: string;
   data_points_used: number;
+  computed_at: string;
 };
 
 type PredictionType = 'price_up' | 'price_down' | 'overvalued' | 'undervalued';
@@ -123,7 +124,7 @@ export default function ResultScreen() {
   const pollSignal = async (flipItemId: string) => {
     const { data } = await supabase
       .from('market_signals')
-      .select('avg_price, low_price, high_price, recommended_price, demand_score, supply_score, flip_score, velocity, trend_direction, trend_percent, low_confidence, confidence_reason, data_points_used')
+      .select('avg_price, low_price, high_price, recommended_price, demand_score, supply_score, flip_score, velocity, trend_direction, trend_percent, low_confidence, confidence_reason, data_points_used, computed_at')
       .eq('flip_item_id', flipItemId)
       .single();
 
@@ -309,15 +310,12 @@ export default function ResultScreen() {
       recommended_price: signal.recommended_price,
       price_low: signal.low_price,
       price_high: signal.high_price,
-      demand_score: signal.demand_score / 100,
-      liquidity_score: signal.supply_score != null ? (100 - signal.supply_score) / 100 : null,
-      volatility_score: signal.trend_percent != null ? Math.min(Math.abs(signal.trend_percent) / 50, 1) : null,
-      confidence_tier: signal.confidence_reason === 'sufficient_history' ? 'exact_match'
-        : signal.confidence_reason === 'category_baseline' ? 'category'
-        : signal.confidence_reason === 'ai_estimate_only' ? 'ai_estimate'
-        : 'baseline',
+      demand_score: signal.demand_score,
+      liquidity_score: null,
+      volatility_score: null,
+      confidence_tier: (signal.confidence_reason as 'sufficient_history' | 'category_baseline' | 'ai_estimate_only') ?? null,
       external_comps: null,
-      updated_at: null,
+      updated_at: signal.computed_at ?? null,
     } : null,
     seller: sellerData ?? {
       id: item.user_id,

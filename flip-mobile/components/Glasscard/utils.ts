@@ -7,16 +7,15 @@ export function formatUSD(value: number | null | undefined): string {
 
 export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
-  return `${Math.round(value * 100)}%`;
+  return `${Math.round(value)}%`;
 }
 
 export function confidenceTierLabel(tier: GlasscardConfidenceTier | null): string {
   if (!tier) return 'Analyzing...';
   const map: Record<GlasscardConfidenceTier, string> = {
-    exact_match: 'High Confidence',
-    category: 'Category Match',
-    baseline: 'Estimated',
-    ai_estimate: 'AI Estimated',
+    sufficient_history: 'High Confidence',
+    category_baseline: 'Category Match',
+    ai_estimate_only: 'AI Estimated',
   };
   return map[tier];
 }
@@ -24,32 +23,31 @@ export function confidenceTierLabel(tier: GlasscardConfidenceTier | null): strin
 export function confidenceTierColor(tier: GlasscardConfidenceTier | null): string {
   if (!tier) return '#4B5563';
   const map: Record<GlasscardConfidenceTier, string> = {
-    exact_match: '#10B981',
-    category: '#F59E0B',
-    baseline: '#F97316',
-    ai_estimate: '#F97316',
+    sufficient_history: '#10B981',
+    category_baseline: '#F59E0B',
+    ai_estimate_only: '#F97316',
   };
   return map[tier];
 }
 
 export function demandLabel(score: number | null): string {
   if (score === null) return '—';
-  if (score > 0.7) return 'High Demand';
-  if (score >= 0.3) return 'Moderate Demand';
+  if (score > 70) return 'High Demand';
+  if (score >= 30) return 'Moderate Demand';
   return 'Low Demand';
 }
 
 export function liquidityLabel(score: number | null): string {
   if (score === null) return '—';
-  if (score > 0.7) return 'Highly Liquid';
-  if (score >= 0.3) return 'Active Market';
+  if (score > 70) return 'Highly Liquid';
+  if (score >= 30) return 'Active Market';
   return 'Illiquid';
 }
 
 export function volatilityLabel(score: number | null): string {
   if (score === null) return '—';
-  if (score > 0.7) return 'High Volatility';
-  if (score >= 0.3) return 'Moderate Swings';
+  if (score > 70) return 'High Volatility';
+  if (score >= 30) return 'Moderate Swings';
   return 'Stable Price';
 }
 

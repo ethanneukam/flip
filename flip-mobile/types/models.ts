@@ -170,7 +170,7 @@ export type Recommendation = 'SELL' | 'BUY' | 'HOLD';
 
 // --- Glasscard types (Phase 10) ---
 
-export type GlasscardConfidenceTier = 'exact_match' | 'category' | 'baseline' | 'ai_estimate';
+export type GlasscardConfidenceTier = 'sufficient_history' | 'category_baseline' | 'ai_estimate_only';
 
 export type GlasscardSellerData = {
   id: string;
@@ -187,9 +187,9 @@ export type GlasscardMarketData = {
   recommended_price: number | null;
   price_low: number | null;
   price_high: number | null;
-  demand_score: number | null;
-  liquidity_score: number | null;
-  volatility_score: number | null;
+  demand_score: number | null;     // 0-100 integer from backend
+  liquidity_score: number | null;  // 0-100 integer from backend (null if not available)
+  volatility_score: number | null; // 0-100 integer from backend (null if not available)
   confidence_tier: GlasscardConfidenceTier | null;
   external_comps: Array<{
     source: string;

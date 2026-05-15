@@ -16,7 +16,7 @@ type MetricConfig = {
 
 function MetricBar({ label, value, barColor, textFn }: MetricConfig) {
   const isNull = value === null;
-  const pct = isNull ? 0 : Math.round(value * 100);
+  const pct = isNull ? 0 : Math.min(100, Math.max(0, Math.round(value)));
 
   return (
     <View style={styles.metricRow}>
@@ -42,20 +42,20 @@ function MetricBar({ label, value, barColor, textFn }: MetricConfig) {
 }
 
 function demandColor(v: number): string {
-  if (v > 0.7) return '#10B981';
-  if (v >= 0.3) return '#6EE7B7';
+  if (v > 70) return '#10B981';
+  if (v >= 30) return '#6EE7B7';
   return '#4B5563';
 }
 
 function liquidityColor(v: number): string {
-  if (v > 0.7) return '#3B82F6';
-  if (v >= 0.3) return '#93C5FD';
+  if (v > 70) return '#3B82F6';
+  if (v >= 30) return '#93C5FD';
   return '#4B5563';
 }
 
 function volatilityColor(v: number): string {
-  if (v > 0.7) return '#EF4444';
-  if (v >= 0.3) return '#F59E0B';
+  if (v > 70) return '#EF4444';
+  if (v >= 30) return '#F59E0B';
   return '#4B5563';
 }
 

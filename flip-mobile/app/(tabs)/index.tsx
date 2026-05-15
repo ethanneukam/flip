@@ -42,6 +42,7 @@ type FeedSignal = {
   demand_score: number;
   supply_score: number;
   confidence_reason: string;
+  computed_at: string;
 };
 
 export default function HomeScreen() {
@@ -87,7 +88,7 @@ export default function HomeScreen() {
         if (itemIds.length > 0) {
           const { data: signals } = await supabase
             .from('market_signals')
-            .select('flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason')
+            .select('flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason, computed_at')
             .in('flip_item_id', itemIds);
 
           if (signals) {
@@ -251,15 +252,12 @@ export default function HomeScreen() {
                   recommended_price: sig.recommended_price,
                   price_low: sig.low_price,
                   price_high: sig.high_price,
-                  demand_score: sig.demand_score / 100,
-                  liquidity_score: sig.supply_score != null ? (100 - sig.supply_score) / 100 : null,
+                  demand_score: sig.demand_score,
+                  liquidity_score: null,
                   volatility_score: null,
-                  confidence_tier: sig.confidence_reason === 'sufficient_history' ? 'exact_match'
-                    : sig.confidence_reason === 'category_baseline' ? 'category'
-                    : sig.confidence_reason === 'ai_estimate_only' ? 'ai_estimate'
-                    : 'baseline',
+                  confidence_tier: (sig.confidence_reason as 'sufficient_history' | 'category_baseline' | 'ai_estimate_only') ?? null,
                   external_comps: null,
-                  updated_at: null,
+                  updated_at: sig.computed_at ?? null,
                 } : null,
                 seller,
                 isWatched: false,
