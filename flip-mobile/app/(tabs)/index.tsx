@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -17,11 +18,12 @@ import { useStreak } from '../../hooks/useStreak';
 import OnboardingOverlay from '../../components/OnboardingOverlay';
 import StreakCard from '../../components/StreakCard';
 import ReengagementBanner from '../../components/ReengagementBanner';
-import Glasscard from '../../components/Glasscard';
+import { GlasscardStack } from '../../components/Glasscard';
+import GlasscardSeller from '../../components/Glasscard/GlasscardSeller';
 import type { GlasscardData, GlasscardSellerData } from '../../types/models';
 import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
 
-const { width } = Dimensions.get('window');
+const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
 type RecentItem = {
   id: string;
@@ -57,6 +59,9 @@ export default function HomeScreen() {
   const [resolvedPredictions, setResolvedPredictions] = useState<any[]>([]);
   const [feedSignals, setFeedSignals] = useState<Record<string, FeedSignal>>({});
   const [currentUserSeller, setCurrentUserSeller] = useState<GlasscardSellerData | null>(null);
+  const [stackIds, setStackIds] = useState<string[]>([]);
+  const [sellerInspect, setSellerInspect] = useState<GlasscardData | null>(null);
+  const [cartAck, setCartAck] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -81,7 +86,7 @@ export default function HomeScreen() {
         .select('id, title, category, condition, ai_confidence, created_at, user_id, image_urls')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(15);
 
       if (items) {
         setRecentItems(items);
@@ -124,6 +129,69 @@ export default function HomeScreen() {
     }, [])
   );
 
+  useEffect(() => {
+    setStackIds(recentItems.map((i) => i.id));
+  }, [recentItems]);
+
+  const glassById = useMemo(() => {
+    const map: Record<string, GlasscardData> = {};
+    for (const item of recentItems) {
+      const sig = feedSignals[item.id];
+      const seller =
+        currentUserSeller ?? {
+          id: item.user_id,
+          username: userName ?? 'user',
+          avatar_url: null,
+          rep_score: 0,
+          total_predictions: 0,
+          correct_predictions: 0,
+          scan_count: 0,
+        };
+      map[item.id] = {
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        condition: item.condition ?? null,
+        image_url: item.image_urls?.[0] ?? null,
+        ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
+        created_at: item.created_at,
+        market: sig ? glasscardMarketFromSignalRow(sig) : null,
+        seller,
+        isWatched: false,
+        isSaved: false,
+      };
+    }
+    return map;
+  }, [recentItems, feedSignals, currentUserSeller, userName]);
+
+  const stackCards = useMemo(
+    () => stackIds.map((id) => glassById[id]).filter(Boolean) as GlasscardData[],
+    [stackIds, glassById]
+  );
+
+  const toggleWatchlist = useCallback(async (item: GlasscardData) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/api/toggle-watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ flipItemId: item.id }),
+      });
+    } catch {
+      /* deferred: surface error in Phase 12 */
+    }
+  }, []);
+
+  const onBuyIntent = useCallback((item: GlasscardData) => {
+    setCartAck(item.title);
+    setTimeout(() => setCartAck(null), 2200);
+  }, []);
+
   const handleScanPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recordScan();
@@ -154,7 +222,6 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerLabel}>FLIP_TERMINAL</Text>
           {userName && (
@@ -162,7 +229,6 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Scan CTA */}
         <TouchableOpacity
           style={styles.scanButton}
           onPress={handleScanPress}
@@ -175,7 +241,6 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.quickAction}
@@ -193,7 +258,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Streak + Re-engagement */}
         <StreakCard
           currentStreak={streak.currentStreak}
           longestStreak={streak.longestStreak}
@@ -217,9 +281,12 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Recent Scans */}
         <View style={styles.recentSection}>
-          <Text style={styles.sectionLabel}>RECENT_SCANS</Text>
+          <Text style={styles.sectionLabel}>MARKET_FEED</Text>
+          {cartAck && (
+            <Text style={styles.cartAck}>CART_INTENT_RECORDED · {cartAck.toUpperCase()}</Text>
+          )}
+          <Text style={styles.stackHint}>SWIPE UP SKIP · RIGHT BUY · DOWN SAVE · LEFT SELLER</Text>
 
           {loading ? (
             <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
@@ -230,43 +297,37 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            recentItems.map((item) => {
-              const sig = feedSignals[item.id];
-              const seller = currentUserSeller ?? {
-                id: item.user_id,
-                username: userName ?? 'user',
-                avatar_url: null,
-                rep_score: 0,
-                total_predictions: 0,
-                correct_predictions: 0,
-                scan_count: 0,
-              };
-              const gcData: GlasscardData = {
-                id: item.id,
-                title: item.title,
-                category: item.category,
-                condition: item.condition ?? null,
-                image_url: item.image_urls?.[0] ?? null,
-                ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
-                created_at: item.created_at,
-                market: sig ? glasscardMarketFromSignalRow(sig) : null,
-                seller,
-                isWatched: false,
-                isSaved: false,
-              };
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => router.push(`/(tabs)/result?id=${item.id}`)}
-                  activeOpacity={0.8}
-                >
-                  <Glasscard data={gcData} mode="feed" />
-                </TouchableOpacity>
-              );
-            })
+            <GlasscardStack
+              cards={stackCards}
+              isMarketLoading={(c) => !c.market}
+              onConsumed={() => setStackIds((s) => s.slice(1))}
+              onBuy={onBuyIntent}
+              onSave={(item) => {
+                void toggleWatchlist(item);
+              }}
+              onSellerInspect={(item) => setSellerInspect(item)}
+              onSkip={() => {}}
+            />
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={sellerInspect !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSellerInspect(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSellerInspect(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>SELLER</Text>
+            {sellerInspect && <GlasscardSeller seller={sellerInspect.seller} />}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSellerInspect(null)}>
+              <Text style={styles.modalCloseText}>CLOSE</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -361,7 +422,21 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 10,
     letterSpacing: 3,
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  stackHint: {
+    color: '#555555',
+    fontFamily: 'monospace',
+    fontSize: 9,
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  cartAck: {
+    color: '#00FF87',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    marginBottom: 8,
+    letterSpacing: 1,
   },
   emptyState: {
     backgroundColor: '#111111',
@@ -378,47 +453,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  recentCard: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    borderRadius: 4,
-    padding: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  recentCardLeft: {
+  modalBackdrop: {
     flex: 1,
-    marginRight: 12,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    padding: 24,
   },
-  recentTitle: {
+  modalCard: {
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 20,
+  },
+  modalTitle: {
     color: '#FFFFFF',
     fontFamily: 'monospace',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 12,
   },
-  recentMeta: {
-    color: '#888888',
+  modalClose: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#444444',
+    borderRadius: 6,
+  },
+  modalCloseText: {
+    color: '#AAAAAA',
     fontFamily: 'monospace',
     fontSize: 10,
-    marginTop: 4,
-    letterSpacing: 1,
-  },
-  recentCardRight: {
-    alignItems: 'center',
-  },
-  recentConfidence: {
-    color: '#00FF87',
-    fontFamily: 'monospace',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  recentConfidenceLabel: {
-    color: '#888888',
-    fontFamily: 'monospace',
-    fontSize: 8,
-    marginTop: 2,
+    letterSpacing: 2,
   },
 });

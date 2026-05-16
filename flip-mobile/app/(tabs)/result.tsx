@@ -6,13 +6,15 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import { useOnboarding } from '../../hooks/useOnboarding';
-import Glasscard from '../../components/Glasscard';
-import type { GlasscardData } from '../../types/models';
+import { GestureGlasscard } from '../../components/Glasscard';
+import GlasscardSeller from '../../components/Glasscard/GlasscardSeller';
 import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
@@ -52,6 +54,7 @@ type MarketSignalRow = {
 type PredictionType = 'price_up' | 'price_down' | 'overvalued' | 'undervalued';
 
 export default function ResultScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<FlipItemRow | null>(null);
   const [signal, setSignal] = useState<MarketSignalRow | null>(null);
@@ -63,6 +66,8 @@ export default function ResultScreen() {
   const [saved, setSaved] = useState(false);
   const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
   const [watched, setWatched] = useState(false);
+  const [sellerModalOpen, setSellerModalOpen] = useState(false);
+  const [cartIntent, setCartIntent] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const { state: onboardingState, advanceTo: advanceOnboarding } = useOnboarding();
   const [sellerData, setSellerData] = useState<{
@@ -308,14 +313,29 @@ export default function ResultScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Glasscard — renders identity, market data, metrics, seller, comps, trading bar */}
-      <Glasscard
-        data={glasscardData}
-        mode="full"
-        isMarketLoading={!signal}
-      />
+    <View style={styles.root}>
+      <View style={styles.cardArea}>
+        <GestureGlasscard
+          data={glasscardData}
+          mode="full"
+          isMarketLoading={!signal}
+          resetAfterCommit
+          onBuy={() => {
+            setCartIntent(true);
+            setTimeout(() => setCartIntent(false), 2200);
+          }}
+          onSave={() => {
+            void handleWatchlist();
+          }}
+          onSellerInspect={() => setSellerModalOpen(true)}
+          onSkip={() => router.back()}
+        />
+        {cartIntent && (
+          <Text style={styles.cartBanner}>CART_INTENT_RECORDED</Text>
+        )}
+      </View>
 
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       {/* Prediction Buttons */}
       {signal && (
         <View style={styles.section}>
@@ -395,13 +415,76 @@ export default function ResultScreen() {
           <Text style={styles.actionErrorText}>⚠ {actionError}</Text>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+
+      <Modal
+        visible={sellerModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSellerModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSellerModalOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>SELLER</Text>
+            <GlasscardSeller seller={glasscardData.seller} />
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSellerModalOpen(false)}>
+              <Text style={styles.modalCloseText}>CLOSE</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#080808' },
-  content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 120 },
+  root: { flex: 1, backgroundColor: '#080808' },
+  cardArea: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 8 },
+  cartBanner: {
+    color: '#00FF87',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 2,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  scroll: { flex: 1 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 20,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 12,
+  },
+  modalClose: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#444444',
+    borderRadius: 6,
+  },
+  modalCloseText: {
+    color: '#AAAAAA',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  content: { paddingHorizontal: 20, paddingBottom: 120 },
   loadingContainer: { flex: 1, backgroundColor: '#080808', justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#888888', fontFamily: 'monospace', fontSize: 12, marginTop: 12 },
   errorText: { color: '#FF4444', fontFamily: 'monospace', fontSize: 14 },

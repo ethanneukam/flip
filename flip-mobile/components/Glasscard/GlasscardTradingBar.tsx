@@ -18,23 +18,23 @@ export default function GlasscardTradingBar({
 }: Props) {
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={[styles.button, styles.rejectBtn]} onPress={onReject} activeOpacity={0.7}>
-        <Text style={styles.rejectIcon}>↑</Text>
-        <Text style={styles.rejectLabel}>REJECT</Text>
+      <TouchableOpacity style={[styles.button, styles.skipBtn]} onPress={onReject} activeOpacity={0.7}>
+        <Text style={styles.skipIcon}>↑</Text>
+        <Text style={styles.skipLabel}>SKIP</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.button, styles.watchBtn]} onPress={onWatch} activeOpacity={0.7}>
-        <Text style={styles.watchIcon}>↓</Text>
-        <Text style={styles.watchLabel}>WATCH</Text>
+      <TouchableOpacity style={[styles.button, styles.saveBtn]} onPress={onWatch} activeOpacity={0.7}>
+        <Text style={styles.saveIcon}>↓</Text>
+        <Text style={styles.saveLabel}>SAVE</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.button, styles.sellerBtn]} onPress={onInspectSeller} activeOpacity={0.7}>
-        <Text style={styles.sellerIcon}>→</Text>
+        <Text style={styles.sellerIcon}>←</Text>
         <Text style={styles.sellerLabel}>SELLER</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.button, styles.buyBtn]} onPress={onBuy} activeOpacity={0.7}>
-        <Text style={styles.buyIcon}>←</Text>
+        <Text style={styles.buyIcon}>→</Text>
         <Text style={styles.buyLabel}>BUY</Text>
       </TouchableOpacity>
     </View>
@@ -54,12 +54,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
   },
-  rejectBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#6B7280' },
-  rejectIcon: { color: '#6B7280', fontSize: 16, marginBottom: 2 },
-  rejectLabel: { color: '#6B7280', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
-  watchBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3B82F6' },
-  watchIcon: { color: '#3B82F6', fontSize: 16, marginBottom: 2 },
-  watchLabel: { color: '#3B82F6', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
+  skipBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#6B7280' },
+  skipIcon: { color: '#6B7280', fontSize: 16, marginBottom: 2 },
+  skipLabel: { color: '#6B7280', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
+  saveBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3B82F6' },
+  saveIcon: { color: '#3B82F6', fontSize: 16, marginBottom: 2 },
+  saveLabel: { color: '#3B82F6', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
   sellerBtn: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#6C63FF' },
   sellerIcon: { color: '#6C63FF', fontSize: 16, marginBottom: 2 },
   sellerLabel: { color: '#6C63FF', fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
