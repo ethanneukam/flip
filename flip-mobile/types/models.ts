@@ -183,18 +183,20 @@ export type GlasscardSellerData = {
 };
 
 export type GlasscardMarketData = {
-  fair_market_value: number | null;
+  /** Canonical: `market_signals.avg_price` (see `MarketTruthMap` in lib/marketTruthMap.ts). */
+  avg_price: number | null;
   recommended_price: number | null;
-  price_low: number | null;
-  price_high: number | null;
-  demand_score: number | null;     // 0-100 integer from backend
-  liquidity_score: number | null;  // 0-100 integer from backend (null if not available)
-  volatility_score: number | null; // 0-100 integer from backend (null if not available)
-  confidence_tier: GlasscardConfidenceTier | null;
+  low_price: number | null;
+  high_price: number | null;
+  demand_score: number | null;
+  liquidity_score: number | null;
+  volatility_score: number | null;
+  /** Canonical: `market_signals.confidence_reason`. */
+  confidence_reason: GlasscardConfidenceTier | null;
   external_comps: Array<{
     source: string;
-    price: number;
-    url: string;
+    price: number | null;
+    url: string | null;
   }> | null;
   updated_at: string | null;
 };

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import { computePortfolioChange, portfolioChangeColor } from '../../services/marketSignalEngine';
 
 type PortfolioItemRow = {
   id: string;
@@ -125,7 +124,6 @@ export default function PortfolioScreen() {
 
   const totalValue = items.reduce((sum, item) => sum + getLiveValue(item), 0);
   const totalCost = items.reduce((sum, item) => sum + (Number(item.cost_basis) || 0), 0);
-  const totalChange = computePortfolioChange(totalCost, totalValue);
 
   if (loading) {
     return (
@@ -169,8 +167,8 @@ export default function PortfolioScreen() {
             ${totalValue.toFixed(2)}
           </Text>
           {totalCost > 0 && (
-            <Text style={[styles.totalChange, { color: portfolioChangeColor(totalChange) }]}>
-              {totalChange >= 0 ? '+' : ''}{totalChange.toFixed(1)}%
+            <Text style={styles.totalCostLine}>
+              COST_BASIS ${totalCost.toFixed(2)}
             </Text>
           )}
           <Text style={styles.totalItemCount}>
@@ -197,7 +195,6 @@ export default function PortfolioScreen() {
           items.map((item) => {
             const liveValue = getLiveValue(item);
             const costBasis = Number(item.cost_basis) || 0;
-            const change = computePortfolioChange(costBasis, liveValue);
             const lowConf = isLowConfidence(item);
             const hasSignal = hasLiveSignal(item);
 
@@ -221,9 +218,9 @@ export default function PortfolioScreen() {
                 </View>
                 <View style={styles.itemRight}>
                   <Text style={styles.itemValue}>${liveValue.toFixed(2)}</Text>
-                  <Text style={[styles.itemChange, { color: portfolioChangeColor(change) }]}>
-                    {change >= 0 ? '+' : ''}{change.toFixed(1)}%
-                  </Text>
+                  {costBasis > 0 && (
+                    <Text style={styles.itemCost}>COST ${costBasis.toFixed(2)}</Text>
+                  )}
                   {!hasSignal && (
                     <Text style={styles.noSignalIndicator}>NO SIGNAL</Text>
                   )}
@@ -249,7 +246,7 @@ const styles = StyleSheet.create({
   totalSection: { backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 24, marginBottom: 24, alignItems: 'center' },
   totalLabel: { color: '#888888', fontFamily: 'monospace', fontSize: 9, letterSpacing: 3, marginBottom: 8 },
   totalValue: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 32, fontWeight: 'bold' },
-  totalChange: { fontFamily: 'monospace', fontSize: 14, marginTop: 4 },
+  totalCostLine: { color: '#888888', fontFamily: 'monospace', fontSize: 11, marginTop: 6 },
   totalItemCount: { color: '#888888', fontFamily: 'monospace', fontSize: 10, marginTop: 8 },
   emptyState: { backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 32, alignItems: 'center', marginTop: 20 },
   emptyIcon: { color: '#888888', fontSize: 32, marginBottom: 12 },
@@ -264,6 +261,6 @@ const styles = StyleSheet.create({
   lowConfIndicator: { color: '#FFAA00', fontFamily: 'monospace', fontSize: 8, marginTop: 4 },
   itemRight: { alignItems: 'flex-end' },
   itemValue: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold' },
-  itemChange: { fontFamily: 'monospace', fontSize: 11, marginTop: 2 },
+  itemCost: { color: '#888888', fontFamily: 'monospace', fontSize: 9, marginTop: 4 },
   noSignalIndicator: { color: '#888888', fontFamily: 'monospace', fontSize: 8, marginTop: 2 },
 });

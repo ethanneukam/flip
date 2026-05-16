@@ -21,12 +21,14 @@ export default function GlasscardComps({ comps }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {comps.map((comp, i) => {
           const accent = sourceColor(comp.source);
+          const hasUrl = Boolean(comp.url);
           return (
             <TouchableOpacity
               key={`${comp.source}-${i}`}
               style={[styles.pill, { borderColor: accent }]}
-              onPress={() => Linking.openURL(comp.url)}
+              onPress={() => hasUrl && comp.url && Linking.openURL(comp.url)}
               activeOpacity={0.7}
+              disabled={!hasUrl}
             >
               <Text style={[styles.pillSource, { color: accent }]}>{comp.source}</Text>
               <Text style={styles.pillPrice}>{formatUSD(comp.price)}</Text>

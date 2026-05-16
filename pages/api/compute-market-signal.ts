@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { externalCompsFromDataSources } from '../../flip-mobile/lib/marketTruthMap';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -102,7 +103,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .delete()
       .eq('flip_item_id', flipItemId);
 
-    return res.status(200).json({ success: true, flipItemId, flipScore, lowConfidence: signal.lowConfidence });
+    return res.status(200).json({
+      success: true,
+      flipItemId,
+      flipScore,
+      lowConfidence: signal.lowConfidence,
+      external_comps: externalCompsFromDataSources(signal.dataSources),
+    });
 
   } catch (err: any) {
     console.error('compute-market-signal error:', err);

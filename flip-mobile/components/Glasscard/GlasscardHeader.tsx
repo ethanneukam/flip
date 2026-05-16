@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import type { GlasscardData, GlasscardConfidenceTier } from '../../types/models';
-import { confidenceTierLabel, confidenceTierColor } from './utils';
+import { confidenceReasonLabel, confidenceReasonColor } from './utils';
 
 type Props = {
   data: GlasscardData;
@@ -24,10 +24,10 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export default function GlasscardHeader({ data, compact }: Props) {
   const categoryIcon = CATEGORY_ICONS[data.category?.toLowerCase()] ?? '📦';
-  const tier = data.market?.confidence_tier ?? null;
-  const tierLabel = confidenceTierLabel(tier);
-  const tierColor = confidenceTierColor(tier);
-  const isPulsing = tier === null;
+  const reason = data.market?.confidence_reason ?? null;
+  const tierLabel = confidenceReasonLabel(reason);
+  const tierColor = confidenceReasonColor(reason);
+  const isPulsing = reason === null;
 
   return (
     <View style={compact ? styles.containerCompact : styles.container}>

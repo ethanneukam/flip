@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { GlasscardMarketData } from '../../types/models';
-import { demandLabel, liquidityLabel, volatilityLabel, formatPercent } from './utils';
 
 type Props = {
   market: GlasscardMarketData | null;
@@ -11,10 +10,9 @@ type MetricConfig = {
   label: string;
   value: number | null;
   barColor: string;
-  textFn: (v: number | null) => string;
 };
 
-function MetricBar({ label, value, barColor, textFn }: MetricConfig) {
+function MetricBar({ label, value, barColor }: MetricConfig) {
   const isNull = value === null;
   const pct = isNull ? 0 : Math.min(100, Math.max(0, Math.round(value)));
 
@@ -26,7 +24,7 @@ function MetricBar({ label, value, barColor, textFn }: MetricConfig) {
           <View style={styles.skeletonValue} />
         ) : (
           <Text style={[styles.metricValue, { color: barColor }]}>
-            {textFn(value)} · {formatPercent(value)}
+            {Math.round(value)}
           </Text>
         )}
       </View>
@@ -69,19 +67,16 @@ export default function GlasscardMetrics({ market }: Props) {
       label: 'DEMAND',
       value: demand,
       barColor: demand !== null ? demandColor(demand) : '#4B5563',
-      textFn: demandLabel,
     },
     {
       label: 'LIQUIDITY',
       value: liquidity,
       barColor: liquidity !== null ? liquidityColor(liquidity) : '#4B5563',
-      textFn: liquidityLabel,
     },
     {
       label: 'VOLATILITY',
       value: volatility,
       barColor: volatility !== null ? volatilityColor(volatility) : '#4B5563',
-      textFn: volatilityLabel,
     },
   ];
 

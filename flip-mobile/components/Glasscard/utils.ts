@@ -10,7 +10,7 @@ export function formatPercent(value: number | null | undefined): string {
   return `${Math.round(value)}%`;
 }
 
-export function confidenceTierLabel(tier: GlasscardConfidenceTier | null): string {
+export function confidenceReasonLabel(tier: GlasscardConfidenceTier | null): string {
   if (!tier) return 'Analyzing...';
   const map: Record<GlasscardConfidenceTier, string> = {
     sufficient_history: 'High Confidence',
@@ -20,7 +20,10 @@ export function confidenceTierLabel(tier: GlasscardConfidenceTier | null): strin
   return map[tier];
 }
 
-export function confidenceTierColor(tier: GlasscardConfidenceTier | null): string {
+/** @deprecated Use `confidenceReasonLabel` — kept for call-site compatibility. */
+export const confidenceTierLabel = confidenceReasonLabel;
+
+export function confidenceReasonColor(tier: GlasscardConfidenceTier | null): string {
   if (!tier) return '#4B5563';
   const map: Record<GlasscardConfidenceTier, string> = {
     sufficient_history: '#10B981',
@@ -29,6 +32,8 @@ export function confidenceTierColor(tier: GlasscardConfidenceTier | null): strin
   };
   return map[tier];
 }
+
+export const confidenceTierColor = confidenceReasonColor;
 
 export function demandLabel(score: number | null): string {
   if (score === null) return '—';

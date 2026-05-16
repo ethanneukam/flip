@@ -10,19 +10,10 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
-import {
-  deriveRecommendation,
-  recommendationLabel,
-  recommendationColor,
-} from '../../services/marketSignalEngine';
-import {
-  formatScoreLabel,
-  scoreColor,
-  trendColor,
-} from '../../services/marketSignalFormatter';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import Glasscard from '../../components/Glasscard';
 import type { GlasscardData } from '../../types/models';
+import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
@@ -54,6 +45,7 @@ type MarketSignalRow = {
   low_confidence: boolean;
   confidence_reason: string;
   data_points_used: number;
+  data_sources: string[] | null;
   computed_at: string;
 };
 
@@ -124,7 +116,7 @@ export default function ResultScreen() {
   const pollSignal = async (flipItemId: string) => {
     const { data } = await supabase
       .from('market_signals')
-      .select('avg_price, low_price, high_price, recommended_price, demand_score, supply_score, flip_score, velocity, trend_direction, trend_percent, low_confidence, confidence_reason, data_points_used, computed_at')
+      .select('avg_price, low_price, high_price, recommended_price, demand_score, supply_score, flip_score, velocity, trend_direction, trend_percent, low_confidence, confidence_reason, data_points_used, data_sources, computed_at')
       .eq('flip_item_id', flipItemId)
       .single();
 
@@ -293,10 +285,6 @@ export default function ResultScreen() {
     );
   }
 
-  const recommendation = signal
-    ? deriveRecommendation(signal.flip_score, signal.trend_direction)
-    : null;
-
   const glasscardData: GlasscardData = {
     id: item.id,
     title: item.title,
@@ -305,18 +293,7 @@ export default function ResultScreen() {
     image_url: item.image_urls?.[0] ?? null,
     ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
     created_at: item.created_at,
-    market: signal ? {
-      fair_market_value: signal.avg_price,
-      recommended_price: signal.recommended_price,
-      price_low: signal.low_price,
-      price_high: signal.high_price,
-      demand_score: signal.demand_score,
-      liquidity_score: null,
-      volatility_score: null,
-      confidence_tier: (signal.confidence_reason as 'sufficient_history' | 'category_baseline' | 'ai_estimate_only') ?? null,
-      external_comps: null,
-      updated_at: signal.computed_at ?? null,
-    } : null,
+    market: signal ? glasscardMarketFromSignalRow(signal) : null,
     seller: sellerData ?? {
       id: item.user_id,
       username: 'loading...',
@@ -443,10 +420,6 @@ const styles = StyleSheet.create({
   signalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
   signalLabel: { color: '#888888', fontFamily: 'monospace', fontSize: 10, letterSpacing: 1 },
   signalValue: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold' },
-  confidenceBadge: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#FFAA00', borderRadius: 2, padding: 8, marginTop: 12 },
-  confidenceText: { color: '#FFAA00', fontFamily: 'monospace', fontSize: 10 },
-  recommendationBadge: { marginTop: 16, padding: 16, borderRadius: 4, alignItems: 'center' },
-  recommendationText: { color: '#080808', fontFamily: 'monospace', fontSize: 14, fontWeight: 'bold', letterSpacing: 2 },
   predictionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   predictionButton: { flex: 1, minWidth: '45%', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 14, alignItems: 'center' },
   buttonDisabled: { opacity: 0.5 },
