@@ -10,11 +10,14 @@ import { STACK } from './constants';
 export type GlasscardStackProps = {
   cards: GlasscardData[];
   isMarketLoading?: (item: GlasscardData) => boolean;
-  onConsumed: () => void;
+  /** Called after buy/save/skip with the card that exited the stack. */
+  onConsumed?: (item: GlasscardData) => void;
   onBuy?: (item: GlasscardData) => void;
   onSave?: (item: GlasscardData) => void;
   onSellerInspect?: (item: GlasscardData) => void;
   onSkip?: (item: GlasscardData) => void;
+  /** When true, stack fills the parent (feed page). */
+  fill?: boolean;
 };
 
 function StackBackCard({ data, depth }: { data: GlasscardData; depth: number }) {
@@ -50,6 +53,7 @@ export default function GlasscardStack({
   onSave,
   onSellerInspect,
   onSkip,
+  fill = false,
 }: GlasscardStackProps) {
   const visible = cards.slice(0, STACK.maxVisible);
   const top = visible[0];
@@ -62,14 +66,14 @@ export default function GlasscardStack({
   const loadingTop = isMarketLoading ? isMarketLoading(top) : !top.market;
 
   return (
-    <View style={styles.stackArea}>
+    <View style={[styles.stackArea, fill && styles.stackAreaFill]}>
       {backs
         .slice()
         .reverse()
         .map((c, idx) => (
           <StackBackCard key={c.id} data={c} depth={backs.length - idx} />
         ))}
-      <View style={styles.topSlot}>
+      <View style={[styles.topSlot, fill && styles.topSlotFill]}>
         <GestureGlasscard
           key={top.id}
           data={top}
@@ -78,18 +82,18 @@ export default function GlasscardStack({
           resetAfterCommit={false}
           onBuy={() => {
             onBuy?.(top);
-            onConsumed();
+            onConsumed?.(top);
           }}
           onSave={() => {
             onSave?.(top);
-            onConsumed();
+            onConsumed?.(top);
           }}
           onSellerInspect={() => {
             onSellerInspect?.(top);
           }}
           onSkip={() => {
             onSkip?.(top);
-            onConsumed();
+            onConsumed?.(top);
           }}
         />
       </View>
@@ -102,6 +106,11 @@ const styles = StyleSheet.create({
     minHeight: 440,
     marginBottom: 8,
     position: 'relative',
+  },
+  stackAreaFill: {
+    flex: 1,
+    minHeight: 0,
+    marginBottom: 0,
   },
   emptyStack: {
     minHeight: 120,
@@ -126,5 +135,9 @@ const styles = StyleSheet.create({
   topSlot: {
     zIndex: 20,
     position: 'relative',
+  },
+  topSlotFill: {
+    flex: 1,
+    minHeight: 0,
   },
 });

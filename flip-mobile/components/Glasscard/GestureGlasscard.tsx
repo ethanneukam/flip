@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
-import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import type { GlasscardMode } from './types';
@@ -113,8 +113,7 @@ export default function GestureGlasscard({
   const shell = isFeed ? styles.cardFeed : styles.cardFull;
 
   return (
-    <GestureHandlerRootView style={styles.ghRoot}>
-      <View style={styles.outer} onLayout={onLayout}>
+    <View style={[styles.outer, isFeed && styles.outerFeed]} onLayout={onLayout}>
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[shell, cardStyle]}>
           <GlasscardOverlay
@@ -146,13 +145,12 @@ export default function GestureGlasscard({
         </Animated.View>
       </GestureDetector>
     </View>
-    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  ghRoot: { width: '100%' },
   outer: { width: '100%' },
+  outerFeed: { flex: 1 },
   cardFull: {
     backgroundColor: '#0D0D0D',
     borderWidth: 1,
@@ -162,6 +160,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   cardFeed: {
+    flex: 1,
     backgroundColor: '#141414',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',

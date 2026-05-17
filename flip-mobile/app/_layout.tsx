@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import Purchases from 'react-native-purchases'; 
@@ -41,11 +42,13 @@ export default function RootLayout() {
 
   // ✅ WRAP YOUR STACK IN THE PROVIDER
   return (
-    <SuperwallProvider apiKeys={{ ios: "sk_8cc80a74f5e19313708d81a78da7b50e5d49c9851f0f4f6d4074400931126abc" }}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" /> 
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </SuperwallProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SuperwallProvider apiKeys={{ ios: "sk_8cc80a74f5e19313708d81a78da7b50e5d49c9851f0f4f6d4074400931126abc" }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" /> 
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </SuperwallProvider>
+    </GestureHandlerRootView>
   );
 }

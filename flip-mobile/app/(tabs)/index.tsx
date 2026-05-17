@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,9 +8,13 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  LayoutChangeEvent,
+  ListRenderItemInfo,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { FlatList } from 'react-native-gesture-handler';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import * as Haptics from 'expo-haptics';
 import { useOnboarding } from '../../hooks/useOnboarding';
@@ -24,6 +28,8 @@ import type { GlasscardData, GlasscardSellerData } from '../../types/models';
 import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
+
+type MarketIntentType = 'buy' | 'save' | 'skip' | 'inspect_seller';
 
 type RecentItem = {
   id: string;
@@ -62,6 +68,9 @@ export default function HomeScreen() {
   const [stackIds, setStackIds] = useState<string[]>([]);
   const [sellerInspect, setSellerInspect] = useState<GlasscardData | null>(null);
   const [cartAck, setCartAck] = useState<string | null>(null);
+  const [feedPageHeight, setFeedPageHeight] = useState(0);
+  const [feedViewIndex, setFeedViewIndex] = useState(0);
+  const feedListRef = useRef<FlatList<string>>(null);
 
   const loadData = async () => {
     try {
@@ -169,6 +178,24 @@ export default function HomeScreen() {
     [stackIds, glassById]
   );
 
+  const recordMarketIntent = useCallback(async (flip_item_id: string, intent_type: MarketIntentType) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/api/record-market-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ flip_item_id, intent_type }),
+      });
+    } catch {
+      /* telemetry best-effort */
+    }
+  }, []);
+
   const toggleWatchlist = useCallback(async (item: GlasscardData) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -208,6 +235,87 @@ export default function HomeScreen() {
     else if (onboardingState === 'first_save_done') advanceTo('complete');
   };
 
+  const onFeedSlotLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.floor(e.nativeEvent.layout.height);
+    if (h > 0) setFeedPageHeight(h);
+  }, []);
+
+  const onFeedMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (feedPageHeight <= 0 || stackIds.length === 0) return;
+      const y = e.nativeEvent.contentOffset.y;
+      const idx = Math.round(y / feedPageHeight);
+      const clamped = Math.max(0, Math.min(idx, stackIds.length - 1));
+      setFeedViewIndex(clamped);
+    },
+    [feedPageHeight, stackIds.length]
+  );
+
+  useEffect(() => {
+    if (feedPageHeight <= 0 || stackIds.length === 0) return;
+    const maxIdx = stackIds.length - 1;
+    if (feedViewIndex > maxIdx) {
+      feedListRef.current?.scrollToIndex({ index: maxIdx, animated: true });
+      setFeedViewIndex(maxIdx);
+    }
+  }, [stackIds.length, feedViewIndex, feedPageHeight]);
+
+  const removeCardFromStack = useCallback((item: GlasscardData) => {
+    setStackIds((prev) => prev.filter((id) => id !== item.id));
+  }, []);
+
+  const renderFeedPage = useCallback(
+    ({ index }: ListRenderItemInfo<string>) => {
+      const pageCards = stackCards.slice(index);
+      return (
+        <View style={[styles.feedPage, { height: feedPageHeight }]}>
+          <GlasscardStack
+            fill
+            cards={pageCards}
+            isMarketLoading={(c) => !c.market}
+            onConsumed={removeCardFromStack}
+            onBuy={(item) => {
+              void recordMarketIntent(item.id, 'buy');
+              onBuyIntent(item);
+            }}
+            onSave={(item) => {
+              void recordMarketIntent(item.id, 'save');
+              void toggleWatchlist(item);
+            }}
+            onSellerInspect={(item) => {
+              void recordMarketIntent(item.id, 'inspect_seller');
+              setSellerInspect(item);
+            }}
+            onSkip={(item) => {
+              void recordMarketIntent(item.id, 'skip');
+            }}
+          />
+        </View>
+      );
+    },
+    [
+      stackCards,
+      feedPageHeight,
+      removeCardFromStack,
+      recordMarketIntent,
+      onBuyIntent,
+      toggleWatchlist,
+    ]
+  );
+
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: feedPageHeight,
+      offset: feedPageHeight * index,
+      index,
+    }),
+    [feedPageHeight]
+  );
+
+  const keyExtractor = useCallback((id: string) => id, []);
+
+  const showFeedList = !loading && stackIds.length > 0 && feedPageHeight > 0;
+
   return (
     <View style={styles.container}>
       {showOnboarding && onboardingState && (
@@ -217,77 +325,83 @@ export default function HomeScreen() {
           onSkip={skip}
         />
       )}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.headerLabel}>FLIP_TERMINAL</Text>
-          {userName && (
-            <Text style={styles.headerUser}>› {userName.toUpperCase()}</Text>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.scanButton}
-          onPress={handleScanPress}
-          activeOpacity={0.8}
+      <View style={styles.body}>
+        <ScrollView
+          style={styles.chromeScroll}
+          contentContainerStyle={styles.chromeContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.scanButtonInner}>
-            <Text style={styles.scanIcon}>⊙</Text>
-            <Text style={styles.scanButtonText}>SCAN ITEM</Text>
-            <Text style={styles.scanButtonSub}>AI identification + market valuation</Text>
+          <View style={styles.header}>
+            <Text style={styles.headerLabel}>FLIP_TERMINAL</Text>
+            {userName && (
+              <Text style={styles.headerUser}>› {userName.toUpperCase()}</Text>
+            )}
           </View>
-        </TouchableOpacity>
 
-        <View style={styles.quickActions}>
           <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => router.push('/(tabs)/portfolio')}
+            style={styles.scanButton}
+            onPress={handleScanPress}
+            activeOpacity={0.8}
           >
-            <Text style={styles.quickActionIcon}>◈</Text>
-            <Text style={styles.quickActionText}>PORTFOLIO</Text>
+            <View style={styles.scanButtonInner}>
+              <Text style={styles.scanIcon}>⊙</Text>
+              <Text style={styles.scanButtonText}>SCAN ITEM</Text>
+              <Text style={styles.scanButtonSub}>AI identification + market valuation</Text>
+            </View>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => router.push('/(tabs)/leaderboard')}
-          >
-            <Text style={styles.quickActionIcon}>▲</Text>
-            <Text style={styles.quickActionText}>RANKINGS</Text>
-          </TouchableOpacity>
-        </View>
 
-        <StreakCard
-          currentStreak={streak.currentStreak}
-          longestStreak={streak.longestStreak}
-          todayCompleted={streak.todayCompleted}
-        />
-
-        {resolvedPredictions.length > 0 && (
-          <View style={{ marginBottom: 12 }}>
-            {resolvedPredictions.slice(0, 1).map((pred: any) => (
-              <ReengagementBanner
-                key={pred.flip_item_id}
-                type="prediction_resolved"
-                data={{
-                  itemTitle: pred.flip_items?.title ?? 'Item',
-                  outcome: pred.outcome,
-                  delta: pred.accuracy_delta ? (Number(pred.accuracy_delta) * 100).toFixed(1) : '0',
-                }}
-                onPress={() => router.push(`/(tabs)/result?id=${pred.flip_item_id}`)}
-              />
-            ))}
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => router.push('/(tabs)/portfolio')}
+            >
+              <Text style={styles.quickActionIcon}>◈</Text>
+              <Text style={styles.quickActionText}>PORTFOLIO</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => router.push('/(tabs)/leaderboard')}
+            >
+              <Text style={styles.quickActionIcon}>▲</Text>
+              <Text style={styles.quickActionText}>RANKINGS</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionLabel}>MARKET_FEED</Text>
-          {cartAck && (
-            <Text style={styles.cartAck}>CART_INTENT_RECORDED · {cartAck.toUpperCase()}</Text>
+          <StreakCard
+            currentStreak={streak.currentStreak}
+            longestStreak={streak.longestStreak}
+            todayCompleted={streak.todayCompleted}
+          />
+
+          {resolvedPredictions.length > 0 && (
+            <View style={{ marginBottom: 12 }}>
+              {resolvedPredictions.slice(0, 1).map((pred: any) => (
+                <ReengagementBanner
+                  key={pred.flip_item_id}
+                  type="prediction_resolved"
+                  data={{
+                    itemTitle: pred.flip_items?.title ?? 'Item',
+                    outcome: pred.outcome,
+                    delta: pred.accuracy_delta ? (Number(pred.accuracy_delta) * 100).toFixed(1) : '0',
+                  }}
+                  onPress={() => router.push(`/(tabs)/result?id=${pred.flip_item_id}`)}
+                />
+              ))}
+            </View>
           )}
-          <Text style={styles.stackHint}>SWIPE UP SKIP · RIGHT BUY · DOWN SAVE · LEFT SELLER</Text>
 
+          <View style={styles.recentSection}>
+            <Text style={styles.sectionLabel}>MARKET_FEED</Text>
+            {cartAck && (
+              <Text style={styles.cartAck}>CART_INTENT_RECORDED · {cartAck.toUpperCase()}</Text>
+            )}
+            <Text style={styles.stackHint}>SWIPE UP SKIP · RIGHT BUY · DOWN SAVE · LEFT SELLER</Text>
+          </View>
+        </ScrollView>
+
+        <View style={styles.feedSlot} onLayout={onFeedSlotLayout}>
           {loading ? (
             <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
           ) : recentItems.length === 0 ? (
@@ -296,21 +410,30 @@ export default function HomeScreen() {
                 Scan your first item to start tracking market value
               </Text>
             </View>
-          ) : (
-            <GlasscardStack
-              cards={stackCards}
-              isMarketLoading={(c) => !c.market}
-              onConsumed={() => setStackIds((s) => s.slice(1))}
-              onBuy={onBuyIntent}
-              onSave={(item) => {
-                void toggleWatchlist(item);
-              }}
-              onSellerInspect={(item) => setSellerInspect(item)}
-              onSkip={() => {}}
+          ) : showFeedList ? (
+            <FlatList
+              ref={feedListRef}
+              data={stackIds}
+              keyExtractor={keyExtractor}
+              renderItem={renderFeedPage}
+              pagingEnabled
+              showsVerticalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={feedPageHeight}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              getItemLayout={getItemLayout}
+              removeClippedSubviews
+              windowSize={5}
+              initialNumToRender={2}
+              maxToRenderPerBatch={3}
+              onMomentumScrollEnd={onFeedMomentumScrollEnd}
             />
+          ) : (
+            <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
           )}
         </View>
-      </ScrollView>
+      </View>
 
       <Modal
         visible={sellerInspect !== null}
@@ -336,14 +459,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#080808',
+    paddingTop: 56,
   },
-  scrollView: {
+  body: {
     flex: 1,
+    minHeight: 0,
   },
-  scrollContent: {
-    paddingTop: 60,
+  chromeScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    maxHeight: '44%',
+  },
+  chromeContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 16,
+  },
+  feedSlot: {
+    flex: 1,
+    minHeight: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 100,
+  },
+  feedPage: {
+    width: '100%',
   },
   header: {
     marginBottom: 32,
@@ -429,7 +567,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 9,
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   cartAck: {
     color: '#00FF87',
@@ -445,6 +583,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     padding: 24,
     alignItems: 'center',
+    marginHorizontal: 8,
+    marginTop: 12,
   },
   emptyText: {
     color: '#888888',
