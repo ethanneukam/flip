@@ -57,6 +57,57 @@ export type MarketIdentityRow = {
   created_at?: string;
   updated_at?: string;
 };
+
+/** Phase 13 — authoritative commerce transaction lifecycle (server-owned). */
+export type FlipTransactionStatus =
+  | 'created'
+  | 'escrowed'
+  | 'awaiting_shipment'
+  | 'shipped'
+  | 'in_transit'
+  | 'delivered'
+  | 'completed'
+  | 'disputed'
+  | 'refunded';
+
+export type FlipTransactionEscrowStatus = 'pending' | 'locked' | 'released' | 'refunded_hold';
+export type FlipTransactionShipmentStatus = 'not_shipped' | 'shipped' | 'in_transit' | 'delivered';
+export type FlipTransactionPayoutStatus = 'locked' | 'releasable' | 'released' | 'blocked';
+
+export type FlipTransactionRow = {
+  id: string;
+  buyer_id: string | null;
+  seller_id: string | null;
+  flip_item_id: string | null;
+  amount: number;
+  currency: string;
+  status: FlipTransactionStatus;
+  escrow_status: FlipTransactionEscrowStatus;
+  shipment_status: FlipTransactionShipmentStatus;
+  payout_status: FlipTransactionPayoutStatus;
+  shipping_provider?: string | null;
+  tracking_number?: string | null;
+  label_url?: string | null;
+  qr_code?: string | null;
+  delivery_confirmed: boolean;
+  idempotency_key?: string | null;
+  last_event_hash?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type FlipTransactionEventRow = {
+  id: string;
+  transaction_id: string;
+  previous_state: string;
+  new_state: string;
+  trigger_source: 'api' | 'webhook' | 'admin' | 'system';
+  event_id?: string | null;
+  payload?: Record<string, unknown> | null;
+  event_hash?: string | null;
+  created_at?: string;
+};
+
 export type PortfolioStatus = 'holding' | 'sold' | 'watchlist';
 export type NotificationEventType =
   | 'PRICE_SPIKE'
