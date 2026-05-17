@@ -281,6 +281,8 @@ async function finalizePayoutIfEligible(
 
 export async function applyTransactionTransition(
   client: SupabaseClient,
+  opts: ApplyTransitionOpts
+): Promise<ApplyTransitionResult> {
   const { data: row, error: fetchErr } = await client
     .from('transactions')
     .select('*')
@@ -634,7 +636,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             success: true,
             transaction: r.transaction,
             ...(r.ignored ? { ignored: true } : {}),
-            ...(r.buffered ? { buffered: true } : {}),
             ...(r.buffered ? { buffered: true } : {}),
           },
         };

@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { safeImpact, safeSelection } from '../../lib/safeHaptics';
 import {
   type FeedSortMode,
   FEED_SORT_MODES,
@@ -53,7 +54,7 @@ export default function FeedSortDropdown({ value, onChange, collapseSignal = 0 }
   const select = useCallback(
     (m: FeedSortMode) => {
       if (m !== value) {
-        void Haptics.selectionAsync();
+        void safeSelection();
         onChange(m);
       }
       closeMenu();
@@ -72,7 +73,7 @@ export default function FeedSortDropdown({ value, onChange, collapseSignal = 0 }
     <View style={styles.wrap}>
       <Pressable
         onPress={() => {
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void safeImpact(Haptics.ImpactFeedbackStyle.Light);
           if (open) closeMenu();
           else openMenu();
         }}

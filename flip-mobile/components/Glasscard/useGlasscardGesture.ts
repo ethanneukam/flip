@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Dimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
+import { safeImpact } from '../../lib/safeHaptics';
 import {
   useSharedValue,
   useAnimatedStyle,
@@ -16,11 +17,7 @@ import { EXIT_OVERSHOOT } from './constants';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 function fireHaptic() {
-  try {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  } catch {
-    /* optional */
-  }
+  void safeImpact(Haptics.ImpactFeedbackStyle.Light);
 }
 
 type Options = {

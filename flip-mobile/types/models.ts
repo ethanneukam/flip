@@ -53,6 +53,9 @@ export type MarketIdentityRow = {
   seller_fulfillment_score: number;
   transaction_reliability_score: number;
   market_rank_score: number;
+  /** Trust-adjusted rank (Phase 13.1); UI ordering prefers this when populated. */
+  adjusted_market_rank_score?: number;
+  raw_market_rank_score?: number;
   market_percentile: number;
   created_at?: string;
   updated_at?: string;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '../lib/supabase';
@@ -13,7 +14,9 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    Purchases.configure({ apiKey: "test_IPhSWnJdocxYfRLAOkXlWdFXZZv" });
+    if (Platform.OS !== 'web') {
+      Purchases.configure({ apiKey: "test_IPhSWnJdocxYfRLAOkXlWdFXZZv" });
+    }
     
     // ❌ REMOVED Superwall.configure() from here!
 

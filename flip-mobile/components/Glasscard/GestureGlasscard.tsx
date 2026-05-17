@@ -3,6 +3,7 @@ import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { safeImpact } from '../../lib/safeHaptics';
 import type { GlasscardMode } from './types';
 import type { GlasscardData } from '../../types/models';
 import GlasscardHeader from './GlasscardHeader';
@@ -75,38 +76,22 @@ export default function GestureGlasscard({
   }, [data.id, reset]);
 
   const barBuy = useCallback(() => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      /* noop */
-    }
+    void safeImpact(Haptics.ImpactFeedbackStyle.Light);
     triggerProgrammatic('buy');
   }, [triggerProgrammatic]);
 
   const barSave = useCallback(() => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      /* noop */
-    }
+    void safeImpact(Haptics.ImpactFeedbackStyle.Light);
     triggerProgrammatic('save');
   }, [triggerProgrammatic]);
 
   const barSeller = useCallback(() => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      /* noop */
-    }
+    void safeImpact(Haptics.ImpactFeedbackStyle.Light);
     triggerProgrammatic('seller');
   }, [triggerProgrammatic]);
 
   const barSkip = useCallback(() => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      /* noop */
-    }
+    void safeImpact(Haptics.ImpactFeedbackStyle.Light);
     triggerProgrammatic('skip');
   }, [triggerProgrammatic]);
 

@@ -42,7 +42,11 @@ function normalizeIdentity(
 
 function sortKey(entry: LeaderboardEntry): number {
   const mi = normalizeIdentity(entry.market_identity);
-  if (mi) return Number(mi.market_rank_score) || 0;
+  if (mi) {
+    const adj = mi.adjusted_market_rank_score;
+    if (typeof adj === 'number' && Number.isFinite(adj)) return adj;
+    return Number(mi.market_rank_score) || 0;
+  }
   return Number(entry.rep_score) || 0;
 }
 
@@ -134,7 +138,11 @@ export default function LeaderboardScreen() {
         predictions_legacy_score: 0,
       });
       const tier = computeMarketTier(
-        Number(mi.market_rank_score) || 0,
+        (() => {
+          const adj = mi.adjusted_market_rank_score;
+          if (typeof adj === 'number' && Number.isFinite(adj)) return adj;
+          return Number(mi.market_rank_score) || 0;
+        })(),
         Number(mi.market_percentile) || 0,
         inputs
       );
@@ -224,7 +232,13 @@ export default function LeaderboardScreen() {
                   transaction_reliability_score: 0,
                   predictions_legacy_score: 0,
                 });
-            const mScore = mi ? Number(mi.market_rank_score) || 0 : 0;
+            const mScore = mi
+              ? (() => {
+                  const adj = mi.adjusted_market_rank_score;
+                  if (typeof adj === 'number' && Number.isFinite(adj)) return adj;
+                  return Number(mi.market_rank_score) || 0;
+                })()
+              : 0;
             const mPct = mi ? Number(mi.market_percentile) || 0 : 0;
             const marketTier = computeMarketTier(mScore, mPct, inputs);
             const tierColor = MARKET_TIER_COLOR[marketTier];

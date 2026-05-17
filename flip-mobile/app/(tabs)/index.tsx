@@ -17,6 +17,7 @@ import {
 import { FlatList } from 'react-native-gesture-handler';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { safeImpact } from '../../lib/safeHaptics';
 import * as Haptics from 'expo-haptics';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { useStreak } from '../../hooks/useStreak';
@@ -96,14 +97,21 @@ export default function HomeScreen() {
   const [feedPageHeight, setFeedPageHeight] = useState(0);
   const [feedViewIndex, setFeedViewIndex] = useState(0);
   const feedListRef = useRef<FlatList<string>>(null);
+  const loadGenerationRef = useRef(0);
+  const intentThrottleRef = useRef<Map<string, number>>(new Map());
 
   const loadData = async () => {
+    const gen = ++loadGenerationRef.current;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setLoading(false);
+        if (gen === loadGenerationRef.current) {
+          setLoading(false);
+        }
         return;
       }
+
+      if (gen !== loadGenerationRef.current) return;
 
       setUserName(user.email?.split('@')[0] ?? null);
 
@@ -130,6 +138,8 @@ export default function HomeScreen() {
 
       setMarketIdentity((mi as MarketIdentityFeedSlice) ?? null);
 
+      if (gen !== loadGenerationRef.current) return;
+
       const { data: items } = await supabase
         .from('flip_items')
         .select('id, title, category, condition, ai_confidence, created_at, user_id, image_urls')
@@ -148,6 +158,8 @@ export default function HomeScreen() {
               'flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason, data_sources, computed_at, trend_percent, trend_direction, velocity'
             )
             .in('flip_item_id', itemIds);
+
+          if (gen !== loadGenerationRef.current) return;
 
           if (signals) {
             const map: Record<string, FeedSignal> = {};
@@ -174,17 +186,22 @@ export default function HomeScreen() {
               .limit(400),
           ]);
 
+          if (gen !== loadGenerationRef.current) return;
+
           setMarketIntents(intents ?? []);
           setWatchlistAdds(watches ?? []);
           setTxRows(txs ?? []);
         }
       } else {
+        if (gen !== loadGenerationRef.current) return;
         setRecentItems([]);
         setFeedSignals({});
         setMarketIntents([]);
         setWatchlistAdds([]);
         setTxRows([]);
       }
+
+      if (gen !== loadGenerationRef.current) return;
 
       const { data: resolved } = await supabase
         .from('predictions')
@@ -194,13 +211,17 @@ export default function HomeScreen() {
         .order('resolved_at', { ascending: false })
         .limit(2);
 
+      if (gen !== loadGenerationRef.current) return;
+
       if (resolved) {
         setResolvedPredictions(resolved);
       }
     } catch (err) {
       console.error('Home load error:', err);
     }
-    setLoading(false);
+    if (gen === loadGenerationRef.current) {
+      setLoading(false);
+    }
   };
 
   useFocusEffect(
@@ -268,7 +289,7 @@ export default function HomeScreen() {
     });
     const hide = new Set(hiddenStackIds);
     return ranked.map((r) => r.flip_item_id).filter((id) => !hide.has(id));
-  }, [sortMode, feedRankingInputs, marketIntents, watchlistAdds, hiddenStackIds]);
+  }, [sortMode, feedRankingInputs, hiddenStackIds]);
 
   const glassById = useMemo(() => {
     const map: Record<string, GlasscardData> = {};
@@ -307,6 +328,10 @@ export default function HomeScreen() {
   );
 
   const recordMarketIntent = useCallback(async (flip_item_id: string, intent_type: MarketIntentType) => {
+    const k = `${intent_type}:${flip_item_id}`;
+    const now = Date.now();
+    if (now - (intentThrottleRef.current.get(k) ?? 0) < 800) return;
+    intentThrottleRef.current.set(k, now);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -325,6 +350,10 @@ export default function HomeScreen() {
   }, []);
 
   const toggleWatchlist = useCallback(async (item: GlasscardData) => {
+    const k = `watch:${item.id}`;
+    const now = Date.now();
+    if (now - (intentThrottleRef.current.get(k) ?? 0) < 900) return;
+    intentThrottleRef.current.set(k, now);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -348,7 +377,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleScanPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    void safeImpact(Haptics.ImpactFeedbackStyle.Heavy);
     recordScan();
     if (onboardingState === 'welcome') {
       advanceTo('camera_prompted');
