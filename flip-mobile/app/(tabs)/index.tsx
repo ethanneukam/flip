@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   StyleSheet,
   Text,
@@ -24,8 +25,18 @@ import StreakCard from '../../components/StreakCard';
 import ReengagementBanner from '../../components/ReengagementBanner';
 import { GlasscardStack } from '../../components/Glasscard';
 import GlasscardSeller from '../../components/Glasscard/GlasscardSeller';
+import FeedSortDropdown from '../../components/feed/FeedSortDropdown';
 import type { GlasscardData, GlasscardSellerData } from '../../types/models';
 import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
+import {
+  type FeedSortMode,
+  type MarketIdentityFeedSlice,
+  DEFAULT_FEED_SORT_MODE,
+  FEED_SORT_STORAGE_KEY,
+  FEED_SORT_MODES,
+  aggregateFeedRankingInputs,
+  rankFeedItems,
+} from '../../lib/feedRankingEngine';
 
 const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
@@ -53,6 +64,9 @@ type FeedSignal = {
   confidence_reason: string;
   data_sources: string[] | null;
   computed_at: string;
+  trend_percent?: number;
+  trend_direction?: string;
+  velocity?: string;
 };
 
 export default function HomeScreen() {
@@ -65,7 +79,18 @@ export default function HomeScreen() {
   const [resolvedPredictions, setResolvedPredictions] = useState<any[]>([]);
   const [feedSignals, setFeedSignals] = useState<Record<string, FeedSignal>>({});
   const [currentUserSeller, setCurrentUserSeller] = useState<GlasscardSellerData | null>(null);
-  const [stackIds, setStackIds] = useState<string[]>([]);
+  const [sellerRepScore, setSellerRepScore] = useState(0);
+  const [marketIdentity, setMarketIdentity] = useState<MarketIdentityFeedSlice | null>(null);
+  const [marketIntents, setMarketIntents] = useState<
+    Array<{ flip_item_id: string; intent_type: string; created_at: string }>
+  >([]);
+  const [watchlistAdds, setWatchlistAdds] = useState<Array<{ flip_item_id: string; added_at: string }>>([]);
+  const [txRows, setTxRows] = useState<
+    Array<{ flip_item_id: string; status: string; delivery_confirmed?: boolean | null }>
+  >([]);
+  const [sortMode, setSortMode] = useState<FeedSortMode>(DEFAULT_FEED_SORT_MODE);
+  const [hiddenStackIds, setHiddenStackIds] = useState<string[]>([]);
+  const [feedSortCollapseSig, setFeedSortCollapseSig] = useState(0);
   const [sellerInspect, setSellerInspect] = useState<GlasscardData | null>(null);
   const [cartAck, setCartAck] = useState<string | null>(null);
   const [feedPageHeight, setFeedPageHeight] = useState(0);
@@ -88,7 +113,22 @@ export default function HomeScreen() {
         .eq('id', user.id)
         .single();
 
-      if (sellerRow) setCurrentUserSeller(sellerRow);
+      if (sellerRow) {
+        setCurrentUserSeller(sellerRow);
+        setSellerRepScore(Number(sellerRow.rep_score) || 0);
+      } else {
+        setSellerRepScore(0);
+      }
+
+      const { data: mi } = await supabase
+        .from('market_identity')
+        .select(
+          'liquidity_generated, fulfilled_shipments, completed_transactions, failed_transactions, items_sold, total_market_volume, market_rank_score, adjusted_market_rank_score, seller_fulfillment_score, transaction_reliability_score, fraud_risk_score, fraud_risk_level'
+        )
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      setMarketIdentity((mi as MarketIdentityFeedSlice) ?? null);
 
       const { data: items } = await supabase
         .from('flip_items')
@@ -97,14 +137,16 @@ export default function HomeScreen() {
         .order('created_at', { ascending: false })
         .limit(15);
 
-      if (items) {
+      if (items && items.length > 0) {
         setRecentItems(items);
 
         const itemIds = items.map((i: RecentItem) => i.id);
         if (itemIds.length > 0) {
           const { data: signals } = await supabase
             .from('market_signals')
-            .select('flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason, data_sources, computed_at')
+            .select(
+              'flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason, data_sources, computed_at, trend_percent, trend_direction, velocity'
+            )
             .in('flip_item_id', itemIds);
 
           if (signals) {
@@ -112,7 +154,36 @@ export default function HomeScreen() {
             for (const s of signals) map[s.flip_item_id] = s as FeedSignal;
             setFeedSignals(map);
           }
+
+          const [{ data: intents }, { data: watches }, { data: txs }] = await Promise.all([
+            supabase
+              .from('market_intents')
+              .select('flip_item_id, intent_type, created_at')
+              .in('flip_item_id', itemIds)
+              .order('created_at', { ascending: false })
+              .limit(800),
+            supabase
+              .from('watchlist_items')
+              .select('flip_item_id, added_at')
+              .in('flip_item_id', itemIds)
+              .limit(800),
+            supabase
+              .from('transactions')
+              .select('flip_item_id, status, delivery_confirmed')
+              .in('flip_item_id', itemIds)
+              .limit(400),
+          ]);
+
+          setMarketIntents(intents ?? []);
+          setWatchlistAdds(watches ?? []);
+          setTxRows(txs ?? []);
         }
+      } else {
+        setRecentItems([]);
+        setFeedSignals({});
+        setMarketIntents([]);
+        setWatchlistAdds([]);
+        setTxRows([]);
       }
 
       const { data: resolved } = await supabase
@@ -139,8 +210,65 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    setStackIds(recentItems.map((i) => i.id));
+    void (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(FEED_SORT_STORAGE_KEY);
+        if (raw && (FEED_SORT_MODES as readonly string[]).includes(raw)) {
+          setSortMode(raw as FeedSortMode);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
+  const prevItemIdsRef = useRef('');
+  useEffect(() => {
+    const key = [...recentItems.map((i) => i.id)].sort().join(',');
+    if (prevItemIdsRef.current && key !== prevItemIdsRef.current) {
+      setHiddenStackIds([]);
+    }
+    prevItemIdsRef.current = key;
   }, [recentItems]);
+
+  const onFeedSortChange = useCallback((m: FeedSortMode) => {
+    setSortMode(m);
+    void AsyncStorage.setItem(FEED_SORT_STORAGE_KEY, m);
+  }, []);
+
+  useEffect(() => {
+    if (feedPageHeight <= 0) return;
+    feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setFeedViewIndex(0);
+  }, [sortMode, feedPageHeight]);
+
+  const feedRankingInputs = useMemo(
+    () =>
+      aggregateFeedRankingInputs({
+        items: recentItems.map((i) => ({
+          id: i.id,
+          category: i.category,
+          created_at: i.created_at,
+          user_id: i.user_id,
+        })),
+        signalsById: feedSignals,
+        intents: marketIntents,
+        watchAdds: watchlistAdds,
+        transactions: txRows,
+        identity: marketIdentity,
+        sellerRepScore,
+      }),
+    [recentItems, feedSignals, marketIntents, watchlistAdds, txRows, marketIdentity, sellerRepScore]
+  );
+
+  const stackIds = useMemo(() => {
+    const ranked = rankFeedItems(sortMode, feedRankingInputs, {
+      intents: marketIntents,
+      watchAdds: watchlistAdds,
+    });
+    const hide = new Set(hiddenStackIds);
+    return ranked.map((r) => r.flip_item_id).filter((id) => !hide.has(id));
+  }, [sortMode, feedRankingInputs, marketIntents, watchlistAdds, hiddenStackIds]);
 
   const glassById = useMemo(() => {
     const map: Record<string, GlasscardData> = {};
@@ -261,7 +389,7 @@ export default function HomeScreen() {
   }, [stackIds.length, feedViewIndex, feedPageHeight]);
 
   const removeCardFromStack = useCallback((item: GlasscardData) => {
-    setStackIds((prev) => prev.filter((id) => id !== item.id));
+    setHiddenStackIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
   }, []);
 
   const renderFeedPage = useCallback(
@@ -314,7 +442,8 @@ export default function HomeScreen() {
 
   const keyExtractor = useCallback((id: string) => id, []);
 
-  const showFeedList = !loading && stackIds.length > 0 && feedPageHeight > 0;
+  const showFeedSurface = !loading && recentItems.length > 0 && feedPageHeight > 0;
+  const showFeedList = showFeedSurface && stackIds.length > 0;
 
   return (
     <View style={styles.container}>
@@ -332,6 +461,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => setFeedSortCollapseSig((n) => n + 1)}
         >
           <View style={styles.header}>
             <Text style={styles.headerLabel}>FLIP_TERMINAL</Text>
@@ -410,25 +540,39 @@ export default function HomeScreen() {
                 Scan your first item to start tracking market value
               </Text>
             </View>
-          ) : showFeedList ? (
-            <FlatList
-              ref={feedListRef}
-              data={stackIds}
-              keyExtractor={keyExtractor}
-              renderItem={renderFeedPage}
-              pagingEnabled
-              showsVerticalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={feedPageHeight}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              getItemLayout={getItemLayout}
-              removeClippedSubviews
-              windowSize={5}
-              initialNumToRender={2}
-              maxToRenderPerBatch={3}
-              onMomentumScrollEnd={onFeedMomentumScrollEnd}
-            />
+          ) : showFeedSurface ? (
+            <>
+              <FeedSortDropdown
+                value={sortMode}
+                onChange={onFeedSortChange}
+                collapseSignal={feedSortCollapseSig}
+              />
+              {showFeedList ? (
+                <FlatList
+                  ref={feedListRef}
+                  data={stackIds}
+                  keyExtractor={keyExtractor}
+                  renderItem={renderFeedPage}
+                  pagingEnabled
+                  showsVerticalScrollIndicator={false}
+                  decelerationRate="fast"
+                  snapToInterval={feedPageHeight}
+                  snapToAlignment="start"
+                  disableIntervalMomentum
+                  getItemLayout={getItemLayout}
+                  removeClippedSubviews
+                  windowSize={5}
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={3}
+                  onScrollBeginDrag={() => setFeedSortCollapseSig((n) => n + 1)}
+                  onMomentumScrollEnd={onFeedMomentumScrollEnd}
+                />
+              ) : (
+                <View style={styles.feedCleared}>
+                  <Text style={styles.emptyText}>FEED_SURFACE_CLEARED · CHANGE SORT OR SCAN</Text>
+                </View>
+              )}
+            </>
           ) : (
             <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
           )}
@@ -482,6 +626,11 @@ const styles = StyleSheet.create({
   },
   feedPage: {
     width: '100%',
+  },
+  feedCleared: {
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    alignItems: 'center',
   },
   header: {
     marginBottom: 32,
