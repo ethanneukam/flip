@@ -185,7 +185,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
           return { status: applyRes.status, body: { error: applyRes.error } };
         }
-        if (!applyRes.ignored) {
+        if (!applyRes.ignored && !applyRes.buffered) {
           await logTransactionAudit(supabase, {
             transactionId,
             category: 'webhook_ingest',
@@ -195,6 +195,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         if (applyRes.ignored) {
           return { status: 200, body: { success: true, ignored: true, transaction: applyRes.transaction } };
+        }
+        if (applyRes.buffered) {
+          return { status: 200, body: { success: true, buffered: true, transaction: applyRes.transaction } };
         }
         return { status: 200, body: { success: true, transaction: applyRes.transaction } };
       }

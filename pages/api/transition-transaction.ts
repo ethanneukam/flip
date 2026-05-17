@@ -13,7 +13,10 @@ import {
   assertPatchImmutableSafe,
   assertDeliveredAllowed,
   releaseEligibilityCheck,
+  finalPayoutCheck,
+  shouldBufferDisconnectedForward,
 } from '../../flip-mobile/lib/transactionStateMachine';
+import { assertTransactionEventConsistency } from '../../flip-mobile/lib/transactionTruthView';
 import { logTransactionAudit } from '../../flip-mobile/lib/transactionAuditLog';
 import { ensureIdempotentMutation } from './lib/ensureIdempotentMutation';
 
@@ -40,12 +43,150 @@ function chainEventHash(parts: (string | null | undefined)[]): string {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
 }
 
+export type ApplyTransitionOpts = {
+  transactionId: string;
+  toStatus: FlipTransactionStatus;
+  trigger: TransitionTrigger;
+  eventId?: string | null;
+  /** Deterministic webhook body hash — pairs with event_id for DB dedupe. */
+  incomingEventHash?: string | null;
+  isAdmin?: boolean;
+  actorUserId?: string | null;
+  deliveryConfirmed?: boolean;
+  shipmentPatch?: Partial<{
+    shipping_provider: string;
+    tracking_number: string;
+    label_url: string;
+    delivery_signature_received: string | null;
+  }>;
+  webhookDelivered?: boolean;
+  carrierConfirmedIncoming?: boolean;
+  deliverySignatureProof?: string | null;
+  /** When draining the buffer, do not re-buffer (prevents infinite loops). */
+  skipOutOfOrderBuffer?: boolean;
+  /** Admin-only documented escape hatch for final payout gate (requires isAdmin). */
+  adminPayoutOverride?: boolean;
+};
+
+export type ApplyTransitionResult =
+  | { ok: true; transaction: Record<string, unknown>; ignored?: boolean; buffered?: boolean }
+  | { ok: false; error: string; status: number };
+
+type BufferInsertResult = { ok: true; duplicate?: boolean } | { ok: false; error: string };
+
+async function insertTransactionEventBuffer(
+  client: SupabaseClient,
+  opts: ApplyTransitionOpts
+): Promise<BufferInsertResult> {
+  const payload = {
+    toStatus: opts.toStatus,
+    shipmentPatch: opts.shipmentPatch ?? null,
+    webhookDelivered: opts.webhookDelivered ?? false,
+    carrierConfirmedIncoming: opts.carrierConfirmedIncoming ?? false,
+    deliverySignatureProof: opts.deliverySignatureProof ?? null,
+    deliveryConfirmed: opts.deliveryConfirmed ?? false,
+  };
+  const { error } = await client.from('transaction_event_buffer').insert({
+    transaction_id: opts.transactionId,
+    payload,
+    event_id: opts.eventId ?? null,
+    event_hash: opts.incomingEventHash ?? null,
+    status: 'pending',
+  });
+  if (error?.code === '23505') {
+    return { ok: true, duplicate: true };
+  }
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
 /**
- * Stripe Connect payout release is stubbed — escrow must not release until
- * releaseEligibilityCheck passes (completed + delivery_confirmed + escrow + fraud + disputes).
+ * After a successful transition, try to apply buffered out-of-order webhook payloads FIFO.
  */
-async function finalizePayoutIfEligible(client: SupabaseClient, row: Record<string, unknown>): Promise<void> {
+export async function drainTransactionEventBuffer(client: SupabaseClient, transactionId: string): Promise<void> {
+  const max = 16;
+  for (let i = 0; i < max; i++) {
+    const { data: buf } = await client
+      .from('transaction_event_buffer')
+      .select('*')
+      .eq('transaction_id', transactionId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!buf) break;
+
+    const p = buf.payload as Record<string, unknown>;
+    const res = await applyTransactionTransition(client, {
+      transactionId,
+      toStatus: p.toStatus as FlipTransactionStatus,
+      trigger: 'webhook',
+      eventId: buf.event_id as string | null,
+      incomingEventHash: buf.event_hash as string | null,
+      isAdmin: false,
+      shipmentPatch: (p.shipmentPatch as ApplyTransitionOpts['shipmentPatch']) ?? undefined,
+      webhookDelivered: Boolean(p.webhookDelivered),
+      carrierConfirmedIncoming: Boolean(p.carrierConfirmedIncoming),
+      deliverySignatureProof: (p.deliverySignatureProof as string | null) ?? null,
+      deliveryConfirmed: Boolean(p.deliveryConfirmed),
+      skipOutOfOrderBuffer: true,
+    });
+
+    if (res.ok && res.buffered) break;
+    if (!res.ok && res.status === 409) break;
+
+    if (res.ok && res.ignored) {
+      await client
+        .from('transaction_event_buffer')
+        .update({ status: 'applied', applied_at: new Date().toISOString() })
+        .eq('id', buf.id);
+      await logTransactionAudit(client, {
+        transactionId,
+        category: 'buffer_apply',
+        message: 'buffer_row_deduped',
+        payload: { buffer_id: buf.id },
+      });
+      continue;
+    }
+
+    if (res.ok) {
+      await client
+        .from('transaction_event_buffer')
+        .update({ status: 'applied', applied_at: new Date().toISOString() })
+        .eq('id', buf.id);
+      await logTransactionAudit(client, {
+        transactionId,
+        category: 'buffer_apply',
+        message: 'buffer_row_applied',
+        payload: { buffer_id: buf.id },
+      });
+      continue;
+    }
+    break;
+  }
+}
+
+/**
+ * Escrow commit + final payout gate + Stripe Connect stub. If `escrow_released_at` is already set, NO-OP (retry storm safe).
+ */
+async function finalizePayoutIfEligible(
+  client: SupabaseClient,
+  row: Record<string, unknown>,
+  opts?: { adminPayoutOverride?: boolean; isAdmin?: boolean }
+): Promise<void> {
   if (row.status !== 'completed' || !row.delivery_confirmed) return;
+
+  if (row.escrow_released_at) {
+    await logTransactionAudit(client, {
+      transactionId: row.id as string,
+      category: 'payout_attempt',
+      message: 'no_op_escrow_already_released',
+      payload: {},
+    });
+    return;
+  }
 
   const elig = await releaseEligibilityCheck(client, {
     id: row.id as string,
@@ -53,6 +194,8 @@ async function finalizePayoutIfEligible(client: SupabaseClient, row: Record<stri
     delivery_confirmed: !!row.delivery_confirmed,
     escrow_status: row.escrow_status as string,
     seller_id: (row.seller_id as string) ?? null,
+    inconsistent_state: Boolean(row.inconsistent_state),
+    adminBypassConsistency: !!(opts?.adminPayoutOverride && opts?.isAdmin),
   });
 
   if (!elig.ok) {
@@ -61,6 +204,54 @@ async function finalizePayoutIfEligible(client: SupabaseClient, row: Record<stri
       category: 'payout_attempt',
       message: 'blocked_by_release_gate',
       payload: { reasons: elig.reasons },
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const { data: escrowed, error: escErr } = await client
+    .from('transactions')
+    .update({
+      escrow_release_attempted_at: (row.escrow_release_attempted_at as string) ?? now,
+      escrow_released_at: now,
+      escrow_status: 'released',
+      updated_at: now,
+    })
+    .eq('id', row.id)
+    .is('escrow_released_at', null)
+    .eq('status', 'completed')
+    .select('*')
+    .maybeSingle();
+
+  if (escErr || !escrowed) {
+    await logTransactionAudit(client, {
+      transactionId: row.id as string,
+      category: 'payout_attempt',
+      message: 'escrow_commit_skipped',
+      payload: { error: escErr?.message ?? 'no_row' },
+    });
+    return;
+  }
+
+  const fin = await finalPayoutCheck(
+    client,
+    {
+      id: escrowed.id as string,
+      status: escrowed.status as string,
+      delivery_confirmed: !!escrowed.delivery_confirmed,
+      escrow_released_at: (escrowed.escrow_released_at as string) ?? null,
+      seller_id: (escrowed.seller_id as string) ?? null,
+      inconsistent_state: Boolean(escrowed.inconsistent_state),
+    },
+    { adminPayoutOverride: opts?.adminPayoutOverride, isAdmin: opts?.isAdmin }
+  );
+
+  if (!fin.ok) {
+    await logTransactionAudit(client, {
+      transactionId: row.id as string,
+      category: 'payout_attempt',
+      message: 'blocked_by_final_payout_gate',
+      payload: { reasons: fin.reasons },
     });
     return;
   }
@@ -81,42 +272,15 @@ async function finalizePayoutIfEligible(client: SupabaseClient, row: Record<stri
   await client
     .from('transactions')
     .update({
-      escrow_status: 'released',
       payout_status: 'released',
       updated_at: new Date().toISOString(),
     })
-    .eq('id', row.id as string);
+    .eq('id', row.id as string)
+    .neq('payout_status', 'released');
 }
-
-export type ApplyTransitionOpts = {
-  transactionId: string;
-  toStatus: FlipTransactionStatus;
-  trigger: TransitionTrigger;
-  eventId?: string | null;
-  /** Deterministic webhook body hash — pairs with event_id for DB dedupe. */
-  incomingEventHash?: string | null;
-  isAdmin?: boolean;
-  actorUserId?: string | null;
-  deliveryConfirmed?: boolean;
-  shipmentPatch?: Partial<{
-    shipping_provider: string;
-    tracking_number: string;
-    label_url: string;
-    delivery_signature_received: string | null;
-  }>;
-  webhookDelivered?: boolean;
-  carrierConfirmedIncoming?: boolean;
-  deliverySignatureProof?: string | null;
-};
-
-export type ApplyTransitionResult =
-  | { ok: true; transaction: Record<string, unknown>; ignored?: boolean }
-  | { ok: false; error: string; status: number };
 
 export async function applyTransactionTransition(
   client: SupabaseClient,
-  opts: ApplyTransitionOpts
-): Promise<ApplyTransitionResult> {
   const { data: row, error: fetchErr } = await client
     .from('transactions')
     .select('*')
@@ -130,6 +294,27 @@ export async function applyTransactionTransition(
   const from = row.status as string;
   const to = opts.toStatus;
   const admin = !!opts.isAdmin;
+
+  if (row.inconsistent_state && !admin) {
+    return { ok: false, error: 'inconsistent_state', status: 409 };
+  }
+
+  if (['completed', 'refunded'].includes(from) && from !== to) {
+    return { ok: false, error: 'terminal_transaction', status: 409 };
+  }
+
+  const { data: lastEv } = await client
+    .from('transaction_events')
+    .select('new_state, sequence_number')
+    .eq('transaction_id', opts.transactionId)
+    .order('sequence_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastEv && lastEv.new_state !== row.status) {
+    await assertTransactionEventConsistency(client, opts.transactionId);
+    return { ok: false, error: 'event_log_head_desync', status: 409 };
+  }
 
   if (opts.eventId && opts.incomingEventHash) {
     const { data: dup } = await client
@@ -151,7 +336,36 @@ export async function applyTransactionTransition(
     }
   }
 
+  const preConsistency = await assertTransactionEventConsistency(client, opts.transactionId);
+  if (!preConsistency.ok && !admin) {
+    return { ok: false, error: 'transaction_event_consistency_failed', status: 409 };
+  }
+
   if (!canTransactionStatusTransition(from, to, admin)) {
+    if (
+      opts.trigger === 'webhook' &&
+      !opts.skipOutOfOrderBuffer &&
+      opts.eventId &&
+      opts.incomingEventHash &&
+      shouldBufferDisconnectedForward(from, to, admin)
+    ) {
+      const b = await insertTransactionEventBuffer(client, opts);
+      if (!b.ok) {
+        return { ok: false, error: b.error, status: 500 };
+      }
+      if (b.duplicate) {
+        const { data: latest } = await client.from('transactions').select('*').eq('id', opts.transactionId).single();
+        return { ok: true, transaction: (latest ?? row) as Record<string, unknown>, ignored: true };
+      }
+      await logTransactionAudit(client, {
+        transactionId: opts.transactionId,
+        category: 'buffer_write',
+        message: 'out_of_order_buffered',
+        payload: { from, to, event_id: opts.eventId },
+      });
+      const { data: latest } = await client.from('transactions').select('*').eq('id', opts.transactionId).single();
+      return { ok: true, transaction: (latest ?? row) as Record<string, unknown>, buffered: true };
+    }
     return { ok: false, error: `Invalid transition ${from} → ${to}`, status: 409 };
   }
 
@@ -310,11 +524,13 @@ export async function applyTransactionTransition(
     .from('transactions')
     .update(patch)
     .eq('id', row.id)
+    .eq('status', from)
     .select('*')
-    .single();
+    .maybeSingle();
 
   if (upErr || !updated) {
-    return { ok: false, error: upErr?.message ?? 'Update failed', status: 500 };
+    await assertTransactionEventConsistency(client, opts.transactionId);
+    return { ok: false, error: upErr?.message ?? 'concurrent_or_reordered_state', status: 409 };
   }
 
   await logTransactionAudit(client, {
@@ -324,13 +540,23 @@ export async function applyTransactionTransition(
     payload: { trigger: opts.trigger, event_id: opts.eventId ?? null },
   });
 
+  await assertTransactionEventConsistency(client, row.id as string);
+
+  if (!(opts.skipOutOfOrderBuffer && opts.trigger === 'webhook')) {
+    await drainTransactionEventBuffer(client, opts.transactionId);
+  }
+
   if (to === 'completed' && updated.delivery_confirmed) {
-    await finalizePayoutIfEligible(client, updated as Record<string, unknown>);
+    await finalizePayoutIfEligible(client, updated as Record<string, unknown>, {
+      adminPayoutOverride: opts.adminPayoutOverride,
+      isAdmin: opts.isAdmin,
+    });
     const { data: finalRow } = await client.from('transactions').select('*').eq('id', row.id).single();
     return { ok: true, transaction: (finalRow ?? updated) as Record<string, unknown> };
   }
 
-  return { ok: true, transaction: updated as Record<string, unknown> };
+  const { data: afterDrain } = await client.from('transactions').select('*').eq('id', row.id).single();
+  return { ok: true, transaction: (afterDrain ?? updated) as Record<string, unknown> };
 }
 
 type IdempotentHttpPayload = { status: number; body: Record<string, unknown> };
@@ -357,6 +583,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const toStatus = body.to_status as FlipTransactionStatus | undefined;
   const deliveryConfirmed = Boolean(body.delivery_confirmed);
   const idempotencyKey = (body.idempotency_key as string | undefined)?.trim();
+  const adminPayoutOverride = Boolean(body.admin_payout_override) && admin;
 
   if (!transactionId || !toStatus) {
     return res.status(400).json({ error: 'transaction_id and to_status required' });
@@ -396,13 +623,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           deliveryConfirmed,
           shipmentPatch: body.shipment ?? undefined,
           deliverySignatureProof: (body.delivery_signature_proof as string | undefined) ?? null,
+          adminPayoutOverride: adminPayoutOverride || undefined,
         });
         if (!r.ok) {
           return { status: r.status, body: { error: r.error } };
         }
         return {
           status: 200,
-          body: { success: true, transaction: r.transaction, ...(r.ignored ? { ignored: true } : {}) },
+          body: {
+            success: true,
+            transaction: r.transaction,
+            ...(r.ignored ? { ignored: true } : {}),
+            ...(r.buffered ? { buffered: true } : {}),
+            ...(r.buffered ? { buffered: true } : {}),
+          },
         };
       }
     );

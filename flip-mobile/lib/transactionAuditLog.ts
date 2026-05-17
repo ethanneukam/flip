@@ -9,7 +9,10 @@ export type AuditCategory =
   | 'webhook_ingest'
   | 'payout_attempt'
   | 'qr_scan'
-  | 'idempotency_replay';
+  | 'idempotency_replay'
+  | 'consistency_error'
+  | 'buffer_write'
+  | 'buffer_apply';
 
 export async function logTransactionAudit(
   client: SupabaseClient | null,

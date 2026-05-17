@@ -21,6 +21,28 @@ export type CarrierShipmentState = 'CREATED' | 'LABEL_CREATED' | 'IN_TRANSIT' | 
 
 export type EscrowState = 'pending' | 'locked' | 'release_eligible' | 'released' | 'refunded_hold';
 
+export const MAIN_LIFECYCLE_ORDER: readonly string[] = [
+  'created',
+  'escrowed',
+  'awaiting_shipment',
+  'shipped',
+  'in_transit',
+  'delivered',
+  'completed',
+] as const;
+
+/** Forward-skipping carrier/webhook events that cannot apply yet → buffer instead of 409. */
+export function shouldBufferDisconnectedForward(from: string, to: string, isAdmin: boolean): boolean {
+  if (isAdmin) return false;
+  if (['completed', 'refunded'].includes(from)) return false;
+  if (to === 'disputed' || to === 'refunded') return false;
+  const i = MAIN_LIFECYCLE_ORDER.indexOf(from);
+  const j = MAIN_LIFECYCLE_ORDER.indexOf(to);
+  if (i < 0 || j < 0) return false;
+  if (j <= i) return false;
+  return !canTransactionStatusTransition(from, to, false);
+}
+
 const STATUS_GRAPH: Record<string, readonly string[]> = {
   created: ['escrowed', 'disputed'],
   escrowed: ['awaiting_shipment', 'disputed'],
@@ -201,13 +223,58 @@ export async function releaseEligibilityCheck(
     delivery_confirmed: boolean;
     escrow_status: string;
     seller_id: string | null;
+    inconsistent_state?: boolean;
+    /** When true (admin + explicit payout override), allow proceeding despite inconsistent_state. */
+    adminBypassConsistency?: boolean;
   }
 ): Promise<ReleaseEligibilityResult> {
   const reasons: string[] = [];
+  if (tx.inconsistent_state && !tx.adminBypassConsistency) reasons.push('inconsistent_state');
   if (tx.status !== 'completed') reasons.push('status_not_completed');
   if (!tx.delivery_confirmed) reasons.push('delivery_not_confirmed');
   if (tx.status === 'disputed') reasons.push('active_dispute');
   if (tx.escrow_status !== 'release_eligible') reasons.push('escrow_not_release_eligible');
+
+  if (tx.seller_id) {
+    const { data: mi } = await client
+      .from('market_identity')
+      .select('fraud_risk_level')
+      .eq('user_id', tx.seller_id)
+      .maybeSingle();
+    const level = (mi?.fraud_risk_level as string) ?? 'LOW';
+    if (level === 'HIGH' || level === 'CRITICAL') reasons.push('seller_fraud_risk_block');
+  }
+
+  return reasons.length === 0 ? { ok: true } : { ok: false, reasons };
+}
+
+export type FinalPayoutCheckResult = { ok: true } | { ok: false; reasons: string[] };
+
+/**
+ * Final gate immediately before Stripe Connect (stub). No bypass unless admin override flag is set.
+ * Requires internal escrow release timestamp (`escrow_released_at`) from the commit step.
+ */
+export async function finalPayoutCheck(
+  client: SupabaseClient,
+  tx: {
+    id: string;
+    status: string;
+    delivery_confirmed: boolean;
+    escrow_released_at: string | null;
+    seller_id: string | null;
+    inconsistent_state: boolean;
+  },
+  opts?: { adminPayoutOverride?: boolean; isAdmin?: boolean }
+): Promise<FinalPayoutCheckResult> {
+  if (opts?.adminPayoutOverride && opts?.isAdmin) {
+    return { ok: true };
+  }
+
+  const reasons: string[] = [];
+  if (tx.status !== 'completed') reasons.push('status_not_completed');
+  if (!tx.delivery_confirmed) reasons.push('delivery_not_confirmed');
+  if (!tx.escrow_released_at) reasons.push('escrow_released_at_missing');
+  if (tx.inconsistent_state) reasons.push('inconsistent_state');
 
   if (tx.seller_id) {
     const { data: mi } = await client

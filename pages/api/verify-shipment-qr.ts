@@ -92,6 +92,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(409).json({ error: 'transaction not in valid shipping state for QR' });
   }
 
+  const geoHint = (req.headers['cf-ipcountry'] as string | undefined) ?? (req.headers['x-geo-country'] as string | undefined) ?? null;
+  const deviceHint = (req.headers['user-agent'] as string | undefined) ?? null;
+
+  const { error: nonceErr } = await supabase.from('transaction_qr_nonces_used').insert({
+    transaction_id: row.id,
+    nonce: payload.nonce,
+  });
+  if (nonceErr?.code === '23505') {
+    return res.status(403).json({ error: 'nonce_already_used' });
+  }
+  if (nonceErr) {
+    return res.status(500).json({ error: nonceErr.message });
+  }
+
   await supabase.from('transaction_qr_scans').insert({
     transaction_id: row.id,
     payload: {
@@ -100,6 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       scanned_at: new Date().toISOString(),
       client_ip: (req.headers['x-forwarded-for'] as string) ?? req.socket?.remoteAddress ?? null,
     },
+    geo_hint: geoHint,
+    device_hint: deviceHint,
   });
 
   await logTransactionAudit(supabase, {
