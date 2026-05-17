@@ -1,250 +1,780 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../lib/supabase';
-import { LineChart } from "react-native-gifted-charts";
-import FadeContent from '../../components/FadeContent';
-import ElectricBorderInput from '../../components/ElectricBorder';
-
-// 1. IMPORT ASYNC STORAGE AND THE STEPPER
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import OnboardingStepper from '../../components/OnboardingStepper';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  LayoutChangeEvent,
+  ListRenderItemInfo,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { supabase } from '../../lib/supabase';
+import * as Haptics from 'expo-haptics';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import { useStreak } from '../../hooks/useStreak';
+import OnboardingOverlay from '../../components/OnboardingOverlay';
+import StreakCard from '../../components/StreakCard';
+import ReengagementBanner from '../../components/ReengagementBanner';
+import { GlasscardStack } from '../../components/Glasscard';
+import GlasscardSeller from '../../components/Glasscard/GlasscardSeller';
+import FeedSortDropdown from '../../components/feed/FeedSortDropdown';
+import type { GlasscardData, GlasscardSellerData } from '../../types/models';
+import { glasscardMarketFromSignalRow } from '../../lib/marketTruthMap';
+import {
+  type FeedSortMode,
+  type MarketIdentityFeedSlice,
+  DEFAULT_FEED_SORT_MODE,
+  FEED_SORT_STORAGE_KEY,
+  FEED_SORT_MODES,
+  aggregateFeedRankingInputs,
+  rankFeedItems,
+} from '../../lib/feedRankingEngine';
 
-const { width } = Dimensions.get('window');
+const API_BASE_URL = 'https://flip-black-two.vercel.app';
 
-export default function DashboardScreen() {
-  const { query } = useLocalSearchParams();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [itemData, setItemData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [activeOnboardingStep, setActiveOnboardingStep] = useState(-1);
-  // 2. ADD ONBOARDING STATE
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const isHighlighted = (stepIndex: number) => activeOnboardingStep === stepIndex;
+type MarketIntentType = 'buy' | 'save' | 'skip' | 'inspect_seller';
 
-  // 3. CHECK FOR FIRST LAUNCH ON MOUNT
-  useEffect(() => {
-    checkFirstLaunch();
-  }, []);
+type RecentItem = {
+  id: string;
+  title: string;
+  category: string;
+  condition: string;
+  ai_confidence: number;
+  created_at: string;
+  user_id: string;
+  image_urls: string[];
+};
 
-  const checkFirstLaunch = async () => {
+type FeedSignal = {
+  flip_item_id: string;
+  avg_price: number;
+  recommended_price: number;
+  low_price: number;
+  high_price: number;
+  demand_score: number;
+  supply_score: number;
+  confidence_reason: string;
+  data_sources: string[] | null;
+  computed_at: string;
+  trend_percent?: number;
+  trend_direction?: string;
+  velocity?: string;
+};
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState<string | null>(null);
+  const { state: onboardingState, isActive: showOnboarding, advanceTo, skip } = useOnboarding();
+  const { streak, recordScan } = useStreak();
+  const [resolvedPredictions, setResolvedPredictions] = useState<any[]>([]);
+  const [feedSignals, setFeedSignals] = useState<Record<string, FeedSignal>>({});
+  const [currentUserSeller, setCurrentUserSeller] = useState<GlasscardSellerData | null>(null);
+  const [sellerRepScore, setSellerRepScore] = useState(0);
+  const [marketIdentity, setMarketIdentity] = useState<MarketIdentityFeedSlice | null>(null);
+  const [marketIntents, setMarketIntents] = useState<
+    Array<{ flip_item_id: string; intent_type: string; created_at: string }>
+  >([]);
+  const [watchlistAdds, setWatchlistAdds] = useState<Array<{ flip_item_id: string; added_at: string }>>([]);
+  const [txRows, setTxRows] = useState<
+    Array<{ flip_item_id: string; status: string; delivery_confirmed?: boolean | null }>
+  >([]);
+  const [sortMode, setSortMode] = useState<FeedSortMode>(DEFAULT_FEED_SORT_MODE);
+  const [hiddenStackIds, setHiddenStackIds] = useState<string[]>([]);
+  const [feedSortCollapseSig, setFeedSortCollapseSig] = useState(0);
+  const [sellerInspect, setSellerInspect] = useState<GlasscardData | null>(null);
+  const [cartAck, setCartAck] = useState<string | null>(null);
+  const [feedPageHeight, setFeedPageHeight] = useState(0);
+  const [feedViewIndex, setFeedViewIndex] = useState(0);
+  const feedListRef = useRef<FlatList<string>>(null);
+
+  const loadData = async () => {
     try {
-      const hasLaunched = await AsyncStorage.getItem('flip_onboarded');
-      if (!hasLaunched) {
-        setShowOnboarding(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
       }
-    } catch {
-      setShowOnboarding(true); // Fallback to showing it if error
-    }
-  };
 
-  const completeOnboarding = async () => {
-    try {
-      await AsyncStorage.setItem('flip_onboarded', 'true');
-    } catch {}
-    setShowOnboarding(false);
-  };
+      setUserName(user.email?.split('@')[0] ?? null);
 
-  useEffect(() => {
-    if (query) {
-      setSearchQuery(query as string);
-      handleSearch(query as string);
-    }
-  }, [query]);
-
-  const handleSearch = async (name: string) => {
-    setLoading(true);
-    try {
-      const { data: item, error: itemErr } = await supabase
-        .from('items')
-        .select('*')
-        .ilike('title', `%${name}%`)
+      const { data: sellerRow } = await supabase
+        .from('users')
+        .select('id, username, avatar_url, rep_score, total_predictions, correct_predictions, scan_count')
+        .eq('id', user.id)
         .single();
 
-      if (item) {
-        setItemData(item);
-        
-        const { data: logs } = await supabase
-          .from('price_logs')
-          .select('price, created_at')
-          .eq('item_id', item.id)
-          .order('created_at', { ascending: true })
-          .limit(20);
+      if (sellerRow) {
+        setCurrentUserSeller(sellerRow);
+        setSellerRepScore(Number(sellerRow.rep_score) || 0);
+      } else {
+        setSellerRepScore(0);
+      }
 
-        if (logs) {
-          const formattedData = logs.map(log => ({
-            value: log.price,
-            label: new Date(log.created_at).toLocaleDateString([], { month: 'numeric', day: 'numeric' }),
-            dataPointText: `$${log.price}`
-          }));
-          setHistory(formattedData);
+      const { data: mi } = await supabase
+        .from('market_identity')
+        .select(
+          'liquidity_generated, fulfilled_shipments, completed_transactions, failed_transactions, items_sold, total_market_volume, market_rank_score, adjusted_market_rank_score, seller_fulfillment_score, transaction_reliability_score, fraud_risk_score, fraud_risk_level'
+        )
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      setMarketIdentity((mi as MarketIdentityFeedSlice) ?? null);
+
+      const { data: items } = await supabase
+        .from('flip_items')
+        .select('id, title, category, condition, ai_confidence, created_at, user_id, image_urls')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      if (items && items.length > 0) {
+        setRecentItems(items);
+
+        const itemIds = items.map((i: RecentItem) => i.id);
+        if (itemIds.length > 0) {
+          const { data: signals } = await supabase
+            .from('market_signals')
+            .select(
+              'flip_item_id, avg_price, recommended_price, low_price, high_price, demand_score, supply_score, confidence_reason, data_sources, computed_at, trend_percent, trend_direction, velocity'
+            )
+            .in('flip_item_id', itemIds);
+
+          if (signals) {
+            const map: Record<string, FeedSignal> = {};
+            for (const s of signals) map[s.flip_item_id] = s as FeedSignal;
+            setFeedSignals(map);
+          }
+
+          const [{ data: intents }, { data: watches }, { data: txs }] = await Promise.all([
+            supabase
+              .from('market_intents')
+              .select('flip_item_id, intent_type, created_at')
+              .in('flip_item_id', itemIds)
+              .order('created_at', { ascending: false })
+              .limit(800),
+            supabase
+              .from('watchlist_items')
+              .select('flip_item_id, added_at')
+              .in('flip_item_id', itemIds)
+              .limit(800),
+            supabase
+              .from('transactions')
+              .select('flip_item_id, status, delivery_confirmed')
+              .in('flip_item_id', itemIds)
+              .limit(400),
+          ]);
+
+          setMarketIntents(intents ?? []);
+          setWatchlistAdds(watches ?? []);
+          setTxRows(txs ?? []);
         }
+      } else {
+        setRecentItems([]);
+        setFeedSignals({});
+        setMarketIntents([]);
+        setWatchlistAdds([]);
+        setTxRows([]);
+      }
+
+      const { data: resolved } = await supabase
+        .from('predictions')
+        .select('flip_item_id, prediction_type, outcome, accuracy_delta, resolved_at, flip_items(title)')
+        .eq('user_id', user.id)
+        .eq('status', 'resolved')
+        .order('resolved_at', { ascending: false })
+        .limit(2);
+
+      if (resolved) {
+        setResolvedPredictions(resolved);
       }
     } catch (err) {
-      console.error("› DATABASE_FETCH_ERROR", err);
+      console.error('Home load error:', err);
     }
     setLoading(false);
   };
 
-  const handleSaveToVault = async () => {
-    if (!itemData) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        alert("› ERROR: UNAUTHORIZED_OPERATOR");
-        return;
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(FEED_SORT_STORAGE_KEY);
+        if (raw && (FEED_SORT_MODES as readonly string[]).includes(raw)) {
+          setSortMode(raw as FeedSortMode);
+        }
+      } catch {
+        /* ignore */
       }
+    })();
+  }, []);
 
-      const currentPrice = history.length > 0 ? history[history.length - 1].value : 0;
-
-      const { error } = await supabase
-        .from('user_items')
-        .insert({
-          user_id: user.id,
-          item_id: itemData.id,
-          acquired_price: currentPrice
-        });
-
-      if (error) throw error;
-      alert("› ASSET_SECURED_IN_VAULT");
-
-    } catch (err) {
-      console.error("› VAULT_INSERTION_ERROR", err);
-      alert("› ERROR_SAVING_ASSET");
+  const prevItemIdsRef = useRef('');
+  useEffect(() => {
+    const key = [...recentItems.map((i) => i.id)].sort().join(',');
+    if (prevItemIdsRef.current && key !== prevItemIdsRef.current) {
+      setHiddenStackIds([]);
     }
+    prevItemIdsRef.current = key;
+  }, [recentItems]);
+
+  const onFeedSortChange = useCallback((m: FeedSortMode) => {
+    setSortMode(m);
+    void AsyncStorage.setItem(FEED_SORT_STORAGE_KEY, m);
+  }, []);
+
+  useEffect(() => {
+    if (feedPageHeight <= 0) return;
+    feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setFeedViewIndex(0);
+  }, [sortMode, feedPageHeight]);
+
+  const feedRankingInputs = useMemo(
+    () =>
+      aggregateFeedRankingInputs({
+        items: recentItems.map((i) => ({
+          id: i.id,
+          category: i.category,
+          created_at: i.created_at,
+          user_id: i.user_id,
+        })),
+        signalsById: feedSignals,
+        intents: marketIntents,
+        watchAdds: watchlistAdds,
+        transactions: txRows,
+        identity: marketIdentity,
+        sellerRepScore,
+      }),
+    [recentItems, feedSignals, marketIntents, watchlistAdds, txRows, marketIdentity, sellerRepScore]
+  );
+
+  const stackIds = useMemo(() => {
+    const ranked = rankFeedItems(sortMode, feedRankingInputs, {
+      intents: marketIntents,
+      watchAdds: watchlistAdds,
+    });
+    const hide = new Set(hiddenStackIds);
+    return ranked.map((r) => r.flip_item_id).filter((id) => !hide.has(id));
+  }, [sortMode, feedRankingInputs, marketIntents, watchlistAdds, hiddenStackIds]);
+
+  const glassById = useMemo(() => {
+    const map: Record<string, GlasscardData> = {};
+    for (const item of recentItems) {
+      const sig = feedSignals[item.id];
+      const seller =
+        currentUserSeller ?? {
+          id: item.user_id,
+          username: userName ?? 'user',
+          avatar_url: null,
+          rep_score: 0,
+          total_predictions: 0,
+          correct_predictions: 0,
+          scan_count: 0,
+        };
+      map[item.id] = {
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        condition: item.condition ?? null,
+        image_url: item.image_urls?.[0] ?? null,
+        ai_confidence: item.ai_confidence != null ? item.ai_confidence / 100 : null,
+        created_at: item.created_at,
+        market: sig ? glasscardMarketFromSignalRow(sig) : null,
+        seller,
+        isWatched: false,
+        isSaved: false,
+      };
+    }
+    return map;
+  }, [recentItems, feedSignals, currentUserSeller, userName]);
+
+  const stackCards = useMemo(
+    () => stackIds.map((id) => glassById[id]).filter(Boolean) as GlasscardData[],
+    [stackIds, glassById]
+  );
+
+  const recordMarketIntent = useCallback(async (flip_item_id: string, intent_type: MarketIntentType) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/api/record-market-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ flip_item_id, intent_type }),
+      });
+    } catch {
+      /* telemetry best-effort */
+    }
+  }, []);
+
+  const toggleWatchlist = useCallback(async (item: GlasscardData) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch(`${API_BASE_URL}/api/toggle-watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ flipItemId: item.id }),
+      });
+    } catch {
+      /* deferred: surface error in Phase 12 */
+    }
+  }, []);
+
+  const onBuyIntent = useCallback((item: GlasscardData) => {
+    setCartAck(item.title);
+    setTimeout(() => setCartAck(null), 2200);
+  }, []);
+
+  const handleScanPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    recordScan();
+    if (onboardingState === 'welcome') {
+      advanceTo('camera_prompted');
+    }
+    router.push('/(tabs)/scanner');
   };
 
-  const change = useMemo(() => {
-    if (history.length < 2) return { val: '0%', up: true };
-    const first = history[0].value;
-    const last = history[history.length - 1].value;
-    const diff = ((last - first) / first) * 100;
-    return { val: `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`, up: diff >= 0 };
-  }, [history]);
+  const handleOnboardingNext = () => {
+    if (onboardingState === 'welcome') advanceTo('camera_prompted');
+    else if (onboardingState === 'camera_prompted') advanceTo('first_scan_done');
+    else if (onboardingState === 'first_scan_done') advanceTo('first_save_done');
+    else if (onboardingState === 'first_save_done') advanceTo('complete');
+  };
 
-  // 4. WRAP EVERYTHING IN A MASTER VIEW SO THE OVERLAY WORKS
-  return (
-    <View style={{ flex: 1, backgroundColor: '#0f0f0f' }}>
-      <ScrollView style={styles.container}>
-        <Text style={styles.terminalHeader}>› TERMINAL_ORACLE_v1.0.2</Text>
-        
-        {/* STEP 1 HIGHLIGHT: SCANNER */}
-        <View style={isHighlighted(0) ? styles.highlightWrapper : null}>
-          <ElectricBorderInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="SCAN_OR_TYPE_ASSET..."
-            onSubmitEditing={() => handleSearch(searchQuery)}
-            style={{ width: '100%' }}
+  const onFeedSlotLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.floor(e.nativeEvent.layout.height);
+    if (h > 0) setFeedPageHeight(h);
+  }, []);
+
+  const onFeedMomentumScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (feedPageHeight <= 0 || stackIds.length === 0) return;
+      const y = e.nativeEvent.contentOffset.y;
+      const idx = Math.round(y / feedPageHeight);
+      const clamped = Math.max(0, Math.min(idx, stackIds.length - 1));
+      setFeedViewIndex(clamped);
+    },
+    [feedPageHeight, stackIds.length]
+  );
+
+  useEffect(() => {
+    if (feedPageHeight <= 0 || stackIds.length === 0) return;
+    const maxIdx = stackIds.length - 1;
+    if (feedViewIndex > maxIdx) {
+      feedListRef.current?.scrollToIndex({ index: maxIdx, animated: true });
+      setFeedViewIndex(maxIdx);
+    }
+  }, [stackIds.length, feedViewIndex, feedPageHeight]);
+
+  const removeCardFromStack = useCallback((item: GlasscardData) => {
+    setHiddenStackIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
+  }, []);
+
+  const renderFeedPage = useCallback(
+    ({ index }: ListRenderItemInfo<string>) => {
+      const pageCards = stackCards.slice(index);
+      return (
+        <View style={[styles.feedPage, { height: feedPageHeight }]}>
+          <GlasscardStack
+            fill
+            cards={pageCards}
+            isMarketLoading={(c) => !c.market}
+            onConsumed={removeCardFromStack}
+            onBuy={(item) => {
+              void recordMarketIntent(item.id, 'buy');
+              onBuyIntent(item);
+            }}
+            onSave={(item) => {
+              void recordMarketIntent(item.id, 'save');
+              void toggleWatchlist(item);
+            }}
+            onSellerInspect={(item) => {
+              void recordMarketIntent(item.id, 'inspect_seller');
+              setSellerInspect(item);
+            }}
+            onSkip={(item) => {
+              void recordMarketIntent(item.id, 'skip');
+            }}
           />
         </View>
+      );
+    },
+    [
+      stackCards,
+      feedPageHeight,
+      removeCardFromStack,
+      recordMarketIntent,
+      onBuyIntent,
+      toggleWatchlist,
+    ]
+  );
 
-        {loading ? (
-          <ActivityIndicator color="#e8ff47" style={{ marginTop: 100 }} />
-        ) : itemData ? (
-          /* STEP 2 HIGHLIGHT: MARKET CHART */
-          <View style={[
-            styles.marketContainer, 
-            isHighlighted(1) && styles.highlightWrapper
-          ]}>
-            <View style={styles.priceHeader}>
-              <Text style={styles.ticker}>{itemData.title.toUpperCase()} // USD</Text>
-              <Text style={styles.price}>${history.length > 0 ? history[history.length - 1].value.toLocaleString() : '---'}</Text>
-              <View style={styles.deltaRow}>
-                <Text style={[styles.delta, { color: change.up ? '#10b981' : '#ef4444' }]}>{change.val}</Text>
-                <Text style={styles.deltaLabel}>24H_DELTA</Text>
-              </View>
-            </View>
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: feedPageHeight,
+      offset: feedPageHeight * index,
+      index,
+    }),
+    [feedPageHeight]
+  );
 
-            <FadeContent duration={1500} delay={200}>
-              <View style={styles.chartWrapper}>
-                {history.length > 0 ? (
-                  <LineChart
-                    data={history}
-                    width={width - 60}
-                    height={200}
-                    color={change.up ? '#10b981' : '#ef4444'}
-                    thickness={2}
-                    hideDataPoints
-                    noOfSections={3}
-                    yAxisTextStyle={{ color: '#333', fontSize: 10 }}
-                    xAxisLabelTextStyle={{ color: '#333', fontSize: 8 }}
-                    backgroundColor="#000"
-                    hideRules
-                    yAxisColor="#111"
-                    xAxisColor="#111"
-                    areaChart
-                    startFillColor={change.up ? '#10b981' : '#ef4444'}
-                    startOpacity={0.2}
-                    endOpacity={0}
-                  />
-                ) : (
-                  <Text style={styles.noData}>NO_HISTORICAL_LOGS_FOUND</Text>
-                )}
-                <TouchableOpacity 
-                  style={[
-                    styles.vaultButton, 
-                    isHighlighted(2) && { borderColor: '#fff', borderWidth: 2 }
-                  ]} 
-                  onPress={handleSaveToVault}
-                >
-                  <Text style={styles.vaultButtonText}>[ SAVE_TO_VAULT ]</Text>
-                </TouchableOpacity>
-              </View>
-            </FadeContent>
-          </View>
-        ) : ( 
-          /* If no data, we show a "Ghost" version of the UI for the tutorial */
-          isHighlighted(1) || isHighlighted(2) ? (
-            <View style={[styles.marketContainer, styles.highlightWrapper, { opacity: 0.5 }]}>
-               <Text style={styles.idleText}>[ TUTORIAL_DATA_SIMULATED ]</Text>
-            </View>
-          ) : (
-            <View style={styles.idleState}>
-              <Text style={styles.idleText}>› SYSTEM_IDLE: AWAITING_SCAN_DATA</Text>
-            </View>
-          )
-        )}
-      </ScrollView>
+  const keyExtractor = useCallback((id: string) => id, []);
 
-     {showOnboarding && (
-        <OnboardingStepper 
-          onComplete={completeOnboarding} 
-          onStepChange={(step) => setActiveOnboardingStep(step)} 
+  const showFeedSurface = !loading && recentItems.length > 0 && feedPageHeight > 0;
+  const showFeedList = showFeedSurface && stackIds.length > 0;
+
+  return (
+    <View style={styles.container}>
+      {showOnboarding && onboardingState && (
+        <OnboardingOverlay
+          state={onboardingState}
+          onNext={handleOnboardingNext}
+          onSkip={skip}
         />
       )}
+      <View style={styles.body}>
+        <ScrollView
+          style={styles.chromeScroll}
+          contentContainerStyle={styles.chromeContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => setFeedSortCollapseSig((n) => n + 1)}
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerLabel}>FLIP_TERMINAL</Text>
+            {userName && (
+              <Text style={styles.headerUser}>› {userName.toUpperCase()}</Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={handleScanPress}
+            activeOpacity={0.8}
+          >
+            <View style={styles.scanButtonInner}>
+              <Text style={styles.scanIcon}>⊙</Text>
+              <Text style={styles.scanButtonText}>SCAN ITEM</Text>
+              <Text style={styles.scanButtonSub}>AI identification + market valuation</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => router.push('/(tabs)/portfolio')}
+            >
+              <Text style={styles.quickActionIcon}>◈</Text>
+              <Text style={styles.quickActionText}>PORTFOLIO</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => router.push('/(tabs)/leaderboard')}
+            >
+              <Text style={styles.quickActionIcon}>▲</Text>
+              <Text style={styles.quickActionText}>RANKINGS</Text>
+            </TouchableOpacity>
+          </View>
+
+          <StreakCard
+            currentStreak={streak.currentStreak}
+            longestStreak={streak.longestStreak}
+            todayCompleted={streak.todayCompleted}
+          />
+
+          {resolvedPredictions.length > 0 && (
+            <View style={{ marginBottom: 12 }}>
+              {resolvedPredictions.slice(0, 1).map((pred: any) => (
+                <ReengagementBanner
+                  key={pred.flip_item_id}
+                  type="prediction_resolved"
+                  data={{
+                    itemTitle: pred.flip_items?.title ?? 'Item',
+                    outcome: pred.outcome,
+                    delta: pred.accuracy_delta ? (Number(pred.accuracy_delta) * 100).toFixed(1) : '0',
+                  }}
+                  onPress={() => router.push(`/(tabs)/result?id=${pred.flip_item_id}`)}
+                />
+              ))}
+            </View>
+          )}
+
+          <View style={styles.recentSection}>
+            <Text style={styles.sectionLabel}>MARKET_FEED</Text>
+            {cartAck && (
+              <Text style={styles.cartAck}>CART_INTENT_RECORDED · {cartAck.toUpperCase()}</Text>
+            )}
+            <Text style={styles.stackHint}>SWIPE UP SKIP · RIGHT BUY · DOWN SAVE · LEFT SELLER</Text>
+          </View>
+        </ScrollView>
+
+        <View style={styles.feedSlot} onLayout={onFeedSlotLayout}>
+          {loading ? (
+            <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
+          ) : recentItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                Scan your first item to start tracking market value
+              </Text>
+            </View>
+          ) : showFeedSurface ? (
+            <>
+              <FeedSortDropdown
+                value={sortMode}
+                onChange={onFeedSortChange}
+                collapseSignal={feedSortCollapseSig}
+              />
+              {showFeedList ? (
+                <FlatList
+                  ref={feedListRef}
+                  data={stackIds}
+                  keyExtractor={keyExtractor}
+                  renderItem={renderFeedPage}
+                  pagingEnabled
+                  showsVerticalScrollIndicator={false}
+                  decelerationRate="fast"
+                  snapToInterval={feedPageHeight}
+                  snapToAlignment="start"
+                  disableIntervalMomentum
+                  getItemLayout={getItemLayout}
+                  removeClippedSubviews
+                  windowSize={5}
+                  initialNumToRender={2}
+                  maxToRenderPerBatch={3}
+                  onScrollBeginDrag={() => setFeedSortCollapseSig((n) => n + 1)}
+                  onMomentumScrollEnd={onFeedMomentumScrollEnd}
+                />
+              ) : (
+                <View style={styles.feedCleared}>
+                  <Text style={styles.emptyText}>FEED_SURFACE_CLEARED · CHANGE SORT OR SCAN</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <ActivityIndicator color="#00FF87" style={{ marginTop: 20 }} />
+          )}
+        </View>
+      </View>
+
+      <Modal
+        visible={sellerInspect !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSellerInspect(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSellerInspect(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>SELLER</Text>
+            {sellerInspect && <GlasscardSeller seller={sellerInspect.seller} />}
+            <TouchableOpacity style={styles.modalClose} onPress={() => setSellerInspect(null)}>
+              <Text style={styles.modalCloseText}>CLOSE</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', padding: 20, paddingTop: 60 },
-  terminalHeader: { color: '#47daff', fontFamily: 'monospace', fontSize: 12, marginBottom: 20 },
-  searchInput: { backgroundColor: '#080808', color: '#fff', padding: 15, fontFamily: 'monospace', borderBottomWidth: 1, borderBottomColor: '#e8ff4733' },
-  marketContainer: { marginTop: 30, backgroundColor: '#080808', padding: 20, borderRadius: 10, borderWidth: 1, borderColor: '#111' },
-  priceHeader: { marginBottom: 30 },
-  ticker: { color: '#444', fontSize: 10, fontFamily: 'monospace', letterSpacing: 2 },
-  price: { color: '#fff', fontSize: 42, fontWeight: 'bold', fontFamily: 'monospace' },
-  deltaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 },
-  delta: { fontSize: 14, fontWeight: 'bold', fontFamily: 'monospace' },
-  deltaLabel: { color: '#222', fontSize: 10, fontFamily: 'monospace' },
-  chartWrapper: { alignItems: 'center', marginTop: 20 },
-  noData: { color: '#333', fontFamily: 'monospace', fontSize: 10, marginTop: 50 },
-  idleState: { flex: 1, marginTop: 100, alignItems: 'center' },
-  idleText: { color: '#222', fontFamily: 'monospace', fontSize: 12 },
-  vaultButton: { backgroundColor: '#47daff', padding: 15, borderRadius: 2, marginTop: 20, alignItems: 'center' },
-  highlightWrapper: {
-    borderWidth: 2,
-    borderColor: '#10b981', // Flip Green
-    borderRadius: 10,
-    padding: 4,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10, // For Android
+  container: {
+    flex: 1,
+    backgroundColor: '#080808',
+    paddingTop: 56,
   },
-  vaultButtonText: { color: '#000', fontFamily: 'monospace', fontWeight: 'bold' }
+  body: {
+    flex: 1,
+    minHeight: 0,
+  },
+  chromeScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    maxHeight: '44%',
+  },
+  chromeContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  feedSlot: {
+    flex: 1,
+    minHeight: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 100,
+  },
+  feedPage: {
+    width: '100%',
+  },
+  feedCleared: {
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  header: {
+    marginBottom: 32,
+  },
+  headerLabel: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 4,
+  },
+  headerUser: {
+    color: '#00FF87',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  scanButton: {
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#00FF87',
+    borderRadius: 4,
+    marginBottom: 24,
+  },
+  scanButtonInner: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  scanIcon: {
+    color: '#00FF87',
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  scanButtonText: {
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  scanButtonSub: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    marginTop: 8,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 32,
+  },
+  quickAction: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 4,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickActionIcon: {
+    color: '#AAAAAA',
+    fontSize: 20,
+    marginBottom: 6,
+  },
+  quickActionText: {
+    color: '#AAAAAA',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  recentSection: {
+    marginTop: 8,
+  },
+  sectionLabel: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 3,
+    marginBottom: 8,
+  },
+  stackHint: {
+    color: '#555555',
+    fontFamily: 'monospace',
+    fontSize: 9,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  cartAck: {
+    color: '#00FF87',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  emptyState: {
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 4,
+    padding: 24,
+    alignItems: 'center',
+    marginHorizontal: 8,
+    marginTop: 12,
+  },
+  emptyText: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#141414',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 20,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 12,
+  },
+  modalClose: {
+    marginTop: 16,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#444444',
+    borderRadius: 6,
+  },
+  modalCloseText: {
+    color: '#AAAAAA',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 2,
+  },
 });
