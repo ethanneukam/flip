@@ -8,6 +8,55 @@ export type PredictionStatus = 'pending' | 'resolved' | 'expired';
 export type PredictionOutcome = 'correct' | 'incorrect' | 'inconclusive';
 export type ConfidenceReason = 'sufficient_history' | 'category_baseline' | 'ai_estimate_only';
 export type RankTier = 'Rookie' | 'Analyst' | 'Forecaster' | 'Oracle';
+
+/** Phase 12 — market participant identity (parallel to prediction rep). */
+export type MarketTier =
+  | 'Observer'
+  | 'Trader'
+  | 'Verified Seller'
+  | 'Market Maker'
+  | 'Liquidity Leader';
+
+export type MarketRankInputs = {
+  completed_transactions: number;
+  fulfilled_shipments: number;
+  failed_transactions: number;
+  liquidity_generated: number;
+  total_market_volume: number;
+  items_listed: number;
+  items_sold: number;
+  active_days: number;
+  seller_fulfillment_score: number;
+  transaction_reliability_score: number;
+  /** 0–100 legacy influence from prediction track record. */
+  predictions_legacy_score: number;
+};
+
+export type MarketRankResult = {
+  market_rank_score: number;
+  market_percentile: number;
+  tier: MarketTier;
+  reliability_score: number;
+};
+
+/** Persisted `market_identity` row shape (Supabase). */
+export type MarketIdentityRow = {
+  user_id: string;
+  completed_transactions: number;
+  fulfilled_shipments: number;
+  failed_transactions: number;
+  liquidity_generated: number;
+  total_market_volume: number;
+  items_listed: number;
+  items_sold: number;
+  active_days: number;
+  seller_fulfillment_score: number;
+  transaction_reliability_score: number;
+  market_rank_score: number;
+  market_percentile: number;
+  created_at?: string;
+  updated_at?: string;
+};
 export type PortfolioStatus = 'holding' | 'sold' | 'watchlist';
 export type NotificationEventType =
   | 'PRICE_SPIKE'

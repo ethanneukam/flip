@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,8 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { computeRank } from '../../services/rankEngine';
-import type { RankTier } from '../../types/models';
+import { computeMarketTier, marketIdentityRowToInputs } from '../../lib/marketRankEngine';
+import type { MarketIdentityRow, MarketTier } from '../../types/models';
 
 type LeaderboardEntry = {
   id: string;
@@ -20,14 +21,30 @@ type LeaderboardEntry = {
   rep_score: number;
   total_flips: number;
   created_at: string;
+  market_identity?: MarketIdentityRow | MarketIdentityRow[] | null;
 };
 
-const RANK_COLORS: Record<RankTier, string> = {
-  Oracle: '#00FF87',
-  Forecaster: '#00AAFF',
-  Analyst: '#FFAA00',
-  Rookie: '#888888',
+const MARKET_TIER_COLOR: Record<MarketTier, string> = {
+  'Liquidity Leader': '#00FF87',
+  'Market Maker': '#44AAFF',
+  'Verified Seller': '#C9A227',
+  Trader: '#9A9A9A',
+  Observer: '#4A4A4A',
 };
+
+function normalizeIdentity(
+  raw: MarketIdentityRow | MarketIdentityRow[] | null | undefined
+): MarketIdentityRow | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw)) return raw[0] ?? null;
+  return raw;
+}
+
+function sortKey(entry: LeaderboardEntry): number {
+  const mi = normalizeIdentity(entry.market_identity);
+  if (mi) return Number(mi.market_rank_score) || 0;
+  return Number(entry.rep_score) || 0;
+}
 
 export default function LeaderboardScreen() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -41,7 +58,9 @@ export default function LeaderboardScreen() {
     useCallback(() => {
       mountedRef.current = true;
       loadLeaderboard();
-      return () => { mountedRef.current = false; };
+      return () => {
+        mountedRef.current = false;
+      };
     }, [])
   );
 
@@ -53,18 +72,28 @@ export default function LeaderboardScreen() {
 
       const { data, error: fetchError } = await supabase
         .from('users')
-        .select('id, username, display_name, rep_score, total_flips, created_at')
-        .order('rep_score', { ascending: false })
-        .order('total_flips', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(100);
+        .select(
+          'id, username, display_name, rep_score, total_flips, created_at, market_identity(*)'
+        )
+        .limit(200);
 
       if (fetchError) {
         throw new Error(fetchError.message);
       }
 
+      const raw = (data ?? []) as LeaderboardEntry[];
+      const sorted = [...raw].sort((a, b) => {
+        const sb = sortKey(b);
+        const sa = sortKey(a);
+        if (sb !== sa) return sb - sa;
+        const rb = Number(b.rep_score) || 0;
+        const ra = Number(a.rep_score) || 0;
+        if (rb !== ra) return rb - ra;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+
       if (mountedRef.current) {
-        setEntries(data ?? []);
+        setEntries(sorted.slice(0, 100));
       }
     } catch (err) {
       if (mountedRef.current) {
@@ -85,11 +114,34 @@ export default function LeaderboardScreen() {
 
   const getCurrentUserPosition = (): number | null => {
     if (!currentUserId) return null;
-    const index = entries.findIndex(e => e.id === currentUserId);
+    const index = entries.findIndex((e) => e.id === currentUserId);
     return index >= 0 ? index + 1 : null;
   };
 
   const userPosition = getCurrentUserPosition();
+
+  const userEntry = useMemo(
+    () => entries.find((e) => e.id === currentUserId),
+    [entries, currentUserId]
+  );
+
+  const userMarketLine = useMemo(() => {
+    if (!userEntry) return null;
+    const mi = normalizeIdentity(userEntry.market_identity);
+    if (mi) {
+      const inputs = marketIdentityRowToInputs({
+        ...mi,
+        predictions_legacy_score: 0,
+      });
+      const tier = computeMarketTier(
+        Number(mi.market_rank_score) || 0,
+        Number(mi.market_percentile) || 0,
+        inputs
+      );
+      return { tier, mi };
+    }
+    return { tier: 'Observer' as MarketTier, mi: null };
+  }, [userEntry]);
 
   if (loading) {
     return (
@@ -114,23 +166,25 @@ export default function LeaderboardScreen() {
           />
         }
       >
-        <Text style={styles.headerLabel}>MARKET_PREDICTION_RANKING</Text>
+        <Text style={styles.headerLabel}>MARKET_LIQUIDITY_RANKINGS</Text>
 
-        {/* Current User Position + Percentile */}
         {userPosition !== null && (
           <View style={styles.positionBadge}>
             <Text style={styles.positionText}>
               YOUR RANK: #{userPosition} of {entries.length}
             </Text>
-            {entries.length > 1 && (
+            {userMarketLine && userMarketLine.mi && (
               <Text style={styles.percentileText}>
-                Top {Math.max(1, Math.round((userPosition / entries.length) * 100))}% of predictors
+                {userMarketLine.tier} · cohort {Math.round(Number(userMarketLine.mi.market_percentile || 0))}
+                /100
               </Text>
+            )}
+            {userMarketLine && !userMarketLine.mi && (
+              <Text style={styles.percentileText}>Market identity pending · sorted by legacy rep</Text>
             )}
           </View>
         )}
 
-        {/* Error State */}
         {error && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>⚠ {error}</Text>
@@ -140,7 +194,6 @@ export default function LeaderboardScreen() {
           </View>
         )}
 
-        {/* Empty State */}
         {entries.length === 0 && !error ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>▲</Text>
@@ -152,27 +205,46 @@ export default function LeaderboardScreen() {
         ) : (
           entries.map((entry, index) => {
             const repScore = Number(entry.rep_score) || 0;
-            const rank = computeRank(repScore);
+            const legacyRank = computeRank(repScore);
             const isCurrentUser = entry.id === currentUserId;
-            const rankColor = RANK_COLORS[rank];
             const displayName = entry.username || entry.display_name || 'Anonymous';
+            const mi = normalizeIdentity(entry.market_identity);
+            const inputs = mi
+              ? marketIdentityRowToInputs({ ...mi, predictions_legacy_score: 0 })
+              : marketIdentityRowToInputs({
+                  completed_transactions: 0,
+                  fulfilled_shipments: 0,
+                  failed_transactions: 0,
+                  liquidity_generated: 0,
+                  total_market_volume: 0,
+                  items_listed: 0,
+                  items_sold: 0,
+                  active_days: 0,
+                  seller_fulfillment_score: 0,
+                  transaction_reliability_score: 0,
+                  predictions_legacy_score: 0,
+                });
+            const mScore = mi ? Number(mi.market_rank_score) || 0 : 0;
+            const mPct = mi ? Number(mi.market_percentile) || 0 : 0;
+            const marketTier = computeMarketTier(mScore, mPct, inputs);
+            const tierColor = MARKET_TIER_COLOR[marketTier];
 
             return (
               <View
                 key={entry.id}
                 style={[styles.entryCard, isCurrentUser && styles.entryCardHighlight]}
               >
-                {/* Position */}
                 <View style={styles.entryPosition}>
-                  <Text style={[
-                    styles.entryPositionNum,
-                    index < 3 && { color: '#00FF87', fontWeight: 'bold' },
-                  ]}>
+                  <Text
+                    style={[
+                      styles.entryPositionNum,
+                      index < 3 && { color: '#00FF87', fontWeight: 'bold' },
+                    ]}
+                  >
                     #{index + 1}
                   </Text>
                 </View>
 
-                {/* User Info */}
                 <View style={styles.entryInfo}>
                   <Text
                     style={[styles.entryUsername, isCurrentUser && { color: '#00FF87' }]}
@@ -181,16 +253,22 @@ export default function LeaderboardScreen() {
                     {displayName}
                   </Text>
                   <View style={styles.entryTierRow}>
-                    <View style={[styles.tierDot, { backgroundColor: rankColor }]} />
-                    <Text style={[styles.entryTier, { color: rankColor }]}>{rank}</Text>
+                    <View style={[styles.tierDot, { backgroundColor: tierColor }]} />
+                    <Text style={[styles.entryTier, { color: tierColor }]}>{marketTier}</Text>
                   </View>
+                  <Text style={styles.subMetrics} numberOfLines={2}>
+                    Pctl {Math.round(mPct)} · Fulfilled {mi?.fulfilled_shipments ?? 0} · Liq{' '}
+                    {mi ? Math.round(Number(mi.liquidity_generated)) : 0}
+                  </Text>
+                  <Text style={styles.legacyRepMuted}>
+                    Legacy rep {repScore.toFixed(1)} · {legacyRank}
+                  </Text>
                 </View>
 
-                {/* Stats */}
                 <View style={styles.entryStats}>
-                  <Text style={styles.entryScore}>{repScore.toFixed(1)}</Text>
+                  <Text style={styles.entryScore}>{Math.round(mScore || repScore)}</Text>
                   <Text style={styles.entryFlips}>
-                    {entry.total_flips} {entry.total_flips === 1 ? 'pred' : 'preds'}
+                    {mi ? 'MKT' : 'REP'} · {entry.total_flips} preds
                   </Text>
                 </View>
               </View>
@@ -204,30 +282,102 @@ export default function LeaderboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#080808' },
-  content: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 120 },
-  loadingContainer: { flex: 1, backgroundColor: '#080808', justifyContent: 'center', alignItems: 'center' },
+  content: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 120 },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#080808',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   loadingText: { color: '#888888', fontFamily: 'monospace', fontSize: 12, marginTop: 12 },
-  headerLabel: { color: '#888888', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, marginBottom: 16 },
-  positionBadge: { backgroundColor: '#0a1a0f', borderWidth: 1, borderColor: '#00FF87', borderRadius: 4, padding: 12, marginBottom: 16, alignItems: 'center' },
-  positionText: { color: '#00FF87', fontFamily: 'monospace', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  headerLabel: {
+    color: '#888888',
+    fontFamily: 'monospace',
+    fontSize: 10,
+    letterSpacing: 3,
+    marginBottom: 16,
+  },
+  positionBadge: {
+    backgroundColor: '#0a1218',
+    borderWidth: 1,
+    borderColor: '#2A4A5A',
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  positionText: {
+    color: '#44AAFF',
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
   percentileText: { color: '#888888', fontFamily: 'monospace', fontSize: 9, marginTop: 4 },
-  errorBanner: { backgroundColor: 'rgba(255,68,68,0.1)', borderWidth: 1, borderColor: '#FF4444', borderRadius: 4, padding: 14, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBanner: {
+    backgroundColor: 'rgba(255,68,68,0.1)',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+    borderRadius: 4,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   errorText: { color: '#FF4444', fontFamily: 'monospace', fontSize: 10, flex: 1 },
   retryText: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold' },
-  emptyState: { backgroundColor: '#111111', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 32, alignItems: 'center', marginTop: 20 },
+  emptyState: {
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 4,
+    padding: 32,
+    alignItems: 'center',
+    marginTop: 20,
+  },
   emptyIcon: { color: '#888888', fontSize: 32, marginBottom: 12 },
-  emptyTitle: { color: '#AAAAAA', fontFamily: 'monospace', fontSize: 12, fontWeight: 'bold', letterSpacing: 2, marginBottom: 8 },
+  emptyTitle: {
+    color: '#AAAAAA',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
   emptyText: { color: '#888888', fontFamily: 'monospace', fontSize: 11, textAlign: 'center', lineHeight: 18 },
-  entryCard: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', borderRadius: 4, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
-  entryCardHighlight: { borderColor: '#00FF87', backgroundColor: '#0a1a0f' },
+  entryCard: {
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#252525',
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  entryCardHighlight: { borderColor: '#00FF87', backgroundColor: '#0a1410' },
   entryPosition: { width: 36, alignItems: 'center' },
   entryPositionNum: { color: '#888888', fontFamily: 'monospace', fontSize: 12 },
-  entryInfo: { flex: 1, marginLeft: 12 },
+  entryInfo: { flex: 1, marginLeft: 10 },
   entryUsername: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold' },
-  entryTierRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  entryTierRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   tierDot: { width: 6, height: 6, borderRadius: 3 },
-  entryTier: { fontFamily: 'monospace', fontSize: 10 },
-  entryStats: { alignItems: 'flex-end' },
-  entryScore: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold' },
-  entryFlips: { color: '#888888', fontFamily: 'monospace', fontSize: 9, marginTop: 2 },
+  entryTier: { fontFamily: 'monospace', fontSize: 10, fontWeight: 'bold' },
+  subMetrics: {
+    color: '#777777',
+    fontFamily: 'monospace',
+    fontSize: 9,
+    marginTop: 6,
+    letterSpacing: 0.5,
+  },
+  legacyRepMuted: {
+    color: '#444444',
+    fontFamily: 'monospace',
+    fontSize: 8,
+    marginTop: 4,
+  },
+  entryStats: { alignItems: 'flex-end', paddingLeft: 6 },
+  entryScore: { color: '#FFFFFF', fontFamily: 'monospace', fontSize: 15, fontWeight: 'bold' },
+  entryFlips: { color: '#666666', fontFamily: 'monospace', fontSize: 8, marginTop: 2 },
 });
