@@ -1,6 +1,6 @@
 /**
- * Idempotent provider ingress for Flip transactions (Stripe / Shippo / EasyPost / PayPal).
- * Verifies HMAC, dedupes by event_id, applies transitions via the same engine as the API.
+ * Idempotent provider ingress for Flip transactions (Stripe / Shippo / EasyPost).
+ * Verifies HMAC, dedupes by event_id + deterministic event_hash, applies transitions via the same engine as the API.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { buffer } from 'micro';
@@ -10,6 +10,12 @@ import {
   applyTransactionTransition,
   type FlipTransactionStatus,
 } from '../transition-transaction';
+import {
+  computeDeterministicWebhookEventHash,
+  assertWebhookProviderMatch,
+} from '../../flip-mobile/lib/transactionStateMachine';
+import { logTransactionAudit } from '../../flip-mobile/lib/transactionAuditLog';
+import { ensureIdempotentMutation } from '../lib/ensureIdempotentMutation';
 
 export const config = { api: { bodyParser: false } };
 
@@ -43,12 +49,16 @@ type WebhookBody = {
   transaction_id?: string;
   /** EasyPost / carrier mirror — maps to shipped vs in_transit vs delivered. */
   tracker_status?: string;
+  delivery_signature_proof?: string | null;
   shipment?: {
     shipping_provider?: string;
     tracking_number?: string;
     label_url?: string;
+    delivery_signature_received?: string | null;
   };
 };
+
+type WebhookIdemResult = { status: number; body: Record<string, unknown> };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -86,6 +96,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'event_id required for deduplication' });
   }
 
+  const providerHdr = req.headers['x-webhook-provider'] as string | undefined;
+  const prov = assertWebhookProviderMatch(providerHdr, type);
+  if (!prov.ok) {
+    return res.status(400).json({ error: prov.error });
+  }
+
+  const eventHash = computeDeterministicWebhookEventHash({
+    transaction_id: transactionId,
+    type,
+    tracker_status: body.tracker_status,
+    shipment: body.shipment,
+  });
+
+  const idempotencyKey = `${prov.provider}:${eventId}:${eventHash}`;
+
   let toStatus: FlipTransactionStatus | null = null;
   switch (type) {
     case 'stripe.payment_intent.succeeded':
@@ -122,22 +147,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ success: true, ignored: true, type });
   }
 
-  const result = await applyTransactionTransition(supabase, {
-    transactionId,
-    toStatus,
-    trigger: 'webhook',
-    eventId,
-    isAdmin: false,
-    shipmentPatch: body.shipment,
-    deliveryConfirmed: type === 'delivery.confirmed' || type === 'carrier.delivered',
-  });
+  const webhookDelivered =
+    type === 'delivery.confirmed' ||
+    type === 'carrier.delivered' ||
+    (type === 'easypost.tracker.updated' && toStatus === 'delivered');
+  const carrierConfirmedIncoming =
+    type === 'carrier.delivered' ||
+    type === 'delivery.confirmed' ||
+    (type === 'easypost.tracker.updated' && toStatus === 'delivered');
 
-  if (!result.ok) {
-    if (result.status === 409) {
-      return res.status(200).json({ success: true, skipped: true, reason: result.error });
-    }
-    return res.status(result.status).json({ error: result.error });
+  try {
+    const { result } = await ensureIdempotentMutation<WebhookIdemResult>(
+      supabase,
+      'webhook_ingress',
+      idempotencyKey,
+      async () => {
+        const applyRes = await applyTransactionTransition(supabase, {
+          transactionId,
+          toStatus,
+          trigger: 'webhook',
+          eventId,
+          incomingEventHash: eventHash,
+          isAdmin: false,
+          shipmentPatch: body.shipment,
+          deliveryConfirmed: type === 'delivery.confirmed' || type === 'carrier.delivered',
+          webhookDelivered,
+          carrierConfirmedIncoming,
+          deliverySignatureProof: body.delivery_signature_proof ?? null,
+        });
+
+        if (!applyRes.ok) {
+          await logTransactionAudit(supabase, {
+            transactionId,
+            category: 'webhook_ingest',
+            message: `${type}_failed`,
+            payload: { event_id: eventId, event_hash: eventHash, error: applyRes.error },
+          });
+          return { status: applyRes.status, body: { error: applyRes.error } };
+        }
+        if (!applyRes.ignored) {
+          await logTransactionAudit(supabase, {
+            transactionId,
+            category: 'webhook_ingest',
+            message: type,
+            payload: { event_id: eventId, event_hash: eventHash, to_status: toStatus },
+          });
+        }
+        if (applyRes.ignored) {
+          return { status: 200, body: { success: true, ignored: true, transaction: applyRes.transaction } };
+        }
+        return { status: 200, body: { success: true, transaction: applyRes.transaction } };
+      }
+    );
+
+    return res.status(result.status).json(result.body);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Webhook idempotency error';
+    return res.status(500).json({ error: msg });
   }
-
-  return res.status(200).json({ success: true, transaction: result.transaction });
 }
