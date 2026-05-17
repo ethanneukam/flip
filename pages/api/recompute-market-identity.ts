@@ -5,14 +5,21 @@
  * `fulfilled_shipments` is proxied from **sold listings count** (commerce unit),
  * liquidity uses **sold proceeds + capped intent weights** (not dollars from fake fills),
  * and skip-heavy accounts are damped to reduce swipe-spam gaming.
+ *
+ * Phase 13.1: overlays `fraudIntegrityEngine` + trust-adjusted rank; persists raw
+ * `market_rank_score`, `raw_market_rank_score`, adjusted score, and fraud JSON
+ * without deleting raw behavioral metrics.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import {
   assignPercentiles,
   computeMarketRankScore,
+  computeMarketRankIntegrityBundle,
   type MarketRankInputs,
 } from '../../flip-mobile/lib/marketRankEngine';
+import { computeFraudRiskScore, type FraudSignalsInput } from '../../flip-mobile/lib/fraudIntegrityEngine';
+import { computeTrustAdjustedMetrics } from '../../flip-mobile/lib/trustAdjustedMetrics';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,7 +31,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-type IntentRow = { user_id: string; intent_type: string };
+type IntentRow = { user_id: string; intent_type: string; created_at: string };
 type ListingRow = {
   user_id: string;
   status: string;
@@ -33,6 +40,13 @@ type ListingRow = {
 };
 type PredRow = { user_id: string; outcome: string | null; status: string };
 type ActivityRow = { user_id: string; created_at: string };
+type TxRow = {
+  buyer_id: string | null;
+  seller_id: string | null;
+  flip_item_id: string | null;
+  status: string | null;
+  created_at: string | null;
+};
 
 function num(v: number | string | null | undefined): number {
   if (v == null) return 0;
@@ -134,6 +148,101 @@ function buildInputs(
   return out;
 }
 
+function intentVelocityForUser(
+  userId: string,
+  rows: IntentRow[],
+  nowMs: number
+): { last24h: number; last60m: number } {
+  const MS24 = 86_400_000;
+  const MS60 = 3_600_000;
+  let last24h = 0;
+  let last60m = 0;
+  for (const r of rows) {
+    if (r.user_id !== userId) continue;
+    const t = new Date(r.created_at).getTime();
+    if (!Number.isFinite(t)) continue;
+    const delta = nowMs - t;
+    if (delta <= MS24) last24h++;
+    if (delta <= MS60) last60m++;
+  }
+  return { last24h, last60m };
+}
+
+function txSignalsForUser(userId: string, txRows: TxRow[]) {
+  let buyer_completed_tx = 0;
+  const pairCounts = new Map<string, number>();
+
+  for (const t of txRows) {
+    if (!t.buyer_id || !t.seller_id) continue;
+    if (t.buyer_id === userId && t.status === 'completed') buyer_completed_tx++;
+    if (t.buyer_id === userId || t.seller_id === userId) {
+      const key = `${t.buyer_id}|${t.seller_id}|${t.flip_item_id ?? ''}`;
+      pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  let max_repeat_pair_item_tx = 0;
+  for (const [k, c] of pairCounts) {
+    const [b, s] = k.split('|');
+    if (b === userId || s === userId) max_repeat_pair_item_tx = Math.max(max_repeat_pair_item_tx, c);
+  }
+
+  const partnersWhenBuyer = new Set(
+    txRows.filter((t) => t.buyer_id === userId && t.seller_id).map((t) => t.seller_id as string)
+  );
+  let circular_trade_pairs = 0;
+  for (const p of partnersWhenBuyer) {
+    const hasReverse = txRows.some((t) => t.buyer_id === p && t.seller_id === userId);
+    if (hasReverse) circular_trade_pairs++;
+  }
+
+  return { buyer_completed_tx, max_repeat_pair_item_tx, circular_trade_pairs };
+}
+
+function buildFraudSignals(
+  userId: string,
+  intentsByUser: Map<string, Record<string, number>>,
+  intentRows: IntentRow[],
+  listingStats: Map<
+    string,
+    { listed: number; sold: number; cancelled: number; volume: number; soldProceeds: number }
+  >,
+  inputs: MarketRankInputs,
+  flipItemsCount: number,
+  txRows: TxRow[],
+  nowMs: number
+): FraudSignalsInput {
+  const counts = intentsByUser.get(userId) ?? {};
+  const vel = intentVelocityForUser(userId, intentRows, nowMs);
+  const ls = listingStats.get(userId) ?? {
+    listed: 0,
+    sold: 0,
+    cancelled: 0,
+    volume: 0,
+    soldProceeds: 0,
+  };
+  const txS = txSignalsForUser(userId, txRows);
+
+  return {
+    user_id: userId,
+    intent_type_counts: { ...counts },
+    intents_last_24h: vel.last24h,
+    intents_last_60m: vel.last60m,
+    buy_intents: counts.buy ?? 0,
+    save_intents: counts.save ?? 0,
+    skip_intents: counts.skip ?? 0,
+    buyer_completed_tx: txS.buyer_completed_tx,
+    max_repeat_pair_item_tx: txS.max_repeat_pair_item_tx,
+    circular_trade_pairs: txS.circular_trade_pairs,
+    liquidity_generated: inputs.liquidity_generated,
+    completed_transactions: inputs.completed_transactions,
+    items_listed: ls.listed,
+    items_sold: ls.sold,
+    cancelled_listings: ls.cancelled,
+    flip_items_count: flipItemsCount,
+  };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -154,23 +263,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userIds = users.map((u) => u.id as string);
+    const nowMs = Date.now();
 
-    const [{ data: intentRows }, { data: listingRows }, { data: predRows }, { data: flipRows }, { data: intentDates }] =
-      await Promise.all([
-        supabase.from('market_intents').select('user_id, intent_type').limit(200_000),
-        supabase.from('listings').select('user_id, status, asking_price, final_price').limit(200_000),
-        supabase.from('predictions').select('user_id, outcome, status').limit(200_000),
-        supabase.from('flip_items').select('user_id, created_at').limit(200_000),
-        supabase.from('market_intents').select('user_id, created_at').limit(200_000),
-      ]);
+    const [
+      { data: intentRowsRaw, error: intentErr },
+      { data: listingRows },
+      { data: predRows },
+      { data: flipRows },
+      { data: txRowsRaw, error: txErr },
+    ] = await Promise.all([
+      supabase.from('market_intents').select('user_id, intent_type, created_at').limit(200_000),
+      supabase.from('listings').select('user_id, status, asking_price, final_price').limit(200_000),
+      supabase.from('predictions').select('user_id, outcome, status').limit(200_000),
+      supabase.from('flip_items').select('user_id, created_at').limit(200_000),
+      supabase.from('transactions').select('buyer_id, seller_id, flip_item_id, status, created_at').limit(200_000),
+    ]);
+
+    if (intentErr) {
+      return res.status(500).json({ error: 'Failed to load intents', detail: intentErr.message });
+    }
+    if (txErr) {
+      console.warn('recompute-market-identity: transactions query', txErr.message);
+    }
+
+    const intentRows = (intentRowsRaw ?? []) as IntentRow[];
+    const txRows = (txRowsRaw ?? []) as TxRow[];
 
     const intentsByUser = new Map<string, Record<string, number>>();
-    for (const r of (intentRows ?? []) as IntentRow[]) {
+    for (const r of intentRows) {
       if (!r.user_id) continue;
       const m = intentsByUser.get(r.user_id) ?? {};
       const k = r.intent_type ?? 'unknown';
       m[k] = (m[k] ?? 0) + 1;
       intentsByUser.set(r.user_id, m);
+    }
+
+    const flipItemsByUser = new Map<string, number>();
+    for (const row of (flipRows ?? []) as ActivityRow[]) {
+      flipItemsByUser.set(row.user_id, (flipItemsByUser.get(row.user_id) ?? 0) + 1);
     }
 
     const listingStats = new Map<
@@ -217,12 +347,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const row of (flipRows ?? []) as ActivityRow[]) {
       addDay(row.user_id, row.created_at);
     }
-    for (const row of (intentDates ?? []) as ActivityRow[]) {
+    for (const row of intentRows) {
       addDay(row.user_id, row.created_at);
     }
 
     const inputsByUser = new Map<string, MarketRankInputs>();
-    const scoresByUser: Record<string, number> = {};
+    const fraudByUser = new Map<string, ReturnType<typeof computeFraudRiskScore>>();
+    const adjustedScoresByUser: Record<string, number> = {};
 
     for (const uid of userIds) {
       const intents = intentsByUser.get(uid) ?? {};
@@ -241,15 +372,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         skipDampen
       );
       inputsByUser.set(uid, input);
-      scoresByUser[uid] = computeMarketRankScore(input);
+
+      const fraudSignals = buildFraudSignals(
+        uid,
+        intentsByUser,
+        intentRows,
+        listingStats,
+        input,
+        flipItemsByUser.get(uid) ?? 0,
+        txRows,
+        nowMs
+      );
+      const fraud = computeFraudRiskScore(fraudSignals);
+      fraudByUser.set(uid, fraud);
+
+      const rawScore = computeMarketRankScore(input);
+      const trust = computeTrustAdjustedMetrics(
+        {
+          liquidity_generated: input.liquidity_generated,
+          market_rank_score: rawScore,
+          seller_fulfillment_score: input.seller_fulfillment_score,
+          transaction_reliability_score: input.transaction_reliability_score,
+        },
+        fraud
+      );
+      adjustedScoresByUser[uid] = trust.adjusted_market_rank;
     }
 
-    const percentiles = assignPercentiles(scoresByUser);
+    const percentiles = assignPercentiles(adjustedScoresByUser);
     const now = new Date().toISOString();
+
     const rows = userIds.map((uid) => {
       const input = inputsByUser.get(uid)!;
+      const fraud = fraudByUser.get(uid)!;
       const pct = percentiles[uid] ?? 0;
-      const market_rank_score = computeMarketRankScore(input);
+      const bundle = computeMarketRankIntegrityBundle(input, pct, fraud);
+
       return {
         user_id: uid,
         completed_transactions: input.completed_transactions,
@@ -262,7 +420,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         active_days: input.active_days,
         seller_fulfillment_score: input.seller_fulfillment_score,
         transaction_reliability_score: input.transaction_reliability_score,
-        market_rank_score,
+        market_rank_score: bundle.raw_market_rank_score,
+        raw_market_rank_score: bundle.raw_market_rank_score,
+        adjusted_market_rank_score: bundle.adjusted_market_rank_score,
+        fraud_risk_score: bundle.fraud.fraud_risk_score,
+        fraud_risk_level: bundle.fraud.risk_level,
+        fraud_flags: bundle.fraud.flags,
         market_percentile: pct,
         updated_at: now,
       };

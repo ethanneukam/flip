@@ -4,10 +4,27 @@
  * Many inputs are still **estimated** from available signals (intents, listings,
  * predictions) because checkout/shipment lifecycles are not live yet. Call sites
  * and the recompute API document conservative estimation — never fabricate rows.
+ *
+ * Phase 13.1: optional **integrity bundle** overlays fraud-weighted adjusted scores;
+ * persisted `market_rank_score` remains the raw formula output.
  */
 import type { MarketRankResult, MarketTier, MarketRankInputs } from '../types/models';
+import type { FraudRiskScore } from './fraudIntegrityEngine';
+import { computeTrustAdjustedMetrics, type TrustAdjustedMetrics } from './trustAdjustedMetrics';
 
 export type { MarketRankResult, MarketTier, MarketRankInputs } from '../types/models';
+export type { FraudRiskScore } from './fraudIntegrityEngine';
+export type { TrustAdjustedMetrics } from './trustAdjustedMetrics';
+
+export type MarketIntegrityRankBundle = {
+  fraud: FraudRiskScore;
+  trustAdjusted: TrustAdjustedMetrics;
+  raw_market_rank_score: number;
+  adjusted_market_rank_score: number;
+  rawResult: MarketRankResult;
+  /** Tier + reliability reflect trust-adjusted signals; percentile is cohort on adjusted scores. */
+  adjustedResult: MarketRankResult;
+};
 
 /** Map persisted `market_identity` row (+ optional prediction legacy) into rank inputs. */
 export function marketIdentityRowToInputs(row: {
@@ -101,6 +118,51 @@ export function computeMarketRankResult(
     market_percentile: Math.round(market_percentile * 10) / 10,
     tier,
     reliability_score,
+  };
+}
+
+/**
+ * Raw rank (unchanged formula) + fraud overlay + trust-adjusted rank/tier.
+ * `fraud` must be precomputed from `fraudIntegrityEngine.computeFraudRiskScore`.
+ */
+export function computeMarketRankIntegrityBundle(
+  input: MarketRankInputs,
+  market_percentile: number,
+  fraud: FraudRiskScore
+): MarketIntegrityRankBundle {
+  const rawResult = computeMarketRankResult(input, market_percentile);
+  const raw_market_rank_score = rawResult.market_rank_score;
+
+  const trustAdjusted = computeTrustAdjustedMetrics(
+    {
+      liquidity_generated: input.liquidity_generated,
+      market_rank_score: raw_market_rank_score,
+      seller_fulfillment_score: input.seller_fulfillment_score,
+      transaction_reliability_score: input.transaction_reliability_score,
+    },
+    fraud
+  );
+
+  const adjusted_market_rank_score = trustAdjusted.adjusted_market_rank;
+  const adjustedInput: MarketRankInputs = {
+    ...input,
+    liquidity_generated: trustAdjusted.adjusted_liquidity,
+  };
+
+  const adjustedResult: MarketRankResult = {
+    market_rank_score: adjusted_market_rank_score,
+    market_percentile: rawResult.market_percentile,
+    tier: computeMarketTier(adjusted_market_rank_score, market_percentile, adjustedInput),
+    reliability_score: trustAdjusted.adjusted_reliability,
+  };
+
+  return {
+    fraud,
+    trustAdjusted,
+    raw_market_rank_score,
+    adjusted_market_rank_score,
+    rawResult,
+    adjustedResult,
   };
 }
 
